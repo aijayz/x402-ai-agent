@@ -2,18 +2,25 @@ import { env } from "@/lib/env";
 import * as cheerio from "cheerio";
 import { NextRequest, NextResponse } from "next/server";
 import { wrapFetchWithPayment } from "x402-fetch";
-import { chain, getOrCreatePurchaserAccount } from "@/lib/accounts";
-import { createWalletClient, http } from "viem";
+import { getChain, getOrCreatePurchaserAccount } from "@/lib/accounts";
+import { createWalletClient, http, WalletClient } from "viem";
 import { waitUntil } from "@vercel/functions";
 
 type Fetch = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
-const account = await getOrCreatePurchaserAccount();
-const walletClient = createWalletClient({
-  chain,
-  transport: http(),
-  account,
-});
+let walletClient: WalletClient | null = null;
+
+async function getWalletClient() {
+  if (!walletClient) {
+    const account = await getOrCreatePurchaserAccount();
+    walletClient = createWalletClient({
+      chain: getChain(),
+      transport: http(),
+      account,
+    });
+  }
+  return walletClient;
+}
 
 export async function GET(request: NextRequest) {
   const enablePayment =
@@ -49,13 +56,19 @@ export async function GET(request: NextRequest) {
       };
 
       const loggedFetch = makeLoggedFetch(log);
-      const fetch = enablePayment
-        ? wrapFetchWithPayment(loggedFetch, walletClient as any) // TODO: fix type
-        : loggedFetch;
+
+      const getFetch = async () => {
+        if (enablePayment) {
+          const client = await getWalletClient();
+          return wrapFetchWithPayment(loggedFetch, client as any); // TODO: fix type
+        }
+        return loggedFetch;
+      };
 
       const jobPromise = (async () => {
         try {
           log("initiating job", job);
+          const fetch = await getFetch();
           let result;
           if (job === "scrape") {
             result = await scrapeJob(fetch, isBot || actAsScraper);

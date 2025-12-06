@@ -4,22 +4,34 @@ import { base, baseSepolia } from "viem/chains";
 import { createPublicClient, http } from "viem";
 import { env } from "./env";
 
-const cdp = new CdpClient();
+let cdp: CdpClient | null = null;
+
+function getCdpClient() {
+  if (!cdp) {
+    cdp = new CdpClient();
+  }
+  return cdp;
+}
 
 const chainMap = {
   "base-sepolia": baseSepolia,
   base: base,
 } as const;
 
-export const chain = chainMap[env.NETWORK];
+export function getChain() {
+  return chainMap[env.NETWORK];
+}
 
-const publicClient = createPublicClient({
-  chain,
-  transport: http(),
-});
+function getPublicClient() {
+  return createPublicClient({
+    chain: getChain(),
+    transport: http(),
+  });
+}
 
 export async function getOrCreatePurchaserAccount(): Promise<Account> {
-  const account = await cdp.evm.getOrCreateAccount({
+  const cdpClient = getCdpClient();
+  const account = await cdpClient.evm.getOrCreateAccount({
     name: "Purchaser",
   });
   const balances = await account.listTokenBalances({
@@ -35,11 +47,12 @@ export async function getOrCreatePurchaserAccount(): Promise<Account> {
     env.NETWORK === "base-sepolia" &&
     (!usdcBalance || Number(usdcBalance.amount) < 500000)
   ) {
-    const { transactionHash } = await cdp.evm.requestFaucet({
+    const { transactionHash } = await cdpClient.evm.requestFaucet({
       address: account.address,
       network: env.NETWORK,
       token: "usdc",
     });
+    const publicClient = getPublicClient();
     const tx = await publicClient.waitForTransactionReceipt({
       hash: transactionHash,
     });
@@ -52,7 +65,8 @@ export async function getOrCreatePurchaserAccount(): Promise<Account> {
 }
 
 export async function getOrCreateSellerAccount(): Promise<Account> {
-  const account = await cdp.evm.getOrCreateAccount({
+  const cdpClient = getCdpClient();
+  const account = await cdpClient.evm.getOrCreateAccount({
     name: "Seller",
   });
   return toAccount(account);
