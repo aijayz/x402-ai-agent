@@ -38,4 +38,9 @@ export const env = createEnv({
    * explicitly specify this option as true.
    */
   emptyStringAsUndefined: true,
+
+  /**
+   * Skip validation during build time to allow building without all env vars
+   */
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
 });
