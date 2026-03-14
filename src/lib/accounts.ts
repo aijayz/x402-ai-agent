@@ -57,7 +57,7 @@ export async function getOrCreatePurchaserAccount(): Promise<Account> {
       hash: transactionHash,
     });
     if (tx.status !== "success") {
-      throw new Error("Failed to recieve funds from faucet");
+      throw new Error("Failed to receive funds from faucet");
     }
   }
 

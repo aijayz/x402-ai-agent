@@ -23,6 +23,8 @@ import { useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { AlertCircle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import {
   Reasoning,
@@ -40,29 +42,45 @@ import {
 
 const models = [
   {
-    name: "GPT 4o",
-    value: "openai/gpt-4o",
+    name: "DeepSeek Chat",
+    value: "deepseek-chat",
   },
   {
-    name: "Gemini 2.0 Flash Lite",
-    value: "google/gemini-2.0-flash-lite",
+    name: "DeepSeek Reasoner",
+    value: "deepseek-reasoner",
   },
 ];
 const suggestions = {
-  "Use a paid tool": "Generate a random number between 1 and 10.",
-  "What's my account balance?": "Check your account balance.",
-  "Use an unpaid remotetool":
-    "Please greet the user with 'hello-remote' by the name: 'user'",
-  "Use an unpaid local tool":
-    "Please greet the user with 'hello-local' by the name: 'user'",
+  "Ask a question": "What is blockchain technology?",
+  "Use a free tool": "Get a random number between 1 and 10.",
+  "Check my balance": "What is my USDC balance?",
+  "Use a paid tool ($0.01)": "Get a premium random number between 1 and 100.",
 };
 
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(models[0].value);
+  const [lastError, setLastError] = useState<Error | null>(null);
   const { messages, sendMessage, status } = useChat({
-    onError: (error) => console.error(error),
+    onError: (error) => {
+      // Store error for UI display - logging handled by error boundary in production
+      setLastError(error);
+    },
   });
+
+  const handleRetry = () => {
+    setLastError(null);
+    // In AI SDK v6, we can resend the last message
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (lastUserMessage) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const text = lastUserMessage.parts
+        ?.filter((p: any) => p.type === 'text')
+        .map((p: any) => p.text)
+        .join('') || '';
+      sendMessage({ text }, { body: { model } });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,17 +140,13 @@ const ChatBotDemo = () => {
                     ) {
                       return (
                         <Tool defaultOpen={true} key={`${message.id}-${i}`}>
-                          {/* @ts-expect-error */}
+                          {/* @ts-expect-error: ToolHeader expects ToolUIPart but part may be DynamicToolUIPart */}
                           <ToolHeader part={part} />
                           <ToolContent>
-                            {/* @ts-expect-error */}
+                            {/* @ts-expect-error: part.input exists at runtime but not in union type */}
                             <ToolInput input={part.input} />
-                            <ToolOutput
-                              // @ts-expect-error
-                              part={part}
-                              // @ts-expect-error
-                              network={message.metadata?.network}
-                            />
+                            {/* @ts-expect-error: part is a union type that ToolOutput handles */}
+                            <ToolOutput part={part} network={message.metadata?.network} />
                           </ToolContent>
                         </Tool>
                       );
@@ -144,7 +158,30 @@ const ChatBotDemo = () => {
               </Message>
             ))}
             {status === "submitted" && <Loader />}
-            {status === "error" && <div>Something went wrong</div>}
+            {status === "error" && (
+              <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
+                <div className="flex flex-col items-center gap-4 p-6 bg-red-50 border border-red-200 rounded-lg text-center">
+                  <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full">
+                    <AlertCircle className="w-6 h-6 text-red-600" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-red-900">Something went wrong</h3>
+                    <p className="text-sm text-red-700">
+                      {lastError?.message || "An unexpected error occurred. Please try again."}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRetry}
+                    className="gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Try again
+                  </Button>
+                </div>
+              </div>
+            )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
