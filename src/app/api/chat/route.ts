@@ -1,4 +1,4 @@
-import { stepCountIs, streamText, UIMessage } from "ai";
+import { stepCountIs, streamText } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { withPayment } from "x402-mcp/client";
@@ -8,12 +8,31 @@ import z from "zod";
 import { env } from "@/lib/env";
 import { getOrCreatePurchaserAccount } from "@/lib/accounts";
 
+// Input validation schema
+const ChatRequestSchema = z.object({
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant", "system"]),
+    parts: z.array(z.any()).optional(),
+    content: z.string().optional(),
+  }).refine((msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0, {
+    message: "Message must have either parts or content",
+  })),
+  model: z.enum(["deepseek-chat", "deepseek-reasoner"]).default("deepseek-chat"),
+});
+
 export const maxDuration = 30;
 
 export const POST = async (request: Request) => {
   try {
     const body = await request.json();
-    const { messages, model }: { messages: UIMessage[]; model: string } = body;
+    const validated = ChatRequestSchema.safeParse(body);
+    if (!validated.success) {
+      return new Response(
+        JSON.stringify({ error: "Invalid request", details: validated.error.errors }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const { messages, model } = validated.data;
 
     // Get the purchaser account (wallet that pays for tools)
     const purchaserAccount = await getOrCreatePurchaserAccount();
@@ -83,9 +102,9 @@ export const POST = async (request: Request) => {
 3. **Use tools when helpful** - You have access to special tools:
    - \`add\` - Add two numbers
    - \`get_random_number\` - Generate a random number (free)
+   - \`hello-local\` - Receive a greeting (free, local)
    - \`premium_random\` - Premium random number ($0.01 USDC)
    - \`premium_analysis\` - Number analysis ($0.02 USDC)
-   - \`viewAccountBalance\` - Check USDC balance
 
 For paid tools, you'll handle the crypto payment automatically using x402 protocol.
 
@@ -95,7 +114,7 @@ Be helpful and natural. Use tools when they're genuinely useful, but don't force
     return result.toUIMessageStreamResponse({
       sendSources: true,
       sendReasoning: true,
-      messageMetadata: () => ({ network: env.EVM_NETWORK }),
+      messageMetadata: () => ({ network: env.NETWORK }),
     });
   } catch (error) {
     console.error("Chat API error:", error);
