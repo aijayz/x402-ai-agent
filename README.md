@@ -1,84 +1,154 @@
-# x402 Next.js + AI Starter Kit
+# x402 AI Agent - Crypto Payment for AI
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fvercel-labs%2Fx402-ai-starter&env=CDP_API_KEY_ID,CDP_API_KEY_SECRET,CDP_WALLET_SECRET&envDescription=Coinbase%20Developer%20Platform%20credentials%20are%20needed%20to%20create%20and%20fund%20server%20wallets&envLink=https%3A%2F%2Fdocs.cdp.coinbase.com%2Fapi-reference%2Fv2%2Fauthentication&project-name=x402-ai-starter&repository-name=x402-ai-starter&demo-title=x402%20AI%20Starter&demo-description=A%20fullstack%20template%20for%20using%20x402%20with%20MCP%20and%20AI%20SDK&demo-url=https%3A%2F%2Fx402-ai-starter.labs.vercel.dev%2F&demo-image=https%3A%2F%2Fx402-ai-starter.labs.vercel.dev%2Fscreenshot.png)
+![Demo](./public/demo.png)
 
-![Screenshot of the app](./public/screenshot-small.png)
+[x402](https://x402.org) is an HTTP-native protocol for crypto payments that enables AI agents to pay for tools and services autonomously. This project demonstrates integrating x402 payments with an AI agent powered by DeepSeek.
 
-[x402](https://x402.org) is a new protocol built on top of HTTP for doing fully accountless payments easily, quickly, cheaply and securely.
+## Overview
 
-This template built with [Next.js](https://nextjs.org), [AI SDK](https://ai-sdk.dev), [AI Elements](https://ai-elements.dev), and [AI Gateway](https://vercel.com/ai-gateway) and the [Coinbase CDP](https://docs.cdp.coinbase.com/) shows off using x402 with a modern AI stack.
+This is a full-stack implementation of an AI agent that can discover, authorize, and pay for tools using USDC on Base. The agent automatically handles HTTP 402 Payment Required responses and completes payments without user intervention.
 
-**Demo: [https://x402-ai-starter.vercel.app/](https://x402-ai-starter.vercel.app/)**
+**Demo**: [https://x402-ai-agent.vercel.app](https://x402-ai-agent.vercel.app)
 
 ## Features
 
-- AI Chat + API playground to see x402 in action
-- AI agent that can pay for tools
-- Remote MCP server with "paid" tools
-- Paywalled APIs
-- Paywalled pages (for bots)
-- Secure server managed wallets
+- **AI Chat Interface**: Streaming chat UI with DeepSeek model
+- **Autonomous Payments**: AI agent automatically pays for premium tools
+- **MCP Server**: Remote MCP server with free and paid tools
+- **Real-time Streaming**: Live streaming responses using AI SDK v6
+- **Dual Wallet System**: Purchaser (pays for tools) and Seller (receives payments)
+- **Auto-faucet**: Automatic USDC funding on testnet when balance is low
 
 ## Tech Stack
 
-- [Next.js](https://nextjs.org/)
-- [AI SDK](https://ai-sdk.dev)
-- [AI Elements](https://ai-elements.dev)
-- [AI Gateway](https://vercel.com/ai-gateway)
-- [Coinbase CDP](https://docs.cdp.coinbase.com/)
-- [x402](https://x402.org)
+- **Framework**: [Next.js 15](https://nextjs.org/) with App Router
+- **AI**: [AI SDK](https://ai-sdk.dev) + [DeepSeek](https://platform.deepseek.com/)
+- **Payments**: [x402 Protocol](https://x402.org) + [Coinbase CDP](https://docs.cdp.coinbase.com/)
+- **MCP**: [Model Context Protocol](https://modelcontextprotocol.io/)
+- **Styling**: Tailwind CSS + shadcn/ui
+
+## Architecture
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   User      │────▶│  Chat UI    │────▶│  /api/chat  │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                                │
+                   ┌─────────────┐              │
+                   │ MCP Server │◀──────────────┘
+                   │  /mcp      │
+                   └─────┬───────┘
+                         │
+          ┌──────────────┼──────────────┐
+          │              │              │
+    ┌─────▼─────┐  ┌─────▼─────┐  ┌─────▼─────┐
+    │ Free Tool │  │Paid Tool  │  │Facilitator│
+    │           │  │           │  │ (Coinbase)│
+    └───────────┘  └─────┬─────┘  └─────┬─────┘
+                         │              │
+                    ┌────▼─────┐   ┌────▼─────┐
+                    │ 402 +    │   │On-chain  │
+                    │ Payment  │   │Settlement│
+                    └──────────┘   └──────────┘
+```
+
+### Key Components
+
+| Component | File | Description |
+|-----------|------|-------------|
+| Chat API | `src/app/api/chat/route.ts` | Receives messages, creates MCP client, streams responses |
+| MCP Server | `src/app/mcp/route.ts` | Remote MCP server with free and paid tools |
+| Wallet Manager | `src/lib/accounts.ts` | CDP-managed wallets for payment operations |
+| Payment Wrapper | `src/lib/payment.ts` | Handles 402 responses with `withPayment()` |
+
+### Available Tools
+
+**Free Tools:**
+- `add` - Add two numbers
+- `get_random_number` - Generate a random number
+
+**Paid Tools:**
+- `premium_random` - Premium random number ($0.01 USDC)
+- `premium_analysis` - Premium analysis ($0.02 USDC)
 
 ## Getting Started
 
+### Prerequisites
+
+- Node.js 18+
+- pnpm
+- Coinbase CDP credentials
+- DeepSeek API key
+
+### Installation
+
 ```bash
-git clone https://github.com/vercel-labs/x402-ai-starter
-cd x402-ai-starter
+git clone https://github.com/aijayz/crypto-pay-agent
+cd crypto-pay-agent
 pnpm install
 ```
 
-## Running Locally
+### Environment Variables
 
-1. Sign into the [Coinbase CDP portal](https://portal.cdp.coinbase.com)
+Copy `.env.example` to `.env.local`:
 
-2. Following `.env.example`, set the following environment variables in `.env.local`:
+```bash
+# CDP Credentials (required for payment operations)
+CDP_API_KEY_ID=your_key_id
+CDP_API_KEY_SECRET=your_secret
+CDP_WALLET_SECRET=your_wallet_secret
 
-- `CDP_API_KEY_ID`
-- `CDP_API_KEY_SECRET`
-- `CDP_WALLET_SECRET`
+# DeepSeek API (required for AI)
+DEEPSEEK_API_KEY=your_deepseek_key
 
-Using AI Gateway requires either a Vercel OIDC token, or an API Key.
-To get an OIDC token, simply run `vc link` then `vc env pull`. An API can be obtained from the [AI Gateway dashboard](https://vercel.com/ai-gateway).
+# Network Configuration
+NETWORK=base-sepolia
+URL=http://localhost:3000
+```
 
-Using AI Gateway isn't required, you can use any AI SDK model provider and its associated credentials.
+### Running Locally
 
-3. Run `pnpm dev`
+```bash
+pnpm dev
+```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser to see the app in action.
+Open [http://localhost:3000](http://localhost:3000) to use the app.
 
-## Testing Payments
+### Test Prompts
 
-By default, the app uses the `base-sepolia` network, or "testnet". This is a testing network with fake money. The app is configured to automically request more funds from a faucet (source of testnet money) when your account is running low. You can also do this yourself in the [Coinbase CDP dashboard](https://portal.cdp.coinbase.com/products/faucet?token=USDC&network=base-sepolia).
+- "What is 5 + 3?" (free tool)
+- "Get a random number between 1 and 10" (free tool)
+- "Get a premium random number between 1 and 100" (paid $0.01)
+- "Check my USDC balance"
 
-## Going to Production
+## Payment Flow
 
-When you're ready to deploy your SaaS application to production, follow these steps:
+1. **Request**: User prompts AI to use a premium tool
+2. **402 Response**: MCP server returns 402 Payment Required with payment requirements
+3. **Auto-Payment**: `withPayment()` wrapper intercepts the 402, signs EIP-3009 authorization
+4. **Settlement**: Coinbase facilitator verifies and settles on-chain
+5. **Result**: Tool executes and returns result to AI
 
-### Deploy to Vercel
+## Network Configuration
 
-1. Push your code to a GitHub repository.
-2. Connect your repository to [Vercel](https://vercel.com/) and deploy it.
-3. Follow the Vercel deployment process, which will guide you through setting up your project.
+| Network | Chain ID | Use Case |
+|---------|----------|----------|
+| Base Sepolia | 84532 | Development/testing |
+| Base | 8453 | Production |
 
-### Add environment variables
+### Getting Testnet Funds
 
-In your Vercel project settings (or during deployment), add all the necessary environment variables. Make sure to update the values for the production environment, including:
+- **USDC**: https://faucet.circle.com/
+- **ETH**: https://www.alchemy.com/faucets/base-sepolia
+- **CDP Console**: https://portal.cdp.coinbase.com/
 
-- `CDP_API_KEY_ID`
-- `CDP_API_KEY_SECRET`
-- `CDP_WALLET_SECRET`
+## Documentation
 
-## Moving to mainnet
+- [x402 Protocol](https://x402.org)
+- [MCP Specification](https://modelcontextprotocol.io)
+- [Coinbase CDP](https://docs.cdp.coinbase.com/)
+- [DeepSeek API](https://platform.deepseek.com/)
 
-To move to mainnet, set the `NETWORK` environment variable to `base`.
+## License
 
-Make sure that the `Purchaser` account has enough funds to pay for the tools you're using. To fund the account, you can send USDC to the account's address in the [Coinbase CDP dashboard](https://portal.cdp.coinbase.com/products/server-wallet?accountType=evm-eoa).
+MIT
