@@ -3,22 +3,19 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    // EVM Wallet (self-managed private key)
-    EVM_PRIVATE_KEY: z.string().startsWith("0x").optional(),
-    EVM_NETWORK: z.enum(["base-sepolia", "base"]).default("base-sepolia"),
-
-    // Solana Wallet (self-managed private key in base58)
-    SVM_PRIVATE_KEY: z.string().optional(),
-    SOLANA_NETWORK: z.enum(["devnet", "mainnet"]).default("devnet"),
-
-    // CDP credentials (optional - for backwards compatibility)
+    // CDP credentials (required for payment operations)
     CDP_WALLET_SECRET: z.string().optional(),
     CDP_API_KEY_ID: z.string().optional(),
     CDP_API_KEY_SECRET: z.string().optional(),
 
-    // AI Provider (DeepSeek)
+    // AI Provider (DeepSeek direct key for local dev)
     DEEPSEEK_API_KEY: z.string().optional(),
 
+    // AI Model configuration (gateway format: provider/model)
+    AI_MODEL: z.string().default("deepseek/deepseek-chat"),
+    AI_REASONING_MODEL: z.string().default("deepseek/deepseek-reasoner"),
+
+    // Network and URL
     NETWORK: z.enum(["base-sepolia", "base"]).default("base-sepolia"),
     URL: z.string().url().default("http://localhost:3000"),
   },
@@ -28,14 +25,12 @@ export const env = createEnv({
    * `process.env` or `import.meta.env`.
    */
   runtimeEnv: {
-    EVM_PRIVATE_KEY: process.env.EVM_PRIVATE_KEY,
-    EVM_NETWORK: process.env.EVM_NETWORK,
-    SVM_PRIVATE_KEY: process.env.SVM_PRIVATE_KEY,
-    SOLANA_NETWORK: process.env.SOLANA_NETWORK,
     CDP_WALLET_SECRET: process.env.CDP_WALLET_SECRET,
     CDP_API_KEY_ID: process.env.CDP_API_KEY_ID,
     CDP_API_KEY_SECRET: process.env.CDP_API_KEY_SECRET,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+    AI_MODEL: process.env.AI_MODEL,
+    AI_REASONING_MODEL: process.env.AI_REASONING_MODEL,
     NETWORK: process.env.NETWORK,
     URL: process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`

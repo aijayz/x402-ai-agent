@@ -14,8 +14,10 @@ import {
   ChevronDownIcon,
   CircleIcon,
   ClockIcon,
+  CreditCardIcon,
   WrenchIcon,
   XCircleIcon,
+  ZapIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { CodeBlock } from "./code-block";
@@ -23,11 +25,22 @@ import z from "zod";
 import { CopyToClipboardButton } from "../copy-to-clipboard";
 import Link from "next/link";
 
+// Paid tool names (could also be determined dynamically)
+const PAID_TOOLS = ["premium_random", "premium_analysis"];
+
+const isPaidTool = (toolName: string) => PAID_TOOLS.includes(toolName);
+
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
-    className={cn("not-prose mb-4 w-full rounded-md border", className)}
+    className={cn(
+      "not-prose mb-4 w-full rounded-xl border overflow-hidden",
+      "bg-gradient-to-br from-background to-muted/30",
+      "shadow-sm hover:shadow-md transition-shadow duration-200",
+      "border-muted/60",
+      className,
+    )}
     {...props}
   />
 );
@@ -85,17 +98,37 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
   const toolname =
     part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
 
+  const paid = isPaidTool(toolname);
+
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex w-full items-center justify-between gap-4 p-3",
+        "flex w-full items-center justify-between gap-4 p-4",
+        "bg-muted/30 hover:bg-muted/50 transition-colors duration-150",
+        "border-b border-muted/40",
         className
       )}
       {...props}
     >
-      <div className="flex items-center gap-2">
-        <WrenchIcon className="size-4 text-muted-foreground" />
-        <span className="font-medium text-sm">{toolname}</span>
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "flex items-center justify-center size-8 rounded-lg",
+            paid
+              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+          )}
+        >
+          {paid ? <CreditCardIcon className="size-4" /> : <WrenchIcon className="size-4" />}
+        </div>
+        <div className="flex flex-col items-start gap-0.5">
+          <span className="font-semibold text-sm">{toolname}</span>
+          {paid && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+              Paid Tool
+            </span>
+          )}
+        </div>
         {getStatusBadge(state)}
       </div>
       <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -180,30 +213,34 @@ export const ToolOutput = ({
       </div>
       {/* @ts-expect-error */}
       {part.output?._meta?.["x402.payment-response"] && (
-        <>
-          <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-            <i>x402</i> Payment
-          </h4>
-          <div className="flex items-center gap-2">
+        <div className="mt-3 pt-3 border-t border-muted/40">
+          <div className="flex items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
+              <ZapIcon className="size-3" />
+              Payment Successful
+            </div>
+            <span className="text-muted-foreground">via x402</span>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
             <Link
               href={`https://${
                 network === "base-sepolia" ? "sepolia." : ""
                 // @ts-expect-error
               }basescan.org/tx/${part.output._meta["x402.payment-response"].transaction}`}
               target="_blank"
-              className="hover:underline"
+              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline font-mono"
             >
-              <div className="overflow-x-auto rounded-md text-xs [&_table]:w-full">
-                {/* @ts-expect-error */}
-                {part.output._meta["x402.payment-response"].transaction}{" "}
-              </div>
+              {/* @ts-expect-error */}
+              {part.output._meta["x402.payment-response"].transaction.slice(0, 18)}...
+              {part.output._meta["x402.payment-response"].transaction.slice(-6)}
             </Link>
             <CopyToClipboardButton
               // @ts-expect-error
               content={part.output._meta["x402.payment-response"].transaction}
+              className="size-6"
             />
           </div>
-        </>
+        </div>
       )}
     </div>
   );

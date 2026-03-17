@@ -110,7 +110,6 @@ style: |
   tbody tr:nth-child(odd) td {
     background: #ffffff;
   }
-  /* Center text immediately after tables */
   table + p {
     text-align: center;
     margin-top: 0.5em;
@@ -130,7 +129,6 @@ style: |
   p {
     margin: 0.4em 0;
   }
-  /* Center images */
   section img {
     display: block !important;
     margin: 0 auto !important;
@@ -150,9 +148,9 @@ style: |
 
 1. **The Problem**: Why AI agents need payments
 2. **x402 Protocol**: HTTP-native crypto payments
-3. **Architecture**: How it all fits together
-4. **Hands-on Implementation**: Step-by-step code walkthrough
-5. **Multi-Chain Support**: EVM + Solana
+3. **Architecture**: ToolLoopAgent + budget + service discovery
+4. **Implementation**: Step-by-step code walkthrough
+5. **Budget & Telemetry**: Spend limits and audit trails
 6. **Best Practices**: Security, UX, and reliability
 7. **Live Demo**: See it in action
 
@@ -195,10 +193,10 @@ AI agents are becoming autonomous actors in the digital world:
 
 An AI agent should be able to:
 
-1. **Discover** the price of a service
-2. **Decide** if it's worth paying
+1. **Discover** available services and their prices
+2. **Budget** -- decide if a tool call is worth the cost
 3. **Pay** autonomously without human intervention
-4. **Receive** the service
+4. **Track** spending with an audit trail
 
 All in a single HTTP transaction.
 
@@ -224,7 +222,7 @@ x402 is a protocol that enables **payments over HTTP**:
 
 # The 402 Status Code
 
-HTTP defined `402 Payment Required` in 1992 — x402 brings it to life!
+HTTP defined `402 Payment Required` in 1992 -- x402 brings it to life!
 
 ```json
 // HTTP/1.1 402 Payment Required
@@ -243,7 +241,7 @@ HTTP defined `402 Payment Required` in 1992 — x402 brings it to life!
 
 # Payment Authorization (EIP-3009)
 
-For EVM chains, x402 uses **EIP-3009** - transfer with authorization:
+For EVM chains, x402 uses **EIP-3009** -- transfer with authorization:
 
 ```typescript
 {
@@ -270,7 +268,7 @@ For EVM chains, x402 uses **EIP-3009** - transfer with authorization:
 | Stateless | No session management needed |
 | Instant settlement | Real-time payment verification |
 | Micropayments | Pay $0.01 or less efficiently |
-| Multi-chain | USDC on Base, Solana, etc. |
+| Multi-chain | USDC on Base (Sepolia / Mainnet) |
 
 ---
 
@@ -278,37 +276,56 @@ For EVM chains, x402 uses **EIP-3009** - transfer with authorization:
 
 # Part 3: Architecture
 
-## How x402 + AI Agents Work Together
+## ToolLoopAgent + Budget + Service Discovery
 
 ---
 
 # High-Level Architecture
 
-<img src="diagrams/architecture.svg" width="65%" style="display:block;margin:0 auto;">
+<img src="diagrams/architecture.svg" width="95%">
 
 ---
 
 # Key Components
 
-### 1. Purchaser Wallet
-- Pays for tool calls on behalf of the user
-- Signs EIP-3009 authorizations
-- Holds USDC for payments
+### 1. ToolLoopAgent (Orchestrator)
+- AI SDK v6 multi-step agent with `stopWhen: stepCountIs(10)`
+- Combines MCP tools, budget tools, and discovery tools
 
-### 2. Seller Wallet
-- Receives payments for premium tools
-- Configured on MCP server
+### 2. BudgetController
+- Per-session $0.50 USDC advisory limit
+- Tracks every payment with tx hashes
+- Emits structured JSON telemetry
 
-### 3. Facilitator
-- Validates payment signatures
-- Settles USDC transfers on-chain
-- Prevents replay attacks
+### 3. Service Discovery Registry
+- In-memory registry of x402-enabled services
+- Agent tools: `search`, `probe`, `list`
 
 ---
 
-# Payment Flow Sequence
+# Payment Flow
 
-<img src="diagrams/payment-flow.svg" height="550" style="display:block;margin:0 auto;">
+<img src="diagrams/payment-sequence.svg" width="95%">
+
+**Result**: tool output + tx hash returned to agent -> `BudgetController.recordSpend()` -> telemetry event
+
+---
+
+# Wallet Architecture
+
+### Purchaser Wallet (pays for tools)
+- CDP-managed -- private keys never exposed
+- Async faucet on `base-sepolia` (non-blocking)
+- Max $0.10 per tool call (`withPayment` hard cap)
+
+### Seller Wallet (receives payments)
+- CDP-managed, configured on MCP server
+- Payments settled via Coinbase facilitator
+
+### Facilitator
+- Validates EIP-3009 signatures
+- Pays gas on behalf of purchaser
+- Settles USDC transfers on-chain
 
 ---
 
@@ -323,15 +340,13 @@ For EVM chains, x402 uses **EIP-3009** - transfer with authorization:
 # Project Setup
 
 ```bash
-# Clone the starter template
-git clone https://github.com/vercel-labs/x402-ai-starter
-cd x402-ai-starter
+git clone https://github.com/aijayz/x402-ai-agent
+cd x402-ai-agent
 pnpm install
 
-# Install dependencies
-pnpm add x402-mcp @coinbase/cdp-sdk \
-  @ai-sdk/mcp @modelcontextprotocol/sdk \
-  ai @ai-sdk/deepseek
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your CDP + DeepSeek credentials
 ```
 
 ---
@@ -341,41 +356,21 @@ pnpm add x402-mcp @coinbase/cdp-sdk \
 ```bash
 # .env.local
 
-# Wallet Configuration (CDP-managed)
+# CDP Credentials (required -- wallets won't work without these)
 CDP_API_KEY_ID=your_key_id
 CDP_API_KEY_SECRET=your_secret
 CDP_WALLET_SECRET=your_wallet_secret
 
-# Or Self-managed keys
-EVM_PRIVATE_KEY=0x...
-EVM_NETWORK=base-sepolia
-
-# AI Provider
+# AI Provider (local dev -- not needed with AI Gateway on Vercel)
 DEEPSEEK_API_KEY=your_key
 
-# App Config
+# AI Model IDs (gateway format: provider/model)
+AI_MODEL=deepseek/deepseek-chat
+AI_REASONING_MODEL=deepseek/deepseek-reasoner
+
+# Network
 NETWORK=base-sepolia
 URL=http://localhost:3000
-```
-
----
-
-# Wallet Management
-
-```typescript
-// src/lib/accounts.ts
-import { CdpClient } from "@coinbase/cdp-sdk";
-
-let cdp: CdpClient | null = null;
-
-export async function getOrCreatePurchaserAccount() {
-  if (!cdp) cdp = new CdpClient();
-
-  // Get or create wallet with auto-faucet on testnet
-  const account = await cdp.evm.getOrCreateAccount({ name: "Purchaser" });
-
-  return account; // Has signTypedData for EIP-3009
-}
 ```
 
 ---
@@ -383,182 +378,220 @@ export async function getOrCreatePurchaserAccount() {
 # MCP Server with Paid Tools
 
 ```typescript
-// src/app/mcp/route.ts
-import { createPaidMcpHandler } from "x402-mcp/server";
+// src/app/mcp/route.ts -- handler is a module-level singleton
+let handler = null;
+async function getHandler() {
+  if (!handler) {
+    const sellerAccount = await getOrCreateSellerAccount();
+    handler = createPaidMcpHandler((server) => {
+      // Free tool -- 4 params: (name, description, schema, handler)
+      server.tool("add", "Add two numbers",
+        { a: z.number().int(), b: z.number().int() },
+        async (args) => ({ content: [{ type: "text", text: String(args.a + args.b) }] }));
 
-const handler = createPaidMcpHandler((server) => {
-  // Free tool
-  server.tool("add", "Add two numbers", { a: z.number(), b: z.number() },
-    async ({ a, b }) => ({ content: [{ type: "text", text: String(a + b) }] }));
-
-  // Paid tool - $0.01 USDC
-  server.paidTool("premium_random",
-    { price: 0.01, description: "Premium random" },
-    { min: z.number(), max: z.number() },
-    async ({ min, max }) => {
-      const num = Math.floor(Math.random() * (max - min + 1)) + min;
-      return { content: [{ type: "text", text: String(num) }] };
-    });
-}, { serverInfo: { name: "x402-mcp", version: "1.0.0" } },
-   { recipient: sellerAddress, network: "base-sepolia" });
+      // Paid tool -- 6 params: (name, description, {price}, schema, {}, handler)
+      server.paidTool("premium_random", "Premium random number",
+        { price: 0.01 },
+        { min: z.number().int(), max: z.number().int() }, {},
+        async (args) => { /* ... */ });
+    }, { serverInfo: { name: "x402-ai-agent", version: "0.1.0" } },
+       { recipient: sellerAccount.address, network: env.NETWORK,
+         facilitator: { url: "https://x402.org/facilitator" } });
+  }
+  return handler;
+}
+export async function GET(req) { return (await getHandler())(req); }
+export async function POST(req) { return (await getHandler())(req); }
 ```
 
 ---
 
-# Chat API with Payment Support
+# MCP Client with Payment
 
 ```typescript
 // src/app/api/chat/route.ts
 import { withPayment } from "x402-mcp/client";
 import { createMCPClient } from "@ai-sdk/mcp";
 
-export const POST = async (request: Request) => {
-  const purchaserAccount = await getOrCreatePurchaserAccount();
+const baseMcpClient = await createMCPClient({
+  transport: new StreamableHTTPClientTransport(new URL("/mcp", env.URL)),
+});
 
-  // Create MCP client
-  const baseMcpClient = await createMCPClient({
-    transport: new StreamableHTTPClientTransport(
-      new URL("/mcp", env.URL)
-    ),
-  });
+// Wrap with payment -- 2-arg form: (client, options)
+const mcpClient = await withPayment(baseMcpClient, {
+  account: purchaserAccount,  // Viem Account from CDP
+  network: env.NETWORK,
+  maxPaymentValue: 0.1 * 10 ** 6,  // $0.10 max per call (micro-USDC)
+});
 
-  // Wrap with payment capabilities
-  const mcpClient = await withPayment(baseMcpClient, {
-    account: purchaserAccount,
-    network: env.NETWORK,
-    maxPaymentValue: 0.1 * 10 ** 6, // Max $0.10 per call
-  });
-
-  const tools = await mcpClient.tools();
-  // ... use tools with streamText
-};
+const mcpTools = await mcpClient.tools();
 ```
 
 ---
 
-# The withPayment() Magic
+# ToolLoopAgent Orchestrator
 
 ```typescript
-async function withPayment(client, options) {
-  const originalCall = client.callTool.bind(client);
+// src/lib/agents/orchestrator.ts
+import { ToolLoopAgent, stepCountIs } from "ai";
 
-  client.callTool = async (name, args) => {
-    let response = await originalCall(name, args);
-
-    if (response.status === 402) {  // Intercept 402 Payment Required
-      const payment = await parsePaymentRequirements(response);
-      const signature = await options.account.signTypedData({
-        domain: payment.domain, types: payment.types, message: payment.message
-      });
-      response = await originalCall(name, args, { headers: { "X-Payment": signature } });
-    }
-    return response;
-  };
-  return client;
+export function createOrchestrator({ model, mcpTools, budget, localTools = {} }) {
+  return new ToolLoopAgent({
+    model,  // LanguageModel object from getModel()
+    instructions: `You are an x402 AI agent with a USDC budget of
+      $${budget.remainingUsdc().toFixed(2)} for this session.
+      Check your budget before calling expensive tools.`,
+    tools: {
+      ...mcpTools,                       // Paid + free MCP tools
+      ...localTools,                     // hello-local
+      ...createBudgetTools(budget),      // check_budget
+      ...createDiscoveryTools(registry), // search, probe, list
+    },
+    stopWhen: stepCountIs(10),
+  });
 }
 ```
 
 ---
 
-# Running the Application
+# Streaming Response with Payment Tracking
 
-```bash
-# Start development server
-pnpm dev
-
-# Open browser
-open http://localhost:3000
+```typescript
+// src/app/api/chat/route.ts
+const response = await createAgentUIStreamResponse({
+  agent,
+  uiMessages: messages,
+  sendSources: true,
+  sendReasoning: true,
+  onStepFinish: async ({ toolResults }) => {
+    for (const toolResult of toolResults ?? []) {
+      const output = toolResult.output;
+      const meta = output?._meta?.["x402.payment-response"];
+      if (meta?.transaction) {
+        const amountUsdc = (meta.amount ?? 0) / 1e6;  // micro-USDC
+        budget.recordSpend(amountUsdc, toolResult.toolName, meta.transaction);
+      }
+    }
+  },
+  onFinish: async () => { await closeMcp(); },
+});
 ```
 
-**Test prompts:**
-- "What is 5 + 3?" (free tool)
-- "Get a random number between 1 and 10" (free tool)
-- "Get a premium random number between 1 and 100" (paid $0.01)
-- "Check my USDC balance" (view wallet)
+---
+
+# AI Provider with Gateway Fallback
+
+```typescript
+// src/lib/ai-provider.ts
+import { gateway } from "ai";
+import { deepseek } from "@ai-sdk/deepseek";
+
+export function getModel(modelId: string): LanguageModel {
+  // On Vercel: OIDC auto-provisioned by `vercel env pull`
+  if (process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY) {
+    return gateway(modelId);
+  }
+  // Local dev: direct DeepSeek provider
+  const modelName = modelId.replace(/^[^/]+\//, "");
+  return deepseek(modelName);
+}
+```
+
+**Vercel setup**: `vercel link` --> enable AI Gateway --> `vercel env pull`
 
 ---
 
 <!-- _class: lead -->
 
-# Part 5: Multi-Chain Support
+# Part 5: Budget & Telemetry
 
-## Extending to Solana and Beyond
-
----
-
-# Why Multi-Chain?
-
-| Chain | Benefits | Use Case |
-|-------|----------|----------|
-| **Base** | Low fees, EVM-compatible | Mainnet payments |
-| **Base Sepolia** | Testnet, faucet available | Development |
-| **Solana** | Ultra-fast, low fees | High-frequency micropayments |
-| **Ethereum** | Largest ecosystem | Premium services |
-
-**Different chains for different use cases**
+## Controlling Spend and Building Audit Trails
 
 ---
 
-# Multi-Chain Wallet Setup
+# BudgetController
 
 ```typescript
-import { privateKeyToAccount } from "viem/accounts";
-import { createKeyPairSignerFromBytes } from "@solana/kit";
+// src/lib/budget-controller.ts
+export class BudgetController {
+  readonly sessionLimitUsdc: number;  // $0.50 default
+  private spent = 0;
+  private history: PaymentRecord[] = [];
 
-// EVM wallet (Base, Ethereum)
-export async function getEvmWallet() {
-  const account = privateKeyToAccount(env.EVM_PRIVATE_KEY);
-  return { signer: toClientEvmSigner(account), network: env.EVM_NETWORK };
-}
-
-// Solana wallet
-export async function getSolanaWallet() {
-  const keypair = await createKeyPairSignerFromBytes(base58.decode(env.SVM_PRIVATE_KEY));
-  return { signer: toClientSvmSigner(keypair), network: env.SOLANA_NETWORK };
-}
-```
-
----
-
-# Unified Payment Client
-
-```typescript
-// src/lib/payment-client.ts
-import { x402Client } from "@x402/core/client";
-import { ExactEvmClient } from "@x402/evm";
-import { ExactSvmClient } from "@x402/svm";
-
-export async function createMultiChainPaymentClient() {
-  const { signer: evmSigner } = await getEvmWallet();
-  const { signer: svmSigner } = await getSolanaWallet();
-
-  return new x402Client()
-    // Register EVM chains (Base, Ethereum)
-    .register("eip155:*", new ExactEvmClient(evmSigner))
-    // Register Solana
-    .register("solana:*", new ExactSvmClient(svmSigner));
-}
-```
-
----
-
-# Multi-Chain Tool Configuration
-
-```typescript
-// Accept payments on multiple chains
-server.paidTool("cross_chain_analysis",
-  {
-    price: 0.05,
-    accepts: [
-      { scheme: "exact", network: "eip155:84532", payTo: evmAddress },
-      { scheme: "exact", network: "solana:EtWTRAB...", payTo: solAddress },
-    ],
-  },
-  { ticker: z.string() },
-  async (args) => {
-    // Tool implementation
+  canSpend(amountUsdc, toolName) {
+    if (this.spent + amountUsdc > this.sessionLimitUsdc) {
+      telemetry.budgetExceeded(toolName, amountUsdc, this.remainingUsdc());
+      return { allowed: false, reason: "Session limit exceeded" };
+    }
+    return { allowed: true };
   }
-);
+
+  recordSpend(amountUsdc, toolName, txHash) {
+    this.spent += amountUsdc;
+    this.history.push({ toolName, amountUsdc, txHash, timestamp: new Date() });
+    telemetry.paymentSettled(toolName, amountUsdc, txHash);
+  }
+}
+```
+
+---
+
+# Budget Enforcement Model
+
+| Layer | Mechanism | Enforced? |
+|-------|-----------|-----------|
+| Agent instructions | Told budget in system prompt | Advisory |
+| `check_budget` tool | Agent can self-check | Advisory |
+| `canSpend()` + telemetry | Emits `budget_exceeded` event | Observability |
+| `withPayment()` max value | $0.10 per call hard cap | **Hard** |
+| Session limit $0.50 | BudgetController instance | Advisory |
+
+**Worst case**: 10 steps x $0.10 = **$1.00** per request
+
+---
+
+# Structured Telemetry
+
+```typescript
+// src/lib/telemetry.ts -- JSON events to console.log (Vercel function logs)
+export const telemetry = {
+  paymentSettled(toolName, amountUsdc, txHash) {
+    console.log(JSON.stringify({
+      event: "payment_settled", toolName, amountUsdc, txHash,
+      timestamp: new Date().toISOString(),
+    }));
+  },
+  budgetExceeded(toolName, requestedUsdc, remainingUsdc) {
+    console.log(JSON.stringify({
+      event: "budget_exceeded", toolName, requestedUsdc, remainingUsdc,
+      timestamp: new Date().toISOString(),
+    }));
+  },
+};
+```
+
+---
+
+# Service Discovery
+
+```typescript
+// Agents can search, probe, and list x402 services at runtime
+const discoveryTools = {
+  search_x402_services: tool({
+    description: "Search registry for x402 APIs",
+    inputSchema: z.object({ query: z.string(), categories: z.array(z.string()).optional() }),
+    execute: async ({ query, categories }) => registry.search({ query, categories }),
+  }),
+  probe_x402_service: tool({
+    description: "Connect to an MCP server and list its tools",
+    inputSchema: z.object({ baseUrl: z.string().url() }),
+    execute: async ({ baseUrl }) => {
+      const client = await createMCPClient({ transport: /* ... */ });
+      const tools = await client.tools();
+      return { toolCount: Object.keys(tools).length, tools: /* ... */ };
+    },
+  }),
+};
 ```
 
 ---
@@ -573,12 +606,14 @@ server.paidTool("cross_chain_analysis",
 
 # Security Checklist
 
-- [ ] **Never hardcode private keys** - Use environment variables
-- [ ] **Validate all inputs** - Zod schemas for API endpoints
-- [ ] **Set max payment limits** - Prevent runaway costs
-- [ ] **Use testnet first** - Verify flow before mainnet
-- [ ] **Monitor wallet balances** - Alert on low funds
-- [ ] **Log all transactions** - Audit trail for accounting
+- [x] **Never hardcode private keys** -- CDP manages keys, env vars for config
+- [x] **Validate all inputs** -- Zod schemas on API boundaries
+- [x] **Set max payment limits** -- `withPayment({ maxPaymentValue })` hard cap
+- [x] **Per-session budget** -- BudgetController tracks cumulative spend
+- [x] **Structured audit trail** -- Every payment logged with tx hash
+- [x] **MCP client cleanup** -- `closeMcp()` guard prevents leaks
+- [ ] **Registry auth** -- `POST /api/registry` currently unauthenticated
+- [ ] **SSRF protection** -- `probe_x402_service` needs IP blocklist
 
 ---
 
@@ -589,8 +624,9 @@ server.paidTool("cross_chain_analysis",
 const ChatRequestSchema = z.object({
   messages: z.array(z.object({
     role: z.enum(["user", "assistant", "system"]),
+    parts: z.array(z.any()).optional(),
     content: z.string().optional(),
-  })),
+  }).refine((msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0)),
   model: z.enum(["deepseek-chat", "deepseek-reasoner"]).default("deepseek-chat"),
 });
 
@@ -602,56 +638,46 @@ if (!validated.success) {
 
 ---
 
-# User Experience Tips
+# UX: Basescan Transaction Links
 
-1. **Clear pricing** - Show cost before payment
-2. **Transaction links** - Provide block explorer links
-3. **Error handling** - Graceful failures with retry options
-4. **Loading states** - Show progress during payment
-5. **Balance display** - Let users check their balance
+The `ToolOutput` component renders live transaction links for settled payments:
 
 ```typescript
-// Show payment result with transaction link
-<Link href={`https://sepolia.basescan.org/tx/${txHash}`}>
-  View transaction →
-</Link>
+// src/components/ai-elements/tool.tsx
+{part.output?._meta?.["x402.payment-response"] && (
+  <a href={`https://${
+    network === "base-sepolia" ? "sepolia." : ""
+  }basescan.org/tx/${part.output._meta["x402.payment-response"].transaction}`}>
+    View transaction
+  </a>
+)}
 ```
+
+The `network` prop comes from `messageMetadata: () => ({ network: env.NETWORK })` in the chat route.
 
 ---
 
-# Error Handling
+# Error Handling Pattern
 
 ```typescript
-try {
-  const result = await mcpClient.callTool("premium_random", args);
-  return result;
-} catch (error) {
-  if (error.code === "INSUFFICIENT_BALANCE") {
-    return "Your wallet needs more USDC. Top up at faucet.circle.com";
-  }
-  if (error.code === "PAYMENT_FAILED") {
-    return "Payment failed. Please try again.";
-  }
-  console.error("Unexpected error:", error);
-  return "An error occurred. Our team has been notified.";
-}
-```
-
----
-
-# Monitoring & Observability
-
-```typescript
-// Log all payments for auditing
-const paymentLog = {
-  timestamp: new Date().toISOString(),
-  tool: toolName, amount: paymentAmount, user: userId,
-  transaction: txHash, network: networkId,
+// MCP client cleanup with double-close guard
+let closed = false;
+const closeMcp = async () => {
+  if (closed) return;
+  closed = true;
+  try { await mcpClient.close(); } catch (e) { console.error(e); }
 };
-await db.paymentLogs.create(paymentLog);
 
-// Alert on low balance
-if (balance < 1000000) await sendAlert(`Wallet balance low: $${balance / 1e6}`);
+try {
+  const response = await createAgentUIStreamResponse({
+    agent, uiMessages: messages,
+    onFinish: async () => { await closeMcp(); },  // success path
+  });
+  return response;
+} catch (error) {
+  await closeMcp();  // error path
+  return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+}
 ```
 
 ---
@@ -667,11 +693,11 @@ if (balance < 1000000) await sendAlert(`Wallet balance low: $${balance / 1e6}`);
 # Demo Flow
 
 1. **Open** http://localhost:3000
-2. **Check balance** - "What is my USDC balance?"
-3. **Use free tool** - "Add 5 and 3"
-4. **Use paid tool** - "Get a premium random number"
-5. **Verify payment** - Check balance decreased
-6. **View transaction** - Click the Basescan link
+2. **Ask** "What services are available?" (discovery)
+3. **Ask** "What is 5 + 3?" (free tool)
+4. **Ask** "Get a premium random number" (paid tool, $0.01)
+5. **Ask** "Check your budget" (budget tool)
+6. **Click** the Basescan link to verify the on-chain payment
 
 ---
 
@@ -679,54 +705,65 @@ if (balance < 1000000) await sendAlert(`Wallet balance low: $${balance / 1e6}`);
 
 | Step | Action | Result |
 |------|--------|--------|
-| 1 | Check balance | $0.96 USDC |
-| 2 | Call free tool | "8" - no payment |
+| 1 | List services | Registry shows "x402 Demo Tools" |
+| 2 | Call free tool | "8" -- no payment |
 | 3 | Call paid tool | Random number + $0.01 payment |
-| 4 | Check balance | $0.95 USDC |
-| 5 | View transaction | `0xa604da...` on Base Sepolia |
+| 4 | Check budget | $0.49 remaining, 1 payment in history |
+| 5 | View transaction | Confirmed on Base Sepolia |
 
 ---
 
-# Transaction Verification
+# Deploying to Vercel
 
-```text
-Transaction: 0xa604da96842260e50cdb7f1909b34fdbd15e7ef7e98a4e1145b836911e9fe5ae
+```bash
+# 1. Link project and enable AI Gateway
+vercel link
+# Enable AI Gateway in Vercel Dashboard
 
-Network: Base Sepolia
-From: 0xd407e409E34E0b9afb99EcCeb609bDbcD5e7f1bf (Purchaser)
-To: [Seller Address]
-Value: 0.01 USDC
+# 2. Pull OIDC credentials
+vercel env pull  # provisions VERCEL_OIDC_TOKEN
 
-Status: Success ✓
+# 3. Set CDP credentials in Dashboard
+# CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET
+# NETWORK=base-sepolia (or base for mainnet)
+# URL is auto-derived -- do not set manually
+
+# 4. Deploy
+vercel --prod
 ```
 
 ---
 
 <!-- _class: lead -->
 
-# Part 8: Future Directions
+# Part 8: What's Next
 
-## What's Next for x402 + AI
+## Future Directions for x402 + AI
 
 ---
 
 # Coming Soon
 
-- **Agentic Commerce** - Agents buying/selling autonomously
-- **Cross-agent payments** - Agents paying other agents
-- **Subscription tools** - Recurring payments for premium access
-- **Dynamic pricing** - Demand-based tool pricing
-- **Privacy payments** - Anonymous micropayments
+- **Hard budget enforcement** -- reject EIP-3009 signing when budget exceeded
+- **Persistent registry** -- Neon Postgres instead of in-memory
+- **Durable agents** -- Workflow DevKit `DurableAgent` for long-running tasks
+- **Human-in-the-loop** -- approval hooks for high-cost tool calls
+- **Cross-agent payments** -- agents paying other agents for services
+- **Dynamic pricing** -- demand-based tool pricing
 
 ---
 
-# Getting Started Resources
+# Resources
 
-- **x402 Protocol**: https://github.com/coinbase/x402
-- **Starter Kit**: https://github.com/vercel-labs/x402-ai-starter
-- **MCP Specification**: https://modelcontextprotocol.io
-- **Base Sepolia Faucet**: https://faucet.circle.com
-- **DeepSeek API**: https://platform.deepseek.com
+| Resource | Link |
+|----------|------|
+| **This project** | github.com/aijayz/x402-ai-agent |
+| **Architecture doc** | `reports/architecture-design.md` |
+| **x402 Protocol** | x402.org |
+| **AI SDK v6** | ai-sdk.dev |
+| **Coinbase CDP** | docs.cdp.coinbase.com |
+| **MCP Specification** | modelcontextprotocol.io |
+| **Base Sepolia Faucet** | faucet.circle.com |
 
 ---
 
@@ -736,32 +773,39 @@ Status: Success ✓
 
 ## Questions?
 
-**GitHub**: github.com/aijayz/crypto-pay-agent
+**GitHub**: github.com/aijayz/x402-ai-agent
 **x402**: x402.org
 **Base**: base.org
 
 ---
 
-# Appendix: Network Configuration
+# Appendix: Environment Variables
 
-| Network | Chain ID | Faucet |
-|---------|----------|--------|
-| Base Sepolia | 84532 | faucet.circle.com |
-| Base Mainnet | 8453 | Buy USDC on exchange |
-| Solana Devnet | EtWTRAB... | `solana airdrop 2` |
-| Ethereum | 1 | Buy USDC on exchange |
+| Variable | Required | Default |
+|----------|----------|---------|
+| `CDP_API_KEY_ID` | Yes | -- |
+| `CDP_API_KEY_SECRET` | Yes | -- |
+| `CDP_WALLET_SECRET` | Yes | -- |
+| `DEEPSEEK_API_KEY` | Local dev only | -- |
+| `AI_MODEL` | No | `deepseek/deepseek-chat` |
+| `AI_REASONING_MODEL` | No | `deepseek/deepseek-reasoner` |
+| `NETWORK` | No | `base-sepolia` |
+| `URL` | No | `http://localhost:3000` |
+| `VERCEL_OIDC_TOKEN` | Vercel only | auto-provisioned |
 
 ---
 
-# Appendix: Environment Variables
+# Appendix: Available Tools
 
-```bash
-# CDP-Managed Wallets              # Self-Managed Wallets
-CDP_API_KEY_ID=                    EVM_PRIVATE_KEY=0x...
-CDP_API_KEY_SECRET=                SVM_PRIVATE_KEY=base58...
-CDP_WALLET_SECRET=
-
-# AI Provider                      # App Config
-DEEPSEEK_API_KEY=                  NETWORK=base-sepolia
-                                   URL=http://localhost:3000
-```
+| Tool | Type | Cost |
+|------|------|------|
+| `add` | Free (MCP) | -- |
+| `get_random_number` | Free (MCP) | -- |
+| `hello-remote` | Free (MCP) | -- |
+| `hello-local` | Free (local) | -- |
+| `premium_random` | Paid (MCP) | $0.01 |
+| `premium_analysis` | Paid (MCP) | $0.02 |
+| `check_budget` | Agent tool | -- |
+| `search_x402_services` | Agent tool | -- |
+| `probe_x402_service` | Agent tool | -- |
+| `list_registered_services` | Agent tool | -- |

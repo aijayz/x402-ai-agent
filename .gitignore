@@ -45,3 +45,9 @@ next-env.d.ts
 # xmcp
 .xmcp
 xmcp-env.d.ts
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+e2e-results/

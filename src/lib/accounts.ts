@@ -29,39 +29,55 @@ function getPublicClient() {
   });
 }
 
+// Cache the raw CDP account to avoid repeated getOrCreateAccount calls
+let cachedPurchaserAccount: Awaited<
+  ReturnType<ReturnType<typeof getCdpClient>["evm"]["getOrCreateAccount"]>
+> | null = null;
+
 export async function getOrCreatePurchaserAccount(): Promise<Account> {
+  if (cachedPurchaserAccount) return toAccount(cachedPurchaserAccount);
+
   const cdpClient = getCdpClient();
-  const account = await cdpClient.evm.getOrCreateAccount({
+  cachedPurchaserAccount = await cdpClient.evm.getOrCreateAccount({
     name: "Purchaser",
   });
+
+  // Fire-and-forget faucet funding — do NOT block the request
+  ensurePurchaserFunded(cdpClient, cachedPurchaserAccount).catch((err) =>
+    console.error("Faucet funding failed:", err)
+  );
+
+  return toAccount(cachedPurchaserAccount);
+}
+
+async function ensurePurchaserFunded(
+  cdpClient: ReturnType<typeof getCdpClient>,
+  account: NonNullable<typeof cachedPurchaserAccount>
+) {
+  if (env.NETWORK !== "base-sepolia") return;
+
   const balances = await account.listTokenBalances({
     network: env.NETWORK,
   });
-
   const usdcBalance = balances.balances.find(
     (balance) => balance.token.symbol === "USDC"
   );
+  if (usdcBalance && Number(usdcBalance.amount) >= 500000) return;
 
-  // if under $0.50 while on testnet, request more
-  if (
-    env.NETWORK === "base-sepolia" &&
-    (!usdcBalance || Number(usdcBalance.amount) < 500000)
-  ) {
-    const { transactionHash } = await cdpClient.evm.requestFaucet({
-      address: account.address,
-      network: env.NETWORK,
-      token: "usdc",
-    });
-    const publicClient = getPublicClient();
-    const tx = await publicClient.waitForTransactionReceipt({
-      hash: transactionHash,
-    });
-    if (tx.status !== "success") {
-      throw new Error("Failed to receive funds from faucet");
-    }
+  console.log("Requesting faucet funds for purchaser wallet...");
+  const { transactionHash } = await cdpClient.evm.requestFaucet({
+    address: account.address,
+    network: env.NETWORK,
+    token: "usdc",
+  });
+  const publicClient = getPublicClient();
+  const tx = await publicClient.waitForTransactionReceipt({
+    hash: transactionHash,
+  });
+  if (tx.status !== "success") {
+    throw new Error("Failed to receive funds from faucet");
   }
-
-  return toAccount(account);
+  console.log("Faucet funded purchaser wallet");
 }
 
 export async function getOrCreateSellerAccount(): Promise<Account> {
