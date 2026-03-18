@@ -71,8 +71,9 @@ pull_latest() {
 build_app() {
     echo "→ Installing dependencies..."
     run_as_app_user "cd $APP_DIR && pnpm install --frozen-lockfile"
-    echo "→ Building application..."
-    run_as_app_user "cd $APP_DIR && SKIP_ENV_VALIDATION=1 pnpm build"
+    echo "→ Building application (optimized for low memory)..."
+    # Use --no-turbopack and limit Node memory to reduce RAM usage
+    run_as_app_user "cd $APP_DIR && NODE_OPTIONS='--max-old-space-size=1024' pnpm next build --no-turbopack"
     echo "→ Copying standalone assets..."
     run_as_app_user "cp -r $APP_DIR/.next/static $APP_DIR/.next/standalone/.next/static"
     if [ -d "$APP_DIR/public" ]; then
