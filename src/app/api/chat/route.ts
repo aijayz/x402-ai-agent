@@ -1,4 +1,4 @@
-import { createAgentUIStreamResponse, tool } from "ai";
+import { createAgentUIStreamResponse } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { withAutoPayment } from "@/lib/with-auto-payment";
@@ -52,6 +52,8 @@ const ChatRequestSchema = z.object({
   })),
   model: z.enum(["deepseek-chat", "deepseek-reasoner", "gemini-2.0-flash"]).default("deepseek-chat"),
 });
+
+export const maxDuration = 60;
 
 export const POST = async (request: Request) => {
   // Get session ID from cookie or generate one
@@ -137,13 +139,7 @@ export const POST = async (request: Request) => {
       model: getModel(modelId),
       mcpTools,
       budget,
-      localTools: {
-        "hello-local": tool({
-          description: "Receive a greeting from the local server",
-          inputSchema: z.object({ name: z.string() }),
-          execute: async (args) => `Hello ${args.name} (from local tool)`,
-        }),
-      },
+      localTools: {},
     });
 
     const response = await createAgentUIStreamResponse({
