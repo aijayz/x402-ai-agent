@@ -129,7 +129,7 @@ export const POST = async (request: Request) => {
     const modelMap: Record<string, string> = {
       "gemini-2.0-flash": "google/gemini-2.0-flash",
       "deepseek-chat": "deepseek/deepseek-chat",
-      "deepseek-reasoner": env.AI_REASONING_MODEL,
+      "deepseek-reasoner": "deepseek/deepseek-reasoner",
     };
     const modelId = modelMap[model] ?? env.AI_MODEL;
 
