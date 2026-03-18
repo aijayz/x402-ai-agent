@@ -56,6 +56,9 @@ const ChatRequestSchema = z.object({
 export const maxDuration = 30;
 
 export const POST = async (request: Request) => {
+  const t0 = Date.now();
+  const log = (label: string) => console.log(`[chat-timing] ${label}: ${Date.now() - t0}ms`);
+
   // Get session ID from cookie or generate one
   const cookieHeader = request.headers.get("cookie") || "";
   const existingSessionId = cookieHeader.match(/session_id=([^;]+)/)?.[1];
@@ -95,14 +98,17 @@ export const POST = async (request: Request) => {
     );
   }
   const { messages, model } = validated.data;
+  log("validated request");
 
   // Get the purchaser account (wallet that pays for tools)
   const purchaserAccount = await getOrCreatePurchaserAccount();
+  log("got purchaser account");
 
   // Create MCP client with payment support
   const baseMcpClient = await createMCPClient({
     transport: new StreamableHTTPClientTransport(new URL("/mcp", env.URL)),
   });
+  log("mcp client connected");
 
   // Wrap with payment capabilities
   const mcpClient = await withPayment(baseMcpClient as any, {
@@ -110,6 +116,7 @@ export const POST = async (request: Request) => {
     network: env.NETWORK,
     maxPaymentValue: 0.1 * 10 ** 6, // Max $0.10 USDC per tool call
   });
+  log("withPayment wrapped");
 
   // Guard against double-close (onFinish + catch can both fire)
   let closed = false;
@@ -125,6 +132,7 @@ export const POST = async (request: Request) => {
 
   try {
     const mcpTools = await mcpClient.tools();
+    log("got mcp tools");
 
     // Resolve frontend model selection to gateway model ID
     const modelId = model === "deepseek-reasoner"
@@ -144,6 +152,7 @@ export const POST = async (request: Request) => {
       },
     });
 
+    log("creating agent stream response");
     const response = await createAgentUIStreamResponse({
       agent,
       uiMessages: messages,
@@ -151,6 +160,7 @@ export const POST = async (request: Request) => {
       sendReasoning: true,
       messageMetadata: () => ({ network: env.NETWORK }),
       onStepFinish: async ({ toolResults }) => {
+        log("step finished");
         for (const toolResult of toolResults ?? []) {
           const output = toolResult.output as Record<string, unknown> | undefined;
           const meta = output?._meta as Record<string, unknown> | undefined;

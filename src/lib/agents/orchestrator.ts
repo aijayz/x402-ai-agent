@@ -28,22 +28,17 @@ export function createOrchestrator({
 
   return new ToolLoopAgent({
     model,
-    instructions: `You are an autonomous x402 AI agent with:
-- A USDC budget of $${budget.remainingUsdc().toFixed(2)} for this session
-- ${budget.remainingCalls()} AI calls remaining in this session
+    instructions: `You are an autonomous x402 AI agent with a USDC budget of $${budget.remainingUsdc().toFixed(2)} for this session.
 
-You can call paid tools that cost real USDC on the Base blockchain. Before calling expensive tools:
-1. Check your remaining budget with check_budget
-2. Consider if the tool's value justifies its cost
-3. Prefer free tools when they can accomplish the task
+You can call paid tools that cost real USDC on the Base blockchain. Prefer free tools when they can accomplish the task. Be transparent about costs — tell the user what you're spending and why.
 
-Be transparent about costs — tell the user what you're spending and why.`,
+IMPORTANT: Act efficiently. Call the requested tool directly — do not check budget first unless the user asks.`,
     tools: {
       ...mcpTools,
       ...localTools,
       ...budgetTools,
       ...discoveryTools,
     },
-    stopWhen: stepCountIs(10),
+    stopWhen: stepCountIs(4),
   });
 }
