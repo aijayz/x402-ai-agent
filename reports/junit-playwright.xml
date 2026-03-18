@@ -1,0 +1,290 @@
+<testsuites id="" name="" tests="82" failures="0" skipped="8" errors="0" time="76.262448">
+<testsuite name="api.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="chromium" tests="7" failures="0" skipped="0" time="10.57" errors="0">
+<testcase name="API Endpoints › registry endpoint should return valid JSON" classname="api.spec.ts" time="0.486">
+</testcase>
+<testcase name="API Endpoints › MCP endpoint should be accessible" classname="api.spec.ts" time="3.645">
+</testcase>
+<testcase name="API Endpoints › chat endpoint should handle POST requests" classname="api.spec.ts" time="2.423">
+</testcase>
+<testcase name="API Endpoints › chat endpoint should require messages array" classname="api.spec.ts" time="2.395">
+</testcase>
+<testcase name="Health Checks › main page should load successfully" classname="api.spec.ts" time="0.682">
+</testcase>
+<testcase name="Health Checks › page should have correct metadata" classname="api.spec.ts" time="0.687">
+</testcase>
+<testcase name="Health Checks › static assets should be accessible" classname="api.spec.ts" time="0.252">
+</testcase>
+</testsuite>
+<testsuite name="chat.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="chromium" tests="12" failures="0" skipped="0" time="12.659" errors="0">
+<testcase name="Basic Chat Flow › should load the chat interface" classname="chat.spec.ts" time="0.729">
+</testcase>
+<testcase name="Basic Chat Flow › should allow typing in the textarea" classname="chat.spec.ts" time="0.826">
+</testcase>
+<testcase name="Basic Chat Flow › should disable submit button when textarea is empty" classname="chat.spec.ts" time="0.82">
+</testcase>
+<testcase name="Basic Chat Flow › should display user message after sending" classname="chat.spec.ts" time="0.763">
+</testcase>
+<testcase name="Basic Chat Flow › should submit message on Enter key" classname="chat.spec.ts" time="0.743">
+</testcase>
+<testcase name="Basic Chat Flow › should allow Shift+Enter to create new lines without submitting" classname="chat.spec.ts" time="0.772">
+</testcase>
+<testcase name="Basic Chat Flow › should display suggestion buttons" classname="chat.spec.ts" time="0.644">
+</testcase>
+<testcase name="Basic Chat Flow › should send message when clicking a suggestion" classname="chat.spec.ts" time="0.623">
+</testcase>
+<testcase name="Basic Chat Flow › should show loading state after sending message" classname="chat.spec.ts" time="1.054">
+</testcase>
+<testcase name="Model Selection › should have model selector visible" classname="chat.spec.ts" time="0.988">
+</testcase>
+<testcase name="Model Selection › should display model options when clicked" classname="chat.spec.ts" time="1.12">
+</testcase>
+<testcase name="Conversation History › should display multiple messages in conversation" classname="chat.spec.ts" time="3.577">
+</testcase>
+</testsuite>
+<testsuite name="free-tools.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="chromium" tests="3" failures="0" skipped="0" time="129.656" errors="0">
+<testcase name="Free Tool Usage › should use free random number tool via suggestion @slow" classname="free-tools.spec.ts" time="63.868">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="Free Tool Usage › should handle add tool via chat @slow" classname="free-tools.spec.ts" time="17.918">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="Free Tool Usage › should handle get_random_number tool via chat @slow" classname="free-tools.spec.ts" time="47.87">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+</testsuite>
+<testsuite name="paid-tools.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="chromium" tests="7" failures="0" skipped="4" time="8.159" errors="0">
+<testcase name="Paid Tool Request Flow › should request premium random number tool via suggestion @paid" classname="paid-tools.spec.ts" time="1.051">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test - SKIP_PAID_TESTS is true or CDP credentials not available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Paid Tool Request Flow › should display tool requiring payment @paid" classname="paid-tools.spec.ts" time="1.132">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Paid Tool Request Flow › should handle paid tool error gracefully @paid" classname="paid-tools.spec.ts" time="1.105">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Paid Tool Request Flow › should show payment information in tool output @paid" classname="paid-tools.spec.ts" time="0.802">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Payment Flow Mock Tests › should display suggestion for paid tool" classname="paid-tools.spec.ts" time="0.592">
+</testcase>
+<testcase name="Payment Flow Mock Tests › should send paid tool request message" classname="paid-tools.spec.ts" time="0.848">
+</testcase>
+<testcase name="Payment Flow Mock Tests › should handle streaming response for paid tool request" classname="paid-tools.spec.ts" time="2.629">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+</testsuite>
+<testsuite name="ui-responsiveness.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="chromium" tests="12" failures="0" skipped="0" time="20.689" errors="0">
+<testcase name="UI Responsiveness › should load without console errors" classname="ui-responsiveness.spec.ts" time="2.178">
+</testcase>
+<testcase name="UI Responsiveness › should be responsive on mobile viewport" classname="ui-responsiveness.spec.ts" time="0.737">
+</testcase>
+<testcase name="UI Responsiveness › should be responsive on tablet viewport" classname="ui-responsiveness.spec.ts" time="0.75">
+</testcase>
+<testcase name="UI Responsiveness › should handle rapid message sending" classname="ui-responsiveness.spec.ts" time="1.027">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="UI Responsiveness › should maintain scroll position correctly" classname="ui-responsiveness.spec.ts" time="1.876">
+</testcase>
+<testcase name="Error Handling › should handle network errors gracefully" classname="ui-responsiveness.spec.ts" time="2.691">
+</testcase>
+<testcase name="Error Handling › should recover after retry button click" classname="ui-responsiveness.spec.ts" time="5.607">
+</testcase>
+<testcase name="Error Handling › should handle empty message submission gracefully" classname="ui-responsiveness.spec.ts" time="0.589">
+</testcase>
+<testcase name="Error Handling › should handle very long messages" classname="ui-responsiveness.spec.ts" time="0.732">
+</testcase>
+<testcase name="Error Handling › should handle special characters in messages" classname="ui-responsiveness.spec.ts" time="2.754">
+</testcase>
+<testcase name="Accessibility › should have proper ARIA roles" classname="ui-responsiveness.spec.ts" time="0.83">
+</testcase>
+<testcase name="Accessibility › should support keyboard navigation" classname="ui-responsiveness.spec.ts" time="0.918">
+</testcase>
+</testsuite>
+<testsuite name="api.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="Mobile Chrome" tests="7" failures="0" skipped="0" time="2.442" errors="0">
+<testcase name="API Endpoints › registry endpoint should return valid JSON" classname="api.spec.ts" time="0.267">
+</testcase>
+<testcase name="API Endpoints › MCP endpoint should be accessible" classname="api.spec.ts" time="0.251">
+</testcase>
+<testcase name="API Endpoints › chat endpoint should handle POST requests" classname="api.spec.ts" time="0.249">
+</testcase>
+<testcase name="API Endpoints › chat endpoint should require messages array" classname="api.spec.ts" time="0.234">
+</testcase>
+<testcase name="Health Checks › main page should load successfully" classname="api.spec.ts" time="0.608">
+</testcase>
+<testcase name="Health Checks › page should have correct metadata" classname="api.spec.ts" time="0.594">
+</testcase>
+<testcase name="Health Checks › static assets should be accessible" classname="api.spec.ts" time="0.239">
+</testcase>
+</testsuite>
+<testsuite name="chat.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="Mobile Chrome" tests="12" failures="0" skipped="0" time="9.905" errors="0">
+<testcase name="Basic Chat Flow › should load the chat interface" classname="chat.spec.ts" time="0.65">
+</testcase>
+<testcase name="Basic Chat Flow › should allow typing in the textarea" classname="chat.spec.ts" time="0.711">
+</testcase>
+<testcase name="Basic Chat Flow › should disable submit button when textarea is empty" classname="chat.spec.ts" time="0.691">
+</testcase>
+<testcase name="Basic Chat Flow › should display user message after sending" classname="chat.spec.ts" time="0.73">
+</testcase>
+<testcase name="Basic Chat Flow › should submit message on Enter key" classname="chat.spec.ts" time="0.714">
+</testcase>
+<testcase name="Basic Chat Flow › should allow Shift+Enter to create new lines without submitting" classname="chat.spec.ts" time="0.701">
+</testcase>
+<testcase name="Basic Chat Flow › should display suggestion buttons" classname="chat.spec.ts" time="0.649">
+</testcase>
+<testcase name="Basic Chat Flow › should send message when clicking a suggestion" classname="chat.spec.ts" time="0.746">
+</testcase>
+<testcase name="Basic Chat Flow › should show loading state after sending message" classname="chat.spec.ts" time="0.756">
+</testcase>
+<testcase name="Model Selection › should have model selector visible" classname="chat.spec.ts" time="0.688">
+</testcase>
+<testcase name="Model Selection › should display model options when clicked" classname="chat.spec.ts" time="0.757">
+</testcase>
+<testcase name="Conversation History › should display multiple messages in conversation" classname="chat.spec.ts" time="2.112">
+</testcase>
+</testsuite>
+<testsuite name="free-tools.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="Mobile Chrome" tests="3" failures="0" skipped="0" time="126.371" errors="0">
+<testcase name="Free Tool Usage › should use free random number tool via suggestion @slow" classname="free-tools.spec.ts" time="62.066">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="Free Tool Usage › should handle add tool via chat @slow" classname="free-tools.spec.ts" time="17.149">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="Free Tool Usage › should handle get_random_number tool via chat @slow" classname="free-tools.spec.ts" time="47.156">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+</testsuite>
+<testsuite name="paid-tools.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="Mobile Chrome" tests="7" failures="0" skipped="4" time="5.442" errors="0">
+<testcase name="Paid Tool Request Flow › should request premium random number tool via suggestion @paid" classname="paid-tools.spec.ts" time="0.613">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test - SKIP_PAID_TESTS is true or CDP credentials not available">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Paid Tool Request Flow › should display tool requiring payment @paid" classname="paid-tools.spec.ts" time="0.661">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Paid Tool Request Flow › should handle paid tool error gracefully @paid" classname="paid-tools.spec.ts" time="0.563">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Paid Tool Request Flow › should show payment information in tool output @paid" classname="paid-tools.spec.ts" time="0.568">
+<properties>
+<property name="slow" value="">
+</property>
+<property name="skip" value="Skipping paid tool test">
+</property>
+</properties>
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Payment Flow Mock Tests › should display suggestion for paid tool" classname="paid-tools.spec.ts" time="0.563">
+</testcase>
+<testcase name="Payment Flow Mock Tests › should send paid tool request message" classname="paid-tools.spec.ts" time="0.611">
+</testcase>
+<testcase name="Payment Flow Mock Tests › should handle streaming response for paid tool request" classname="paid-tools.spec.ts" time="1.863">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+</testsuite>
+<testsuite name="ui-responsiveness.spec.ts" timestamp="2026-03-17T14:51:16.995Z" hostname="Mobile Chrome" tests="12" failures="0" skipped="0" time="19.899" errors="0">
+<testcase name="UI Responsiveness › should load without console errors" classname="ui-responsiveness.spec.ts" time="2.045">
+</testcase>
+<testcase name="UI Responsiveness › should be responsive on mobile viewport" classname="ui-responsiveness.spec.ts" time="0.488">
+</testcase>
+<testcase name="UI Responsiveness › should be responsive on tablet viewport" classname="ui-responsiveness.spec.ts" time="0.981">
+</testcase>
+<testcase name="UI Responsiveness › should handle rapid message sending" classname="ui-responsiveness.spec.ts" time="1.064">
+<properties>
+<property name="slow" value="">
+</property>
+</properties>
+</testcase>
+<testcase name="UI Responsiveness › should maintain scroll position correctly" classname="ui-responsiveness.spec.ts" time="1.806">
+</testcase>
+<testcase name="Error Handling › should handle network errors gracefully" classname="ui-responsiveness.spec.ts" time="2.667">
+</testcase>
+<testcase name="Error Handling › should recover after retry button click" classname="ui-responsiveness.spec.ts" time="5.652">
+</testcase>
+<testcase name="Error Handling › should handle empty message submission gracefully" classname="ui-responsiveness.spec.ts" time="0.58">
+</testcase>
+<testcase name="Error Handling › should handle very long messages" classname="ui-responsiveness.spec.ts" time="0.649">
+</testcase>
+<testcase name="Error Handling › should handle special characters in messages" classname="ui-responsiveness.spec.ts" time="2.75">
+</testcase>
+<testcase name="Accessibility › should have proper ARIA roles" classname="ui-responsiveness.spec.ts" time="0.544">
+</testcase>
+<testcase name="Accessibility › should support keyboard navigation" classname="ui-responsiveness.spec.ts" time="0.673">
+</testcase>
+</testsuite>
+</testsuites>
