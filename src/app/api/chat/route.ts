@@ -147,7 +147,10 @@ export const POST = async (request: Request) => {
       uiMessages: messages,
       sendSources: true,
       sendReasoning: true,
-      messageMetadata: () => ({ network: env.NETWORK }),
+      messageMetadata: () => ({
+        network: env.NETWORK,
+        budgetRemaining: budget.remainingUsdc(),
+      }),
       onStepFinish: async ({ toolResults }) => {
         for (const toolResult of toolResults ?? []) {
           const output = toolResult.output as Record<string, unknown> | undefined;
