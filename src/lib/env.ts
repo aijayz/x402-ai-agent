@@ -8,11 +8,12 @@ export const env = createEnv({
     CDP_API_KEY_ID: z.string().optional(),
     CDP_API_KEY_SECRET: z.string().optional(),
 
-    // AI Provider (DeepSeek direct key for local dev)
+    // AI Provider keys (for local dev — on Vercel use AI Gateway OIDC)
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
     DEEPSEEK_API_KEY: z.string().optional(),
 
-    // AI Model configuration (gateway format: provider/model)
-    AI_MODEL: z.string().default("deepseek/deepseek-chat"),
+    // AI Model configuration (format: provider/model)
+    AI_MODEL: z.string().default("google/gemini-2.0-flash"),
     AI_REASONING_MODEL: z.string().default("deepseek/deepseek-reasoner"),
 
     // Network and URL
@@ -28,13 +29,12 @@ export const env = createEnv({
     CDP_WALLET_SECRET: process.env.CDP_WALLET_SECRET,
     CDP_API_KEY_ID: process.env.CDP_API_KEY_ID,
     CDP_API_KEY_SECRET: process.env.CDP_API_KEY_SECRET,
+    GOOGLE_GENERATIVE_AI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
     AI_MODEL: process.env.AI_MODEL,
     AI_REASONING_MODEL: process.env.AI_REASONING_MODEL,
     NETWORK: process.env.NETWORK,
-    URL: process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : undefined,
+    URL: process.env.URL,
   },
 
   /**

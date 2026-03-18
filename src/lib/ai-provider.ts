@@ -1,18 +1,19 @@
-import { gateway } from "ai";
 import { deepseek } from "@ai-sdk/deepseek";
+import { google } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
 
 /**
- * Returns a LanguageModel for the given gateway model string (e.g. "deepseek/deepseek-chat").
+ * Returns a LanguageModel for the given model string (e.g. "google/gemini-2.0-flash").
  *
- * On Vercel: uses AI Gateway (OIDC or API key auth — run `vercel env pull` to provision).
- * Local dev: falls back to the direct DeepSeek provider using DEEPSEEK_API_KEY.
+ * Routes to the appropriate provider SDK based on the "provider/" prefix.
  */
 export function getModel(modelId: string): LanguageModel {
-  if (process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY) {
-    return gateway(modelId as Parameters<typeof gateway>[0]);
+  const [provider, ...rest] = modelId.split("/");
+  const modelName = rest.join("/");
+
+  if (provider === "google") {
+    return google(modelName) as LanguageModel;
   }
-  // Local dev fallback — strip the "provider/" prefix for direct SDK usage
-  const deepseekModelName = modelId.replace(/^[^/]+\//, "");
-  return deepseek(deepseekModelName) as LanguageModel;
+  // Default to DeepSeek for deepseek/* or unknown providers
+  return deepseek(modelName || modelId) as LanguageModel;
 }

@@ -1,7 +1,7 @@
 import { createAgentUIStreamResponse, tool } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createMCPClient } from "@ai-sdk/mcp";
-import { withPayment } from "x402-mcp/client";
+import { withAutoPayment } from "@/lib/with-auto-payment";
 import z from "zod";
 import { env } from "@/lib/env";
 import { getOrCreatePurchaserAccount } from "@/lib/accounts";
@@ -50,10 +50,8 @@ const ChatRequestSchema = z.object({
   }).passthrough().refine((msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0, {
     message: "Message must have either parts or content",
   })),
-  model: z.enum(["deepseek-chat", "deepseek-reasoner"]).default("deepseek-chat"),
+  model: z.enum(["gemini-2.0-flash", "deepseek-chat", "deepseek-reasoner"]).default("gemini-2.0-flash"),
 });
-
-export const maxDuration = 30;
 
 export const POST = async (request: Request) => {
   // Get session ID from cookie or generate one
@@ -104,8 +102,9 @@ export const POST = async (request: Request) => {
     transport: new StreamableHTTPClientTransport(new URL("/mcp", env.URL)),
   });
 
-  // Wrap with payment capabilities
-  const mcpClient = await withPayment(baseMcpClient as any, {
+  // Wrap with auto-payment capabilities:
+  // first 402 → passes error to AI (shows cost); second call → auto-signs & retries
+  const mcpClient = await withAutoPayment(baseMcpClient as any, {
     account: purchaserAccount,
     network: env.NETWORK,
     maxPaymentValue: 0.1 * 10 ** 6, // Max $0.10 USDC per tool call
@@ -126,10 +125,13 @@ export const POST = async (request: Request) => {
   try {
     const mcpTools = await mcpClient.tools();
 
-    // Resolve frontend model selection to gateway model ID
-    const modelId = model === "deepseek-reasoner"
-      ? env.AI_REASONING_MODEL
-      : env.AI_MODEL;
+    // Resolve frontend model selection to provider model ID
+    const modelMap: Record<string, string> = {
+      "gemini-2.0-flash": "google/gemini-2.0-flash",
+      "deepseek-chat": "deepseek/deepseek-chat",
+      "deepseek-reasoner": env.AI_REASONING_MODEL,
+    };
+    const modelId = modelMap[model] ?? env.AI_MODEL;
 
     const agent = createOrchestrator({
       model: getModel(modelId),
