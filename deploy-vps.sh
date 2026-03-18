@@ -72,8 +72,9 @@ build_app() {
     echo "→ Installing dependencies..."
     run_as_app_user "cd $APP_DIR && pnpm install --frozen-lockfile"
     echo "→ Building application (optimized for low memory)..."
-    # Use --no-turbopack and limit Node memory to reduce RAM usage
-    run_as_app_user "cd $APP_DIR && NODE_OPTIONS='--max-old-space-size=1024' pnpm next build --no-turbopack"
+    # Use --no-lint and limit Node memory to reduce RAM usage
+    # Don't use turbopack for production build (saves memory)
+    run_as_app_user "cd $APP_DIR && NODE_OPTIONS='--max-old-space-size=1024' pnpm next build --no-lint"
     echo "→ Copying standalone assets..."
     run_as_app_user "cp -r $APP_DIR/.next/static $APP_DIR/.next/standalone/.next/static"
     if [ -d "$APP_DIR/public" ]; then
