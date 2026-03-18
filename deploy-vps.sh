@@ -12,11 +12,24 @@ set -euo pipefail
 #   5. Start the app:    sudo systemctl start x402
 # ============================================================
 
+# --- Configuration ---
 DOMAIN="${DOMAIN:-}"
 APP_USER="x402"
 APP_DIR="/home/$APP_USER/x402-ai-agent"
 REPO="https://github.com/aijayz/x402-ai-agent.git"
 NODE_VERSION="22"
+
+# Fix permission denied on /root when running with sudo
+# When sudo -u switches user, ensure HOME points to that user's home
+export HOME="${HOME:-/root}"
+export npm_config_cache="${npm_config_cache:-/tmp/npm-cache}"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-/tmp/.config}"
+
+# Helper to run commands as app user with correct HOME
+run_as_app_user() {
+    local cmd="$1"
+    sudo -u "$APP_USER" HOME="/home/$APP_USER" bash -c "$cmd"
+}
 
 echo "================================================"
 echo "  x402 AI Agent — VPS Deployment"
@@ -44,27 +57,27 @@ fi
 # --- 4. Clone / pull repo ---
 echo "[4/7] Fetching code..."
 if [ -d "$APP_DIR" ]; then
-  sudo -u "$APP_USER" git -C "$APP_DIR" pull --ff-only
+  run_as_app_user "git -C $APP_DIR pull --ff-only"
 else
-  sudo -u "$APP_USER" git clone "$REPO" "$APP_DIR"
+  run_as_app_user "git clone $REPO $APP_DIR"
 fi
 
 # --- 5. Build ---
 echo "[5/7] Building application..."
 cd "$APP_DIR"
-sudo -u "$APP_USER" bash -c "cd $APP_DIR && pnpm install --frozen-lockfile"
-sudo -u "$APP_USER" bash -c "cd $APP_DIR && SKIP_ENV_VALIDATION=1 pnpm build"
+run_as_app_user "cd $APP_DIR && pnpm install --frozen-lockfile"
+run_as_app_user "cd $APP_DIR && SKIP_ENV_VALIDATION=1 pnpm build"
 
 # Copy standalone assets
-sudo -u "$APP_USER" cp -r "$APP_DIR/.next/static" "$APP_DIR/.next/standalone/.next/static"
+run_as_app_user "cp -r $APP_DIR/.next/static $APP_DIR/.next/standalone/.next/static"
 if [ -d "$APP_DIR/public" ]; then
-  sudo -u "$APP_USER" cp -r "$APP_DIR/public" "$APP_DIR/.next/standalone/public"
+  run_as_app_user "cp -r $APP_DIR/public $APP_DIR/.next/standalone/public"
 fi
 
 # --- 6. Create .env if missing ---
 if [ ! -f "$APP_DIR/.env" ]; then
   echo "[!] Creating .env from example — you MUST edit this with your secrets"
-  sudo -u "$APP_USER" cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  run_as_app_user "cp $APP_DIR/.env.example $APP_DIR/.env"
 fi
 # Symlink .env into standalone dir
 ln -sf "$APP_DIR/.env" "$APP_DIR/.next/standalone/.env"
