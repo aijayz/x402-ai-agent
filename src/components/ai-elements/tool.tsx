@@ -339,7 +339,20 @@ function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode
     if (toolName === "generate_image" && data.imageUrl) {
       return (
         <div className="p-3 space-y-2">
-          <img src={data.imageUrl} alt={data.prompt} className="rounded-lg max-w-full max-h-80 object-contain" />
+          <img
+            src={data.imageUrl}
+            alt={data.prompt}
+            className="rounded-lg max-w-full max-h-80 object-contain"
+            onError={(e) => {
+              const target = e.currentTarget;
+              target.style.display = "none";
+              const fallback = target.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = "flex";
+            }}
+          />
+          <div className="hidden items-center gap-2 p-4 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+            Image failed to load. The generation service may be temporarily unavailable.
+          </div>
           <div className="text-xs text-muted-foreground italic">{data.prompt}</div>
         </div>
       );

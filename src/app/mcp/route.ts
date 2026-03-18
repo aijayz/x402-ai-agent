@@ -285,18 +285,57 @@ async function getHandler() {
           },
           {},
           async (args) => {
-            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?width=${args.width}&height=${args.height}&nologo=true`;
-            return {
-              content: [{
-                type: "text",
-                text: JSON.stringify({
-                  prompt: args.prompt,
-                  imageUrl,
-                  width: args.width,
-                  height: args.height,
-                }),
-              }],
-            };
+            try {
+              const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(args.prompt)}?width=${args.width}&height=${args.height}&nologo=true&seed=${Date.now()}`;
+
+              // Pre-fetch the image to ensure it generates successfully
+              let res: globalThis.Response | null = null;
+              for (let attempt = 0; attempt < 2; attempt++) {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30000);
+                res = await fetch(imageUrl, { signal: controller.signal });
+                clearTimeout(timeout);
+                if (res.ok) break;
+                // Retry once on 429/500
+                if (attempt === 0 && (res.status === 429 || res.status >= 500)) {
+                  await new Promise(r => setTimeout(r, 2000));
+                  continue;
+                }
+                break;
+              }
+
+              if (!res || !res.ok) {
+                return {
+                  content: [{ type: "text", text: `Error: Image generation failed (HTTP ${res?.status ?? "timeout"}). Pollinations.ai may be rate-limited — try again in a moment.` }],
+                  isError: true,
+                };
+              }
+
+              const buffer = await res.arrayBuffer();
+              const base64 = Buffer.from(buffer).toString("base64");
+              const contentType = res.headers.get("content-type") || "image/jpeg";
+              const dataUrl = `data:${contentType};base64,${base64}`;
+
+              return {
+                content: [{
+                  type: "text",
+                  text: JSON.stringify({
+                    prompt: args.prompt,
+                    imageUrl: dataUrl,
+                    width: args.width,
+                    height: args.height,
+                  }),
+                }],
+              };
+            } catch (err) {
+              const msg = err instanceof Error && err.name === "AbortError"
+                ? "Image generation timed out after 30 seconds"
+                : err instanceof Error ? err.message : "Unknown error";
+              return {
+                content: [{ type: "text", text: `Error generating image: ${msg}` }],
+                isError: true,
+              };
+            }
           }
         );
       },
