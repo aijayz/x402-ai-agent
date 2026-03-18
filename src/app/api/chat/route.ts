@@ -118,7 +118,7 @@ export const POST = async (request: Request) => {
   });
   log("withPayment wrapped");
 
-  // Guard against double-close (onFinish + catch can both fire)
+  // Guard against double-close (onFinish/onError + catch can both fire)
   let closed = false;
   const closeMcp = async () => {
     if (closed) return;
