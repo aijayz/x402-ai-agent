@@ -13,7 +13,7 @@ set -euo pipefail
 # ============================================================
 
 # --- Configuration ---
-DOMAIN="${DOMAIN:-}"
+DOMAIN="${DOMAIN:-x402-agent.duckdns.org}"
 APP_USER="x402"
 APP_DIR="/home/$APP_USER/x402-ai-agent"
 REPO="https://github.com/aijayz/x402-ai-agent.git"
