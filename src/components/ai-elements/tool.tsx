@@ -232,6 +232,7 @@ export const ToolOutput = ({
             >
               {/* @ts-expect-error */}
               {part.output._meta["x402.payment-response"].transaction.slice(0, 18)}...
+              {/* @ts-expect-error */}
               {part.output._meta["x402.payment-response"].transaction.slice(-6)}
             </Link>
             <CopyToClipboardButton
