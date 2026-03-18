@@ -225,13 +225,15 @@ export const ToolOutput = ({
             <Link
               href={`https://${
                 network === "base-sepolia" ? "sepolia." : ""
+              }basescan.org/tx/${
                 // @ts-expect-error
-              }basescan.org/tx/${part.output._meta["x402.payment-response"].transaction}`}
+                part.output._meta["x402.payment-response"].transaction}`}
               target="_blank"
               className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline font-mono"
             >
               {/* @ts-expect-error */}
               {part.output._meta["x402.payment-response"].transaction.slice(0, 18)}...
+              {/* @ts-expect-error */}
               {part.output._meta["x402.payment-response"].transaction.slice(-6)}
             </Link>
             <CopyToClipboardButton
