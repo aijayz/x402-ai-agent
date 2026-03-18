@@ -176,9 +176,11 @@ cmd_deploy() {
     echo "  x402 AI Agent — Deploy"
     echo "============================================"
     pull_latest
+    echo "stopping service to free RAM for build"
+    systemctl stop x402 || true
     build_app
-    echo "→ Restarting service..."
-    systemctl restart x402
+    echo "→ Starting service..."
+    systemctl start x402
     echo ""
     echo "  Deploy complete! View logs: sudo ./deploy-vps.sh logs"
 }
