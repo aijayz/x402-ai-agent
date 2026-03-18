@@ -26,7 +26,13 @@ import { CopyToClipboardButton } from "../copy-to-clipboard";
 import Link from "next/link";
 
 // Paid tool names (could also be determined dynamically)
-const PAID_TOOLS = ["premium_random", "premium_analysis"];
+const PAID_TOOLS = [
+  "get_crypto_price",
+  "get_wallet_profile",
+  "summarize_url",
+  "analyze_contract",
+  "generate_image",
+];
 
 const isPaidTool = (toolName: string) => PAID_TOOLS.includes(toolName);
 
@@ -89,14 +95,13 @@ const mapRenderResultTypeToState = (
 
 export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
   const { state: rawState } = part;
-  const renderResult = renderRawOutput({ output: part.output });
+  const toolname =
+    part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
+  const renderResult = renderRawOutput({ output: part.output, toolName: toolname });
   const state =
     rawState === "output-available" && part.type === "dynamic-tool"
       ? mapRenderResultTypeToState(renderResult.type)
       : rawState;
-
-  const toolname =
-    part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
 
   const paid = isPaidTool(toolname);
 
@@ -174,9 +179,10 @@ export const ToolOutput = ({
   network,
   ...props
 }: ToolOutputProps) => {
+  const tName = part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
   const renderResult =
     part.type === "dynamic-tool"
-      ? renderRawOutput({ output: part.output })
+      ? renderRawOutput({ output: part.output, toolName: tName })
       : ({ type: "non-dynamic-tool", content: part.output } as const);
   const errorText = part.errorText
     ? part.errorText
@@ -218,6 +224,14 @@ export const ToolOutput = ({
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
               <ZapIcon className="size-3" />
               Payment Successful
+              {(() => {
+                // @ts-expect-error - x402 payment metadata
+                const amount = part.output?._meta?.["x402.payment-response"]?.amount;
+                if (amount != null) {
+                  return <span className="ml-1">&middot; ${(Number(amount) / 1e6).toFixed(2)} USDC</span>;
+                }
+                return null;
+              })()}
             </div>
             <span className="text-muted-foreground">via x402</span>
           </div>
@@ -274,10 +288,101 @@ type RenderOutputResult =
       content: unknown;
     };
 
+function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode | null {
+  try {
+    const data = JSON.parse(jsonText);
+
+    if (toolName === "get_crypto_price" && data.priceUsd != null) {
+      const changePositive = (data.change24h ?? 0) >= 0;
+      return (
+        <div className="p-3 space-y-2">
+          <div className="text-xs text-muted-foreground uppercase tracking-wide">{data.token}</div>
+          <div className="text-2xl font-bold font-mono">${Number(data.priceUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div className="flex items-center gap-3 text-sm">
+            <span className={changePositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+              {changePositive ? "+" : ""}{Number(data.change24h).toFixed(2)}% (24h)
+            </span>
+            {data.marketCap && (
+              <span className="text-muted-foreground">MCap: ${Number(data.marketCap).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (toolName === "get_wallet_profile" && data.address) {
+      return (
+        <div className="p-3 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs">{data.address.slice(0, 6)}...{data.address.slice(-4)}</span>
+            <CopyToClipboardButton content={data.address} className="size-5" />
+            <Badge variant="secondary" className="text-xs">{data.network}</Badge>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-muted/50 p-2 text-center">
+              <div className="text-xs text-muted-foreground">ETH</div>
+              <div className="font-mono text-sm font-medium">{Number(data.ethBalance).toFixed(4)}</div>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-2 text-center">
+              <div className="text-xs text-muted-foreground">USDC</div>
+              <div className="font-mono text-sm font-medium">{Number(data.usdcBalance).toFixed(2)}</div>
+            </div>
+            <div className="rounded-lg bg-muted/50 p-2 text-center">
+              <div className="text-xs text-muted-foreground">Txns</div>
+              <div className="font-mono text-sm font-medium">{data.transactionCount}</div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (toolName === "generate_image" && data.imageUrl) {
+      return (
+        <div className="p-3 space-y-2">
+          <img src={data.imageUrl} alt={data.prompt} className="rounded-lg max-w-full max-h-80 object-contain" />
+          <div className="text-xs text-muted-foreground italic">{data.prompt}</div>
+        </div>
+      );
+    }
+
+    if (toolName === "summarize_url" && data.summary) {
+      return (
+        <div className="p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <a href={data.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 hover:underline truncate">{data.url}</a>
+            <Badge variant="secondary" className="text-xs shrink-0">{data.wordCount} words</Badge>
+          </div>
+          <Response>{data.summary}</Response>
+        </div>
+      );
+    }
+
+    if (toolName === "analyze_contract" && data.address) {
+      return (
+        <div className="p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-xs">{data.address.slice(0, 6)}...{data.address.slice(-4)}</span>
+            {data.contractName && <span className="text-sm font-medium">{data.contractName}</span>}
+            <Badge variant={data.isVerified ? "default" : "destructive"} className="text-xs">
+              {data.isVerified ? "Verified" : "Unverified"}
+            </Badge>
+          </div>
+          <Response>{data.analysis}</Response>
+        </div>
+      );
+    }
+  } catch {
+    // Not JSON or doesn't match expected shape — fall through to default
+  }
+  return null;
+}
+
 function renderRawOutput({
   output,
+  toolName,
 }: {
   output: ToolUIPart["output"];
+  toolName?: string;
 }): RenderOutputResult {
   const parseResult = ToolOutputSchema.safeParse(output);
   if (!parseResult.success) {
@@ -298,12 +403,11 @@ function renderRawOutput({
       content: parseResult.data.content.map((item) => item.text).join(""),
     };
   }
+  const textContent = parseResult.data.content.map((item) => item.text).join("");
+  const toolSpecific = toolName ? renderToolSpecificOutput(toolName, textContent) : null;
+
   return {
     type: "success",
-    content: (
-      <Response>
-        {parseResult.data.content.map((item) => item.text).join("")}
-      </Response>
-    ),
+    content: toolSpecific ?? <Response>{textContent}</Response>,
   };
 }
