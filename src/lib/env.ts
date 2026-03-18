@@ -13,7 +13,7 @@ export const env = createEnv({
     DEEPSEEK_API_KEY: z.string().optional(),
 
     // Default AI model (format: provider/model)
-    AI_MODEL: z.string().default("google/gemini-2.0-flash"),
+    AI_MODEL: z.string().default("deepseek/deepseek-chat"),
 
     // Network and URL
     NETWORK: z.enum(["base-sepolia", "base"]).default("base-sepolia"),

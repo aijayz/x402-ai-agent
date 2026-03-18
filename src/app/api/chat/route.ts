@@ -50,7 +50,7 @@ const ChatRequestSchema = z.object({
   }).passthrough().refine((msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0, {
     message: "Message must have either parts or content",
   })),
-  model: z.enum(["gemini-2.0-flash", "deepseek-chat", "deepseek-reasoner"]).default("gemini-2.0-flash"),
+  model: z.enum(["deepseek-chat", "deepseek-reasoner", "gemini-2.0-flash"]).default("deepseek-chat"),
 });
 
 export const POST = async (request: Request) => {

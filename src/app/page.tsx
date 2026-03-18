@@ -42,16 +42,16 @@ import {
 
 const models = [
   {
-    name: "Gemini 2.0 Flash",
-    value: "gemini-2.0-flash",
-  },
-  {
     name: "DeepSeek Chat",
     value: "deepseek-chat",
   },
   {
     name: "DeepSeek Reasoner",
     value: "deepseek-reasoner",
+  },
+  {
+    name: "Gemini 2.0 Flash",
+    value: "gemini-2.0-flash",
   },
 ];
 const suggestions = {
