@@ -1,4 +1,4 @@
-import { createAgentUIStreamResponse, tool } from "ai";
+import { createAgentUIStreamResponse } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { createMCPClient } from "@ai-sdk/mcp";
 import { withAutoPayment } from "@/lib/with-auto-payment";
@@ -52,6 +52,8 @@ const ChatRequestSchema = z.object({
   })),
   model: z.enum(["deepseek-chat", "deepseek-reasoner", "gemini-2.0-flash"]).default("deepseek-chat"),
 });
+
+export const maxDuration = 60;
 
 export const POST = async (request: Request) => {
   // Get session ID from cookie or generate one
@@ -137,13 +139,7 @@ export const POST = async (request: Request) => {
       model: getModel(modelId),
       mcpTools,
       budget,
-      localTools: {
-        "hello-local": tool({
-          description: "Receive a greeting from the local server",
-          inputSchema: z.object({ name: z.string() }),
-          execute: async (args) => `Hello ${args.name} (from local tool)`,
-        }),
-      },
+      localTools: {},
     });
 
     const response = await createAgentUIStreamResponse({
@@ -151,8 +147,19 @@ export const POST = async (request: Request) => {
       uiMessages: messages,
       sendSources: true,
       sendReasoning: true,
-      messageMetadata: () => ({ network: env.NETWORK }),
+      messageMetadata: () => ({
+        network: env.NETWORK,
+        budgetRemaining: budget.remainingUsdc(),
+      }),
       onStepFinish: async ({ toolResults }) => {
+        // Known prices per tool (must match MCP server paidTool prices)
+        const TOOL_PRICES: Record<string, number> = {
+          get_crypto_price: 0.01,
+          get_wallet_profile: 0.02,
+          summarize_url: 0.03,
+          analyze_contract: 0.03,
+          generate_image: 0.05,
+        };
         for (const toolResult of toolResults ?? []) {
           const output = toolResult.output as Record<string, unknown> | undefined;
           const meta = output?._meta as Record<string, unknown> | undefined;
@@ -160,8 +167,10 @@ export const POST = async (request: Request) => {
             | { transaction?: string; amount?: number }
             | undefined;
           if (paymentResponse?.transaction) {
-            // Amounts from x402 are in micro-USDC (10^6 units)
-            const amountUsdc = (paymentResponse.amount ?? 0) / 1e6;
+            // x402-mcp doesn't include amount in payment response, so use known price
+            const amountUsdc = paymentResponse.amount
+              ? paymentResponse.amount / 1e6
+              : TOOL_PRICES[toolResult.toolName] ?? 0;
             budget.recordSpend(amountUsdc, toolResult.toolName, paymentResponse.transaction);
           }
         }

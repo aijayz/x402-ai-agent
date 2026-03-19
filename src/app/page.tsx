@@ -19,11 +19,11 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, CreditCardIcon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -55,22 +55,31 @@ const models = [
   },
 ];
 const suggestions = {
-  "Ask a question": "What is blockchain technology?",
-  "Use a free tool": "Get a random number between 1 and 10.",
-  "Check my balance": "What is my USDC balance?",
-  "Use a paid tool ($0.01)": "Get a premium random number between 1 and 100.",
+  "Check crypto price": "What's the current price of Ethereum?",
+  "Analyze a wallet": "Show me the wallet profile for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+  "Summarize a page": "Summarize https://x402.org for me",
+  "Generate art ($0.05)": "Generate an image of a cyberpunk cityscape at sunset",
 };
 
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(models[0].value);
   const [lastError, setLastError] = useState<Error | null>(null);
+  const [budgetRemaining, setBudgetRemaining] = useState<number | null>(null);
   const { messages, sendMessage, status } = useChat({
     onError: (error) => {
       // Store error for UI display - logging handled by error boundary in production
       setLastError(error);
     },
   });
+
+  useEffect(() => {
+    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+    const meta = lastAssistant?.metadata as Record<string, unknown> | undefined;
+    if (meta?.budgetRemaining != null) {
+      setBudgetRemaining(Number(meta.budgetRemaining));
+    }
+  }, [messages]);
 
   const handleRetry = () => {
     setLastError(null);
@@ -239,19 +248,21 @@ const ChatBotDemo = () => {
           <ConversationScrollButton />
         </Conversation>
 
-        <Suggestions className="justify-center">
-          {Object.keys(suggestions).map((suggestion) => (
-            <Suggestion
-              key={suggestion}
-              suggestion={suggestion}
-              onClick={() =>
-                handleSuggestionClick(suggestion as keyof typeof suggestions)
-              }
-              variant="outline"
-              size="sm"
-            />
-          ))}
-        </Suggestions>
+        {messages.length === 0 && (
+          <Suggestions className="justify-center">
+            {Object.keys(suggestions).map((suggestion) => (
+              <Suggestion
+                key={suggestion}
+                suggestion={suggestion}
+                onClick={() =>
+                  handleSuggestionClick(suggestion as keyof typeof suggestions)
+                }
+                variant="outline"
+                size="sm"
+              />
+            ))}
+          </Suggestions>
+        )}
 
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">
           <PromptInputTextarea
@@ -265,6 +276,13 @@ const ChatBotDemo = () => {
           />
           <PromptInputToolbar>
             <PromptInputTools>
+              {budgetRemaining !== null && (
+                <div className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
+                  <CreditCardIcon className="size-3" />
+                  <span className="font-mono">${budgetRemaining.toFixed(2)}</span>
+                  <span>remaining</span>
+                </div>
+              )}
               <PromptInputModelSelect
                 onValueChange={(value) => {
                   setModel(value);

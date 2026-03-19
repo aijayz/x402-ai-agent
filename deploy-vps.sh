@@ -185,7 +185,7 @@ cmd_deploy() {
     echo "  x402 AI Agent — Deploy"
     echo "============================================"
     pull_latest
-    echo "stopping service to free RAM for build"
+    echo "→ Stopping service to free RAM for build..."
     systemctl stop x402 || true
     build_app
     echo "→ Starting service..."
