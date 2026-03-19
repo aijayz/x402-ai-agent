@@ -67,8 +67,14 @@ async function getHandler() {
           async (args) => {
             try {
               const res = await fetch(
-                `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(args.token)}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true`
+                `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(args.token)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
               );
+              if (res.status === 404) {
+                return {
+                  content: [{ type: "text", text: `Token "${args.token}" not found. Use CoinGecko IDs like "bitcoin", "ethereum", "solana".` }],
+                  isError: true,
+                };
+              }
               if (!res.ok) {
                 return {
                   content: [{ type: "text", text: `Error: CoinGecko API returned ${res.status}. ${res.status === 429 ? "Rate limited — try again in a moment." : ""}` }],
@@ -76,10 +82,10 @@ async function getHandler() {
                 };
               }
               const data = await res.json();
-              const tokenData = data[args.token];
-              if (!tokenData) {
+              const md = data.market_data;
+              if (!md) {
                 return {
-                  content: [{ type: "text", text: `Token "${args.token}" not found. Use CoinGecko IDs like "bitcoin", "ethereum", "solana".` }],
+                  content: [{ type: "text", text: `No market data available for "${args.token}".` }],
                   isError: true,
                 };
               }
@@ -88,9 +94,9 @@ async function getHandler() {
                   type: "text",
                   text: JSON.stringify({
                     token: args.token,
-                    priceUsd: tokenData.usd,
-                    change24h: tokenData.usd_24h_change,
-                    marketCap: tokenData.usd_market_cap,
+                    priceUsd: md.current_price?.usd,
+                    change24h: md.price_change_percentage_24h,
+                    marketCap: md.market_cap?.usd,
                   }),
                 }],
               };
