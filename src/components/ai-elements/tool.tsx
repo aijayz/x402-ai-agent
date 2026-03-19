@@ -225,10 +225,22 @@ export const ToolOutput = ({
               <ZapIcon className="size-3" />
               Payment Successful
               {(() => {
+                // x402-mcp doesn't include amount in payment response, use known prices
+                const TOOL_PRICES: Record<string, number> = {
+                  get_crypto_price: 0.01,
+                  get_wallet_profile: 0.02,
+                  summarize_url: 0.03,
+                  analyze_contract: 0.03,
+                  generate_image: 0.05,
+                };
+                const tName = part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
                 // @ts-expect-error - x402 payment metadata
                 const amount = part.output?._meta?.["x402.payment-response"]?.amount;
-                if (amount != null) {
-                  return <span className="ml-1">&middot; ${(Number(amount) / 1e6).toFixed(2)} USDC</span>;
+                const displayAmount = amount != null
+                  ? (Number(amount) / 1e6).toFixed(2)
+                  : TOOL_PRICES[tName]?.toFixed(2);
+                if (displayAmount) {
+                  return <span className="ml-1">&middot; ${displayAmount} USDC</span>;
                 }
                 return null;
               })()}
@@ -411,9 +423,17 @@ function renderRawOutput({
     };
   }
   if (parseResult.data.isError) {
+    const errorText = parseResult.data.content.map((item) => item.text).join("");
+    // Detect x402 payment-required errors and render them cleanly
+    if (errorText.includes("x402Version") && errorText.includes("payment is required")) {
+      return {
+        type: "error",
+        content: "Payment required — retrying with automatic payment...",
+      };
+    }
     return {
       type: "error",
-      content: parseResult.data.content.map((item) => item.text).join(""),
+      content: errorText,
     };
   }
   const textContent = parseResult.data.content.map((item) => item.text).join("");

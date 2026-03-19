@@ -248,19 +248,21 @@ const ChatBotDemo = () => {
           <ConversationScrollButton />
         </Conversation>
 
-        <Suggestions className="justify-center">
-          {Object.keys(suggestions).map((suggestion) => (
-            <Suggestion
-              key={suggestion}
-              suggestion={suggestion}
-              onClick={() =>
-                handleSuggestionClick(suggestion as keyof typeof suggestions)
-              }
-              variant="outline"
-              size="sm"
-            />
-          ))}
-        </Suggestions>
+        {messages.length === 0 && (
+          <Suggestions className="justify-center">
+            {Object.keys(suggestions).map((suggestion) => (
+              <Suggestion
+                key={suggestion}
+                suggestion={suggestion}
+                onClick={() =>
+                  handleSuggestionClick(suggestion as keyof typeof suggestions)
+                }
+                variant="outline"
+                size="sm"
+              />
+            ))}
+          </Suggestions>
+        )}
 
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">
           <PromptInputTextarea
