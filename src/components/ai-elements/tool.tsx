@@ -297,7 +297,7 @@ function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode
       return (
         <div className="p-3 space-y-2">
           <div className="text-xs text-muted-foreground uppercase tracking-wide">{data.token}</div>
-          <div className="text-2xl font-bold font-mono">${Number(data.priceUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div className="text-2xl font-bold font-mono">${Number(data.priceUsd).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
           <div className="flex items-center gap-3 text-sm">
             <span className={changePositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
               {changePositive ? "+" : ""}{Number(data.change24h).toFixed(2)}% (24h)
