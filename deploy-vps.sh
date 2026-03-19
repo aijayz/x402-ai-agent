@@ -71,8 +71,17 @@ pull_latest() {
 build_app() {
     echo "→ Installing dependencies..."
     run_as_app_user "cd $APP_DIR && pnpm install --frozen-lockfile"
-    echo "→ Building application..."
-    run_as_app_user "cd $APP_DIR && SKIP_ENV_VALIDATION=1 pnpm build"
+
+    # Fix permissions on .next directory (may have been created by root)
+    echo "→ Fixing permissions..."
+    if [ -d "$APP_DIR/.next" ]; then
+        chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next" 2>/dev/null || true
+    fi
+
+    echo "→ Building application (optimized for low memory)..."
+    # Use --no-lint and limit Node memory to reduce RAM usage
+    # Don't use turbopack for production build (saves memory)
+    run_as_app_user "cd $APP_DIR && NODE_OPTIONS='--max-old-space-size=1024' pnpm next build --no-lint"
     echo "→ Copying standalone assets..."
     run_as_app_user "cp -r $APP_DIR/.next/static $APP_DIR/.next/standalone/.next/static"
     if [ -d "$APP_DIR/public" ]; then
