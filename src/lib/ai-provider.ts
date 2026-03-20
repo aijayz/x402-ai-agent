@@ -3,7 +3,7 @@ import { google } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
 
 /**
- * Returns a LanguageModel for the given model string (e.g. "google/gemini-2.0-flash").
+ * Returns a LanguageModel for the given model string (e.g. "google/gemini-2.5-flash").
  *
  * Routes to the appropriate provider SDK based on the "provider/" prefix.
  */

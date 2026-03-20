@@ -4,41 +4,16 @@ import { createMCPClient } from "@ai-sdk/mcp";
 import { withAutoPayment } from "@/lib/with-auto-payment";
 import z from "zod";
 import { env } from "@/lib/env";
-import { getOrCreatePurchaserAccount } from "@/lib/accounts";
+import { getOrCreatePurchaserAccount, getChain } from "@/lib/accounts";
+import { createWalletClient, http } from "viem";
 import { BudgetController } from "@/lib/budget-controller";
 import { createOrchestrator } from "@/lib/agents/orchestrator";
 import { getModel } from "@/lib/ai-provider";
+import { SessionStore } from "@/lib/credits/session-store";
+import { CreditStore } from "@/lib/credits/credit-store";
+import { SpendEventStore } from "@/lib/credits/spend-store";
 
-// In-memory session store (use Redis for production)
-const sessionStore = new Map<string, { callCount: number; spent: number }>();
-
-// Session timeout: 30 minutes
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
-
-function getOrCreateSession(sessionId: string) {
-  const now = Date.now();
-  const existing = sessionStore.get(sessionId);
-
-  if (existing && now - (existing as any).lastActive < SESSION_TIMEOUT_MS) {
-    (existing as any).lastActive = now;
-    return existing;
-  }
-
-  // Create new session
-  const session = { callCount: 0, spent: 0, lastActive: now };
-  sessionStore.set(sessionId, session);
-
-  // Clean up old sessions periodically
-  if (sessionStore.size > 1000) {
-    for (const [id, sess] of sessionStore) {
-      if (now - (sess as any).lastActive > SESSION_TIMEOUT_MS) {
-        sessionStore.delete(id);
-      }
-    }
-  }
-
-  return session;
-}
+const SESSION_COOKIE_MAX_AGE = 1800; // 30 minutes
 
 // Input validation schema
 const ChatRequestSchema = z.object({
@@ -50,40 +25,51 @@ const ChatRequestSchema = z.object({
   }).passthrough().refine((msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0, {
     message: "Message must have either parts or content",
   })),
-  model: z.enum(["deepseek-chat", "deepseek-reasoner", "gemini-2.0-flash"]).default("deepseek-chat"),
+  model: z.enum(["deepseek-chat", "deepseek-reasoner", "gemini-2.5-flash"]).default("deepseek-chat"),
 });
 
 export const maxDuration = 60;
 
 export const POST = async (request: Request) => {
-  // Get session ID from cookie or generate one
   const cookieHeader = request.headers.get("cookie") || "";
   const existingSessionId = cookieHeader.match(/session_id=([^;]+)/)?.[1];
   const sessionId = existingSessionId || crypto.randomUUID();
+  const walletAddress = request.headers.get("x-wallet-address");
 
-  // Get or create session data
-  const session = getOrCreateSession(sessionId);
+  let budget: BudgetController;
 
-  // Per-session budget controller — $0.50 USDC limit, 5 DeepSeek calls max
-  const budget = new BudgetController({
-    sessionLimitUsdc: 0.50,
-    maxCalls: 5,
-    initialCallCount: session.callCount,
-    initialSpent: session.spent,
-  });
-
-  // Check if call limit already exceeded
-  const callCheck = budget.canMakeCall();
-  if (!callCheck.allowed) {
-    return new Response(
-      JSON.stringify({ error: callCheck.reason }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
-    );
+  if (walletAddress) {
+    // Wallet user — credit-based
+    const account = await CreditStore.getOrCreate(walletAddress);
+    budget = new BudgetController({
+      mode: "credit",
+      walletAddress,
+      balanceMicroUsdc: account.balanceMicroUsdc,
+    });
+  } else {
+    // Anonymous — session-based, 2 free calls
+    const session = await SessionStore.getOrCreate(sessionId);
+    if (SessionStore.isFreeCallsExhausted(session.freeCallsUsed)) {
+      return new Response(
+        JSON.stringify({
+          error: "Free calls exhausted. Connect a wallet to continue.",
+          code: "FREE_CALLS_EXHAUSTED",
+        }),
+        { status: 402, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    // Increment in DB BEFORE constructing BudgetController.
+    // Do NOT call budget.recordCall() later — the DB is the source of truth.
+    await SessionStore.incrementCallCount(sessionId);
+    budget = new BudgetController({
+      sessionLimitUsdc: 0.50,
+      maxCalls: 2,
+      initialCallCount: session.freeCallsUsed + 1, // post-increment
+    });
   }
-  budget.recordCall();
 
-  // Update session store with new call count
-  session.callCount = budget.getCallCount();
+  // Do NOT call budget.recordCall() here — DB handles anonymous counts,
+  // credit mode has no call limit.
 
   // Parse and validate request body
   const body = await request.json();
@@ -98,6 +84,12 @@ export const POST = async (request: Request) => {
 
   // Get the purchaser account (wallet that pays for tools)
   const purchaserAccount = await getOrCreatePurchaserAccount();
+
+  const houseWalletClient = createWalletClient({
+    account: purchaserAccount,
+    chain: getChain(),
+    transport: http(),
+  });
 
   // Create MCP client with payment support
   const baseMcpClient = await createMCPClient({
@@ -129,7 +121,7 @@ export const POST = async (request: Request) => {
 
     // Resolve frontend model selection to provider model ID
     const modelMap: Record<string, string> = {
-      "gemini-2.0-flash": "google/gemini-2.0-flash",
+      "gemini-2.5-flash": "google/gemini-2.5-flash",
       "deepseek-chat": "deepseek/deepseek-chat",
       "deepseek-reasoner": "deepseek/deepseek-reasoner",
     };
@@ -140,7 +132,11 @@ export const POST = async (request: Request) => {
       mcpTools,
       budget,
       localTools: {},
+      walletClient: houseWalletClient,
+      userWallet: walletAddress,
     });
+
+    const turnSpendEvents: Array<{ toolName: string; amountUsdc: number }> = [];
 
     const response = await createAgentUIStreamResponse({
       agent,
@@ -150,6 +146,7 @@ export const POST = async (request: Request) => {
       messageMetadata: () => ({
         network: env.NETWORK,
         budgetRemaining: budget.remainingUsdc(),
+        spendEvents: turnSpendEvents,
       }),
       onStepFinish: async ({ toolResults }) => {
         // Known prices per tool (must match MCP server paidTool prices)
@@ -167,11 +164,37 @@ export const POST = async (request: Request) => {
             | { transaction?: string; amount?: number }
             | undefined;
           if (paymentResponse?.transaction) {
-            // x402-mcp doesn't include amount in payment response, so use known price
-            const amountUsdc = paymentResponse.amount
-              ? paymentResponse.amount / 1e6
-              : TOOL_PRICES[toolResult.toolName] ?? 0;
-            budget.recordSpend(amountUsdc, toolResult.toolName, paymentResponse.transaction);
+            // All amounts in micro-USDC
+            const serviceCostMicro = TOOL_PRICES[toolResult.toolName]
+              ? Math.round(TOOL_PRICES[toolResult.toolName] * 1_000_000)
+              : 0;
+            const markupBps = 3000; // 30%
+            const chargedMicro = Math.round(serviceCostMicro * 1.30);
+
+            // Track in BudgetController (micro-USDC in both modes)
+            budget.recordSpend(chargedMicro, toolResult.toolName, paymentResponse.transaction);
+
+            turnSpendEvents.push({
+              toolName: toolResult.toolName,
+              amountUsdc: chargedMicro / 1_000_000,
+            });
+
+            if (walletAddress) {
+              // Atomic DB deduction for wallet users
+              const result = await CreditStore.deduct(walletAddress, chargedMicro);
+              if (!result.success) {
+                console.error("Credit deduction failed — balance may have gone negative");
+              }
+
+              await SpendEventStore.record({
+                walletAddress,
+                toolName: toolResult.toolName,
+                serviceCostMicroUsdc: serviceCostMicro,
+                chargedAmountMicroUsdc: chargedMicro,
+                markupBps,
+                txHash: paymentResponse.transaction,
+              });
+            }
           }
         }
       },
@@ -182,7 +205,7 @@ export const POST = async (request: Request) => {
 
     // Add session cookie to response
     const headers = new Headers(response.headers);
-    headers.set("Set-Cookie", `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TIMEOUT_MS / 1000}`);
+    headers.set("Set-Cookie", `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_COOKIE_MAX_AGE}`);
 
     return new Response(response.body, {
       status: response.status,

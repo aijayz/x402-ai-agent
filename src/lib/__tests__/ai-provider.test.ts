@@ -3,7 +3,7 @@ import { getModel } from "../ai-provider";
 
 describe("getModel", () => {
   it("returns a google provider model for google/ prefix", () => {
-    const model = getModel("google/gemini-2.0-flash");
+    const model = getModel("google/gemini-2.5-flash");
     expect(model).toBeDefined();
   });
 

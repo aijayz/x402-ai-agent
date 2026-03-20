@@ -32,6 +32,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Loader } from "@/components/ai-elements/loader";
+import { SessionReceipt } from "@/components/ai-elements/session-receipt";
 import {
   Tool,
   ToolContent,
@@ -40,7 +41,42 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 
+function CostConfirmBanner({ toolName, estimatedCost, onConfirm, onCancel }: {
+  toolName: string;
+  estimatedCost: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const [countdown, setCountdown] = useState(estimatedCost <= 0.50 ? 2 : null);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) { onConfirm(); return; }
+    const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, onConfirm]);
+
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm">
+      <span>
+        <strong>{toolName.replace(/_/g, " ")}</strong> will cost ~${estimatedCost.toFixed(2)}
+        {countdown !== null && <span className="text-muted-foreground"> (proceeding in {countdown}s)</span>}
+      </span>
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="px-3 py-1 rounded border text-xs">Cancel</button>
+        <button onClick={onConfirm} className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs">
+          Proceed
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const models = [
+  {
+    name: "Gemini 2.5 Flash",
+    value: "gemini-2.5-flash",
+  },
   {
     name: "DeepSeek Chat",
     value: "deepseek-chat",
@@ -49,16 +85,12 @@ const models = [
     name: "DeepSeek Reasoner",
     value: "deepseek-reasoner",
   },
-  {
-    name: "Gemini 2.0 Flash",
-    value: "gemini-2.0-flash",
-  },
 ];
 const suggestions = {
-  "Check crypto price": "What's the current price of Ethereum?",
-  "Analyze a wallet": "Show me the wallet profile for 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-  "Summarize a page": "Summarize https://x402.org for me",
-  "Generate art ($0.05)": "Generate an image of a cyberpunk cityscape at sunset",
+  "Is this token safe?": "Analyze the safety of contract 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
+  "Whale activity": "What are whales buying right now?",
+  "Crypto sentiment": "What's the narrative around Solana on Twitter and Farcaster?",
+  "Check price ($0.01)": "What's the current price of Ethereum?",
 };
 
 const ChatBotDemo = () => {
@@ -66,6 +98,14 @@ const ChatBotDemo = () => {
   const [model, setModel] = useState<string>(models[0].value);
   const [lastError, setLastError] = useState<Error | null>(null);
   const [budgetRemaining, setBudgetRemaining] = useState<number | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [creditBalance, setCreditBalance] = useState<number | null>(null);
+  const [pendingCostConfirm, setPendingCostConfirm] = useState<{
+    toolName: string;
+    estimatedCost: number;
+    onConfirm: () => void;
+    onCancel: () => void;
+  } | null>(null);
   const { messages, sendMessage, status } = useChat({
     onError: (error) => {
       // Store error for UI display - logging handled by error boundary in production
@@ -81,6 +121,51 @@ const ChatBotDemo = () => {
     }
   }, [messages]);
 
+  async function connectWallet() {
+    if (typeof window.ethereum === "undefined") {
+      alert("Please install MetaMask or another EVM wallet");
+      return;
+    }
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    }) as string[];
+    const address = accounts[0];
+    setWalletAddress(address);
+
+    // Claim free credits
+    const res = await fetch("/api/credits/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ walletAddress: address }),
+    });
+    const data = await res.json();
+    setCreditBalance(data.balance ?? 0);
+  }
+
+  function checkForCostAnnouncement(text: string) {
+    const costMatch = text.match(/(?:~\$|will cost[^$]*\$|estimated cost[^$]*\$|costs?\s+\$)(\d+\.?\d*)/i);
+    if (!costMatch) return;
+    const estimatedCost = parseFloat(costMatch[1]);
+    if (estimatedCost < 0.10) return;
+
+    setPendingCostConfirm({
+      toolName: "research tool",
+      estimatedCost,
+      onConfirm: () => setPendingCostConfirm(null),
+      onCancel: () => setPendingCostConfirm(null),
+    });
+  }
+
+  useEffect(() => {
+    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+    if (!lastAssistant || status !== "streaming") return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const textParts = lastAssistant.parts.filter((p: any) => p.type === "text");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullText = textParts.map((p: any) => p.text).join("");
+    checkForCostAnnouncement(fullText);
+  }, [messages, status]);
+
   const handleRetry = () => {
     setLastError(null);
     // In AI SDK v6, we can resend the last message
@@ -91,7 +176,7 @@ const ChatBotDemo = () => {
         ?.filter((p: any) => p.type === 'text')
         .map((p: any) => p.text)
         .join('') || '';
-      sendMessage({ text }, { body: { model } });
+      sendMessage({ text }, { body: { model }, headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined });
     }
   };
 
@@ -100,11 +185,7 @@ const ChatBotDemo = () => {
     if (input.trim()) {
       sendMessage(
         { text: input },
-        {
-          body: {
-            model: model,
-          },
-        }
+        { body: { model }, headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined }
       );
       setInput("");
     }
@@ -113,17 +194,27 @@ const ChatBotDemo = () => {
   const handleSuggestionClick = (suggestion: keyof typeof suggestions) => {
     sendMessage(
       { text: suggestions[suggestion] },
-      {
-        body: {
-          model: model,
-        },
-      }
+      { body: { model }, headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined }
     );
   };
 
   return (
     <div className="w-full h-[calc(100vh-60px)] p-4 md:p-6 relative">
       <div className="flex flex-col h-full max-w-4xl mx-auto">
+        <div className="flex justify-end mb-2">
+          {walletAddress ? (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
+              {creditBalance !== null && (
+                <span className="text-muted-foreground">${(creditBalance / 1_000_000).toFixed(2)}</span>
+              )}
+            </div>
+          ) : (
+            <button onClick={connectWallet} className="text-sm px-3 py-1 rounded border">
+              Connect Wallet
+            </button>
+          )}
+        </div>
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="min-h-full flex flex-col justify-end">
             {messages.length === 0 && status === "ready" && (
@@ -217,32 +308,52 @@ const ChatBotDemo = () => {
                     }
                   })}
                 </MessageContent>
+                {message.role === "assistant" && (() => {
+                  const meta = message.metadata as { spendEvents?: Array<{ toolName: string; amountUsdc: number }>; budgetRemaining?: number } | undefined;
+                  if (meta?.spendEvents?.length) {
+                    return <SessionReceipt items={meta.spendEvents} balanceRemaining={meta.budgetRemaining ?? 0} />;
+                  }
+                  return null;
+                })()}
               </Message>
             ))}
             {status === "submitted" && <Loader />}
             {status === "error" && (
-              <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
-                <div className="flex flex-col items-center gap-4 p-6 bg-red-50 border border-red-200 rounded-lg text-center">
-                  <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full">
-                    <AlertCircle className="w-6 h-6 text-red-600" />
+              lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted") ? (
+                <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
+                  <div className="flex flex-col items-center gap-4 p-6 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-yellow-900">Free calls used up</h3>
+                      <p className="text-sm text-yellow-700">
+                        You&apos;ve used your 2 free tool calls. Connect a wallet to get up to $0.50 in free credits.
+                      </p>
+                    </div>
+                    {!walletAddress && (
+                      <button onClick={connectWallet} className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm">
+                        Connect Wallet
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-semibold text-red-900">Something went wrong</h3>
-                    <p className="text-sm text-red-700">
-                      {lastError?.message || "An unexpected error occurred. Please try again."}
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRetry}
-                    className="gap-2"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    Try again
-                  </Button>
                 </div>
-              </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
+                  <div className="flex flex-col items-center gap-4 p-6 bg-red-50 border border-red-200 rounded-lg text-center">
+                    <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full">
+                      <AlertCircle className="w-6 h-6 text-red-600" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-lg font-semibold text-red-900">Something went wrong</h3>
+                      <p className="text-sm text-red-700">
+                        {lastError?.message || "An unexpected error occurred. Please try again."}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+                      <RefreshCw className="w-4 h-4" />
+                      Try again
+                    </Button>
+                  </div>
+                </div>
+              )
             )}
           </ConversationContent>
           <ConversationScrollButton />
@@ -264,6 +375,7 @@ const ChatBotDemo = () => {
           </Suggestions>
         )}
 
+        {pendingCostConfirm && <CostConfirmBanner {...pendingCostConfirm} />}
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
