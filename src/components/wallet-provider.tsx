@@ -40,7 +40,7 @@ interface WalletContextValue {
   balance: number | null; // micro-USDC
   freeCallsRemaining: number | null;
   network: NetworkId;
-  connectWallet: () => Promise<void>;
+  connectWallet: () => Promise<string | undefined>;
   disconnectWallet: () => void;
   refreshBalance: () => Promise<void>;
   sendUsdc: (to: string, amountUsdc: number) => Promise<string>;
@@ -68,10 +68,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [walletAddress]);
 
-  const connectWallet = useCallback(async () => {
+  const connectWallet = useCallback(async (): Promise<string | undefined> => {
     if (typeof window === "undefined" || typeof window.ethereum === "undefined") {
       alert("Please install MetaMask or another EVM wallet");
-      return;
+      return undefined;
     }
 
     // Request accounts
@@ -115,6 +115,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     });
     const data = await res.json();
     setBalance(data.balance ?? 0);
+    return address;
   }, [network]);
 
   const sendUsdc = useCallback(async (to: string, amountUsdc: number): Promise<string> => {

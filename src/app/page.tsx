@@ -98,7 +98,7 @@ const ChatBotDemo = () => {
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const { walletAddress, connectWallet, sendUsdc, refreshBalance, updateFromMetadata } = useWallet();
 
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, setMessages, status } = useChat({
     onError: (error) => {
       setLastError(error);
     },
@@ -117,6 +117,29 @@ const ChatBotDemo = () => {
   }, [messages, updateFromMetadata]);
 
   const headers = walletAddress ? { "x-wallet-address": walletAddress } : undefined;
+
+  // Connect wallet then auto-retry the last failed message
+  const handleConnectAndRetry = useCallback(async () => {
+    const address = await connectWallet();
+    if (!address) return;
+
+    // Extract the last user message text before removing it
+    const lastUserMessage = messages.filter(m => m.role === "user").pop();
+    if (!lastUserMessage) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const text = lastUserMessage.parts
+      ?.filter((p: any) => p.type === "text")
+      .map((p: any) => p.text)
+      .join("") || "";
+    if (!text) return;
+
+    // Remove the failed user message so sendMessage doesn't duplicate it
+    setMessages(prev => prev.filter(m => m.id !== lastUserMessage.id));
+    setLastError(null);
+
+    // Resend with wallet header — this adds the user message back + gets a response
+    sendMessage({ text }, { headers: { "x-wallet-address": address } });
+  }, [connectWallet, messages, sendMessage, setMessages]);
 
   const handleOpenTopUp = useCallback(async () => {
     if (!walletAddress) {
@@ -184,16 +207,18 @@ const ChatBotDemo = () => {
   }, [handleOpenTopUp, connectWallet]);
 
   const handleRetry = () => {
-    setLastError(null);
     const lastUserMessage = messages.filter(m => m.role === "user").pop();
-    if (lastUserMessage) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const text = lastUserMessage.parts
-        ?.filter((p: any) => p.type === "text")
-        .map((p: any) => p.text)
-        .join("") || "";
-      sendMessage({ text }, { headers });
-    }
+    if (!lastUserMessage) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const text = lastUserMessage.parts
+      ?.filter((p: any) => p.type === "text")
+      .map((p: any) => p.text)
+      .join("") || "";
+    if (!text) return;
+
+    setMessages(prev => prev.filter(m => m.id !== lastUserMessage.id));
+    setLastError(null);
+    sendMessage({ text }, { headers });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -332,10 +357,18 @@ const ChatBotDemo = () => {
                         You&apos;ve used your 2 free tool calls. Connect a wallet to get up to $0.50 in free credits.
                       </p>
                     </div>
-                    {!walletAddress && (
-                      <button onClick={connectWallet} className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm">
+                    {!walletAddress ? (
+                      <button
+                        onClick={handleConnectAndRetry}
+                        className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm"
+                      >
                         Connect Wallet
                       </button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+                        <RefreshCw className="w-4 h-4" />
+                        Retry
+                      </Button>
                     )}
                   </div>
                 </div>
