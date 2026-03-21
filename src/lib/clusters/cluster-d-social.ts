@@ -4,7 +4,7 @@ import { x402Fetch } from "../x402-client";
 import { env } from "../env";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
 
 interface ClusterDDeps {
   walletClient: WalletClient;
@@ -22,8 +22,11 @@ export function createClusterDTools(deps: ClusterDDeps) {
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
       }),
       execute: async ({ topic }): Promise<ClusterResult> => {
+        const unavailable: UnavailableService[] = [];
+        const hasAnyService = !!(env.TWITSH_URL || env.NEYNAR_URL);
         const maxReservationMicro = 130_000;
-        if (deps.userWallet) {
+
+        if (hasAnyService && deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance. Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
@@ -45,7 +48,7 @@ export function createClusterDTools(deps: ClusterDDeps) {
             errors.push(`twit.sh: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("twit.sh: not configured");
+          unavailable.push({ name: "twit.sh", purpose: "Twitter/X crypto sentiment search", typicalCostUsdc: 0.03 });
         }
 
         if (env.NEYNAR_URL) {
@@ -60,7 +63,7 @@ export function createClusterDTools(deps: ClusterDDeps) {
             errors.push(`Neynar: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("Neynar: not configured");
+          unavailable.push({ name: "Neynar", purpose: "Farcaster social graph and cast search", typicalCostUsdc: 0.03 });
         }
 
         if (env.FIRECRAWL_URL) {
@@ -78,17 +81,17 @@ export function createClusterDTools(deps: ClusterDDeps) {
 
         const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
 
-        if (deps.userWallet) {
+        if (hasAnyService && deps.userWallet) {
           const unusedMicro = maxReservationMicro - totalCost;
           if (unusedMicro > 0) await CreditStore.release(deps.userWallet, unusedMicro);
         }
 
         const summary = calls.length > 0
           ? `Analyzed social narrative for "${topic}" using ${calls.map(c => c.serviceName).join(", ")}. ` +
-            (errors.length > 0 ? `Unavailable: ${errors.join("; ")}` : "")
-          : `No social intelligence services available. ${errors.join("; ")}`;
+            (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
+          : `Social Narrative Analysis requires external x402 services that aren't connected yet.`;
 
-        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
+        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
       },
     }),
   };

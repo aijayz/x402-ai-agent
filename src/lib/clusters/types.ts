@@ -9,11 +9,19 @@ export interface ServiceCallResult {
   error?: string;
 }
 
+/** A service that is not currently configured/available. */
+export interface UnavailableService {
+  name: string;
+  purpose: string;
+  typicalCostUsdc: number;
+}
+
 /** Result from a cluster tool execution. */
 export interface ClusterResult {
   summary: string;
   serviceCalls: ServiceCallResult[];
   totalCostMicroUsdc: number;
+  unavailableServices?: UnavailableService[];
 }
 
 /** Markup rates in basis points. */

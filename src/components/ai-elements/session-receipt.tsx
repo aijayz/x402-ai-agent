@@ -7,10 +7,9 @@ interface ReceiptItem {
 
 interface SessionReceiptProps {
   items: ReceiptItem[];
-  balanceRemaining: number;
 }
 
-export function SessionReceipt({ items, balanceRemaining }: SessionReceiptProps) {
+export function SessionReceipt({ items }: SessionReceiptProps) {
   if (items.length === 0) return null;
 
   const total = items.reduce((sum, item) => sum + item.amountUsdc, 0);
@@ -27,10 +26,6 @@ export function SessionReceipt({ items, balanceRemaining }: SessionReceiptProps)
       <div className="border-t border-border pt-1 flex justify-between font-medium">
         <span>Total</span>
         <span>${total.toFixed(3)}</span>
-      </div>
-      <div className="flex justify-between text-muted-foreground">
-        <span>Balance remaining</span>
-        <span>${balanceRemaining.toFixed(3)}</span>
       </div>
     </div>
   );

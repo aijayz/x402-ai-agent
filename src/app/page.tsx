@@ -8,7 +8,6 @@ import {
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import {
   PromptInput,
-  PromptInputButton,
   PromptInputModelSelect,
   PromptInputModelSelectContent,
   PromptInputModelSelectItem,
@@ -19,11 +18,11 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import { AlertCircle, CreditCardIcon, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -40,52 +39,21 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
-
-function CostConfirmBanner({ toolName, estimatedCost, onConfirm, onCancel }: {
-  toolName: string;
-  estimatedCost: number;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  const [countdown, setCountdown] = useState(estimatedCost <= 0.50 ? 2 : null);
-
-  useEffect(() => {
-    if (countdown === null) return;
-    if (countdown <= 0) { onConfirm(); return; }
-    const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [countdown, onConfirm]);
-
-  return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-sm">
-      <span>
-        <strong>{toolName.replace(/_/g, " ")}</strong> will cost ~${estimatedCost.toFixed(2)}
-        {countdown !== null && <span className="text-muted-foreground"> (proceeding in {countdown}s)</span>}
-      </span>
-      <div className="flex gap-2">
-        <button onClick={onCancel} className="px-3 py-1 rounded border text-xs">Cancel</button>
-        <button onClick={onConfirm} className="px-3 py-1 rounded bg-primary text-primary-foreground text-xs">
-          Proceed
-        </button>
-      </div>
-    </div>
-  );
-}
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useWallet } from "@/components/wallet-provider";
 
 const models = [
-  {
-    name: "Gemini 2.5 Flash",
-    value: "gemini-2.5-flash",
-  },
-  {
-    name: "DeepSeek Chat",
-    value: "deepseek-chat",
-  },
-  {
-    name: "DeepSeek Reasoner",
-    value: "deepseek-reasoner",
-  },
+  { name: "Gemini 2.5 Flash", value: "gemini-2.5-flash" },
+  { name: "DeepSeek Chat", value: "deepseek-chat" },
+  { name: "DeepSeek Reasoner", value: "deepseek-reasoner" },
 ];
+
 const suggestions = {
   "Is this token safe?": "Analyze the safety of contract 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
   "Whale activity": "What are whales buying right now?",
@@ -93,157 +61,119 @@ const suggestions = {
   "Check price ($0.01)": "What's the current price of Ethereum?",
 };
 
+// Parse [ACTION:xxx] markers from completed message text
+function parseActions(text: string): { cleanText: string; actions: string[] } {
+  const actions: string[] = [];
+  const cleanText = text.replace(/\[ACTION:(\w+)\]/g, (_, action) => {
+    actions.push(action);
+    return "";
+  });
+  return { cleanText: cleanText.trim(), actions };
+}
+
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(models[0].value);
   const [lastError, setLastError] = useState<Error | null>(null);
-  const [budgetRemaining, setBudgetRemaining] = useState<number | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [creditBalance, setCreditBalance] = useState<number | null>(null);
-  const [pendingCostConfirm, setPendingCostConfirm] = useState<{
-    toolName: string;
-    estimatedCost: number;
-    onConfirm: () => void;
-    onCancel: () => void;
-  } | null>(null);
+  const [topUpSheetOpen, setTopUpSheetOpen] = useState(false);
+  const [depositInfo, setDepositInfo] = useState<{ depositAddress: string; network: string } | null>(null);
+  const { walletAddress, connectWallet, updateFromMetadata } = useWallet();
+
   const { messages, sendMessage, status } = useChat({
     onError: (error) => {
-      // Store error for UI display - logging handled by error boundary in production
       setLastError(error);
     },
   });
 
+  // Update wallet context from message metadata
   useEffect(() => {
     const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
     const meta = lastAssistant?.metadata as Record<string, unknown> | undefined;
-    if (meta?.budgetRemaining != null) {
-      setBudgetRemaining(Number(meta.budgetRemaining));
+    if (meta) {
+      updateFromMetadata({
+        budgetRemaining: meta.budgetRemaining as number | undefined,
+        freeCallsRemaining: meta.freeCallsRemaining as number | undefined,
+      });
     }
-  }, [messages]);
+  }, [messages, updateFromMetadata]);
 
-  async function connectWallet() {
-    if (typeof window.ethereum === "undefined") {
-      alert("Please install MetaMask or another EVM wallet");
+  const headers = walletAddress ? { "x-wallet-address": walletAddress } : undefined;
+
+  const handleOpenTopUp = useCallback(async () => {
+    if (!walletAddress) {
+      await connectWallet();
       return;
     }
-    const accounts = await window.ethereum.request({
-      method: "eth_requestAccounts",
-    }) as string[];
-    const address = accounts[0];
-    setWalletAddress(address);
+    try {
+      const res = await fetch("/api/credits/topup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress }),
+      });
+      const data = await res.json();
+      setDepositInfo({ depositAddress: data.depositAddress, network: data.network });
+      setTopUpSheetOpen(true);
+    } catch {
+      alert("Failed to fetch deposit info");
+    }
+  }, [walletAddress, connectWallet]);
 
-    // Claim free credits
-    const res = await fetch("/api/credits/claim", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ walletAddress: address }),
-    });
-    const data = await res.json();
-    setCreditBalance(data.balance ?? 0);
-  }
-
-  function checkForCostAnnouncement(text: string) {
-    const costMatch = text.match(/(?:~\$|will cost[^$]*\$|estimated cost[^$]*\$|costs?\s+\$)(\d+\.?\d*)/i);
-    if (!costMatch) return;
-    const estimatedCost = parseFloat(costMatch[1]);
-    if (estimatedCost < 0.10) return;
-
-    setPendingCostConfirm({
-      toolName: "research tool",
-      estimatedCost,
-      onConfirm: () => setPendingCostConfirm(null),
-      onCancel: () => setPendingCostConfirm(null),
-    });
-  }
-
-  useEffect(() => {
-    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-    if (!lastAssistant || status !== "streaming") return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const textParts = lastAssistant.parts.filter((p: any) => p.type === "text");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const fullText = textParts.map((p: any) => p.text).join("");
-    checkForCostAnnouncement(fullText);
-  }, [messages, status]);
+  const handleAction = useCallback((action: string) => {
+    if (action === "topup") handleOpenTopUp();
+    else if (action === "connect_wallet") connectWallet();
+  }, [handleOpenTopUp, connectWallet]);
 
   const handleRetry = () => {
     setLastError(null);
-    // In AI SDK v6, we can resend the last message
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    const lastUserMessage = messages.filter(m => m.role === "user").pop();
     if (lastUserMessage) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const text = lastUserMessage.parts
-        ?.filter((p: any) => p.type === 'text')
+        ?.filter((p: any) => p.type === "text")
         .map((p: any) => p.text)
-        .join('') || '';
-      sendMessage({ text }, { body: { model }, headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined });
+        .join("") || "";
+      sendMessage({ text }, { body: { model }, headers });
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
-      sendMessage(
-        { text: input },
-        { body: { model }, headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined }
-      );
+      sendMessage({ text: input }, { body: { model }, headers });
       setInput("");
     }
   };
 
   const handleSuggestionClick = (suggestion: keyof typeof suggestions) => {
-    sendMessage(
-      { text: suggestions[suggestion] },
-      { body: { model }, headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined }
-    );
+    sendMessage({ text: suggestions[suggestion] }, { body: { model }, headers });
+  };
+
+  // Determine if a message is the currently-streaming one
+  const isLastAssistantMessage = (msgId: string) => {
+    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
+    return lastAssistant?.id === msgId;
   };
 
   return (
     <div className="w-full h-[calc(100vh-60px)] p-4 md:p-6 relative">
       <div className="flex flex-col h-full max-w-4xl mx-auto">
-        <div className="flex justify-end mb-2">
-          {walletAddress ? (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-              {creditBalance !== null && (
-                <span className="text-muted-foreground">${(creditBalance / 1_000_000).toFixed(2)}</span>
-              )}
-            </div>
-          ) : (
-            <button onClick={connectWallet} className="text-sm px-3 py-1 rounded border">
-              Connect Wallet
-            </button>
-          )}
-        </div>
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="min-h-full flex flex-col justify-end">
             {messages.length === 0 && status === "ready" && (
               <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-500">
                 <div className="relative mb-6">
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-400 to-amber-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                    {/* Neural network + lightning bolt (AI + fast payments) */}
-                    <svg
-                      className="w-10 h-10 text-white"
-                      viewBox="0 0 32 32"
-                      fill="none"
-                    >
-                      {/* Neural nodes */}
+                    <svg className="w-10 h-10 text-white" viewBox="0 0 32 32" fill="none">
                       <circle cx="10" cy="10" r="2.5" fill="white" fillOpacity="0.9"/>
                       <circle cx="22" cy="10" r="2.5" fill="white" fillOpacity="0.9"/>
                       <circle cx="16" cy="18" r="2.5" fill="white" fillOpacity="0.9"/>
                       <circle cx="16" cy="26" r="2" fill="white" fillOpacity="0.7"/>
-                      {/* Connections */}
                       <path d="M10 10h6M10 10l4 6M22 10l-4 6M16 18v6" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
-                      {/* Lightning bolt overlay */}
                       <path d="M18 6l-4 8h4l-2 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
                     </svg>
                   </div>
                   <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-md">
-                    <svg
-                      className="w-3 h-3 text-white"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
+                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                     </svg>
                   </div>
@@ -271,26 +201,42 @@ const ChatBotDemo = () => {
                 <MessageContent>
                   {message.parts.map((part, i) => {
                     if (part.type === "text") {
+                      const isStreaming = status === "streaming" && isLastAssistantMessage(message.id);
+                      const { cleanText, actions } = isStreaming
+                        ? { cleanText: part.text, actions: [] }
+                        : parseActions(part.text);
+
                       return (
-                        <Response key={`${message.id}-${i}`}>
-                          {part.text}
-                        </Response>
+                        <div key={`${message.id}-${i}`}>
+                          <Response>{cleanText}</Response>
+                          {actions.length > 0 && (
+                            <div className="flex gap-2 mt-3">
+                              {actions.map((action) => (
+                                <button
+                                  key={action}
+                                  onClick={() => handleAction(action)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                                    bg-gradient-to-r from-blue-500/20 to-cyan-400/20
+                                    border border-blue-500/30 hover:border-blue-500/50
+                                    text-foreground hover:from-blue-500/30 hover:to-cyan-400/30
+                                    transition-all duration-200"
+                                >
+                                  {action === "topup" && <><ArrowUpRight className="size-3.5" /> Top Up</>}
+                                  {action === "connect_wallet" && <><Wallet className="size-3.5" /> Connect Wallet</>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       );
                     } else if (part.type === "reasoning") {
                       return (
-                        <Reasoning
-                          key={`${message.id}-${i}`}
-                          className="w-full"
-                          isStreaming={status === "streaming"}
-                        >
+                        <Reasoning key={`${message.id}-${i}`} className="w-full" isStreaming={status === "streaming"}>
                           <ReasoningTrigger />
                           <ReasoningContent>{part.text}</ReasoningContent>
                         </Reasoning>
                       );
-                    } else if (
-                      part.type === "dynamic-tool" ||
-                      part.type.startsWith("tool-")
-                    ) {
+                    } else if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
                       return (
                         <Tool defaultOpen={true} key={`${message.id}-${i}`}>
                           {/* @ts-expect-error: ToolHeader expects ToolUIPart but part may be DynamicToolUIPart */}
@@ -309,9 +255,9 @@ const ChatBotDemo = () => {
                   })}
                 </MessageContent>
                 {message.role === "assistant" && (() => {
-                  const meta = message.metadata as { spendEvents?: Array<{ toolName: string; amountUsdc: number }>; budgetRemaining?: number } | undefined;
+                  const meta = message.metadata as { spendEvents?: Array<{ toolName: string; amountUsdc: number }> } | undefined;
                   if (meta?.spendEvents?.length) {
-                    return <SessionReceipt items={meta.spendEvents} balanceRemaining={meta.budgetRemaining ?? 0} />;
+                    return <SessionReceipt items={meta.spendEvents} />;
                   }
                   return null;
                 })()}
@@ -321,10 +267,10 @@ const ChatBotDemo = () => {
             {status === "error" && (
               lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted") ? (
                 <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
-                  <div className="flex flex-col items-center gap-4 p-6 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                  <div className="flex flex-col items-center gap-4 p-6 bg-yellow-950/50 border border-yellow-800/50 rounded-lg text-center">
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-yellow-900">Free calls used up</h3>
-                      <p className="text-sm text-yellow-700">
+                      <h3 className="text-lg font-semibold text-yellow-200">Free calls used up</h3>
+                      <p className="text-sm text-yellow-300">
                         You&apos;ve used your 2 free tool calls. Connect a wallet to get up to $0.50 in free credits.
                       </p>
                     </div>
@@ -337,13 +283,13 @@ const ChatBotDemo = () => {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
-                  <div className="flex flex-col items-center gap-4 p-6 bg-red-50 border border-red-200 rounded-lg text-center">
-                    <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full">
-                      <AlertCircle className="w-6 h-6 text-red-600" />
+                  <div className="flex flex-col items-center gap-4 p-6 bg-red-950/50 border border-red-800/50 rounded-lg text-center">
+                    <div className="flex items-center justify-center w-12 h-12 bg-red-900/50 rounded-full">
+                      <AlertCircle className="w-6 h-6 text-red-400" />
                     </div>
                     <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-red-900">Something went wrong</h3>
-                      <p className="text-sm text-red-700">
+                      <h3 className="text-lg font-semibold text-red-200">Something went wrong</h3>
+                      <p className="text-sm text-red-300">
                         {lastError?.message || "An unexpected error occurred. Please try again."}
                       </p>
                     </div>
@@ -365,9 +311,7 @@ const ChatBotDemo = () => {
               <Suggestion
                 key={suggestion}
                 suggestion={suggestion}
-                onClick={() =>
-                  handleSuggestionClick(suggestion as keyof typeof suggestions)
-                }
+                onClick={() => handleSuggestionClick(suggestion as keyof typeof suggestions)}
                 variant="outline"
                 size="sm"
               />
@@ -375,42 +319,22 @@ const ChatBotDemo = () => {
           </Suggestions>
         )}
 
-        {pendingCostConfirm && <CostConfirmBanner {...pendingCostConfirm} />}
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
             value={input}
-            ref={(ref) => {
-              if (ref) {
-                ref.focus();
-              }
-            }}
+            ref={(ref) => { if (ref) ref.focus(); }}
           />
           <PromptInputToolbar>
             <PromptInputTools>
-              {budgetRemaining !== null && (
-                <div className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground">
-                  <CreditCardIcon className="size-3" />
-                  <span className="font-mono">${budgetRemaining.toFixed(2)}</span>
-                  <span>remaining</span>
-                </div>
-              )}
-              <PromptInputModelSelect
-                onValueChange={(value) => {
-                  setModel(value);
-                }}
-                value={model}
-              >
+              <PromptInputModelSelect onValueChange={setModel} value={model}>
                 <PromptInputModelSelectTrigger>
                   <PromptInputModelSelectValue />
                 </PromptInputModelSelectTrigger>
                 <PromptInputModelSelectContent>
-                  {models.map((model) => (
-                    <PromptInputModelSelectItem
-                      key={model.value}
-                      value={model.value}
-                    >
-                      {model.name}
+                  {models.map((m) => (
+                    <PromptInputModelSelectItem key={m.value} value={m.value}>
+                      {m.name}
                     </PromptInputModelSelectItem>
                   ))}
                 </PromptInputModelSelectContent>
@@ -419,6 +343,37 @@ const ChatBotDemo = () => {
             <PromptInputSubmit disabled={!input} status={status} />
           </PromptInputToolbar>
         </PromptInput>
+
+        {/* Top-up Sheet */}
+        <Sheet open={topUpSheetOpen} onOpenChange={setTopUpSheetOpen}>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>Top Up Credits</SheetTitle>
+              <SheetDescription>
+                Send USDC to this address on {depositInfo?.network === "base-sepolia" ? "Base Sepolia" : "Base"} to add credits.
+              </SheetDescription>
+            </SheetHeader>
+            {depositInfo && (
+              <div className="mt-6 space-y-4">
+                <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                  <div className="text-xs text-muted-foreground mb-1">Deposit Address</div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-sm font-mono break-all">{depositInfo.depositAddress}</code>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(depositInfo.depositAddress)}
+                      className="shrink-0 px-2 py-1 rounded text-xs border hover:bg-muted"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Minimum deposit: $1.00 USDC. Your balance will update automatically.
+                </div>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );

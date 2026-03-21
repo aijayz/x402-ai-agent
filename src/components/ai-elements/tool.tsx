@@ -32,9 +32,66 @@ const PAID_TOOLS = [
   "summarize_url",
   "analyze_contract",
   "generate_image",
+  "analyze_defi_safety",
+  "track_whale_activity",
+  "analyze_social_narrative",
+  "analyze_solana_staking",
 ];
 
 const isPaidTool = (toolName: string) => PAID_TOOLS.includes(toolName);
+
+const ToolOutputSchema = z
+  .object({
+    content: z.array(
+      z.object({
+        type: z.literal("text"),
+        text: z.string(),
+      })
+    ),
+    isError: z.boolean().optional(),
+  })
+  .optional();
+
+const TOOL_PRICES: Record<string, number> = {
+  get_crypto_price: 0.01,
+  get_wallet_profile: 0.02,
+  summarize_url: 0.03,
+  analyze_contract: 0.03,
+  generate_image: 0.05,
+};
+
+function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
+  if (part.state !== "output-available") return null;
+
+  const toolName = part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
+
+  // MCP tools: check payment metadata or known prices
+  const output = part.output as Record<string, unknown> | undefined;
+  const meta = output?._meta as Record<string, unknown> | undefined;
+  const paymentResponse = meta?.["x402.payment-response"] as { amount?: number } | undefined;
+  if (paymentResponse?.amount != null) {
+    return Number(paymentResponse.amount) / 1e6;
+  }
+  if (TOOL_PRICES[toolName]) {
+    return TOOL_PRICES[toolName];
+  }
+
+  // Cluster tools: parse output for totalCostMicroUsdc
+  const parsed = ToolOutputSchema.safeParse(output);
+  if (parsed.success && parsed.data?.content) {
+    const text = parsed.data.content.map(c => c.text).join("");
+    try {
+      const json = JSON.parse(text);
+      if (typeof json.totalCostMicroUsdc === "number" && json.totalCostMicroUsdc > 0) {
+        return json.totalCostMicroUsdc / 1_000_000;
+      }
+    } catch {
+      // Not JSON cluster output
+    }
+  }
+
+  return null;
+}
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 
@@ -134,7 +191,20 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
             </span>
           )}
         </div>
-        {getStatusBadge(state)}
+        <div className="flex items-center gap-2">
+          {(() => {
+            const cost = extractToolCost(part);
+            if (cost != null && cost > 0) {
+              return (
+                <Badge className="rounded-full text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" variant="outline">
+                  ${cost.toFixed(2)}
+                </Badge>
+              );
+            }
+            return null;
+          })()}
+          {getStatusBadge(state)}
+        </div>
       </div>
       <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
     </CollapsibleTrigger>
@@ -217,6 +287,36 @@ export const ToolOutput = ({
           />
         ) : null}
       </div>
+      {/* Cluster unavailable services */}
+      {(() => {
+        const parsed = ToolOutputSchema.safeParse(part.output);
+        if (!parsed.success || !parsed.data?.content) return null;
+        const text = parsed.data.content.map(c => c.text).join("");
+        try {
+          const json = JSON.parse(text);
+          if (!Array.isArray(json.unavailableServices) || json.unavailableServices.length === 0) return null;
+          return (
+            <div className="mt-3 pt-3 border-t border-muted/40">
+              <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                Services Coming Soon
+              </h5>
+              <div className="grid gap-2">
+                {json.unavailableServices.map((svc: { name: string; purpose: string; typicalCostUsdc: number }, i: number) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{svc.name}</span>
+                      <span className="text-xs text-muted-foreground">{svc.purpose}</span>
+                    </div>
+                    <span className="text-xs font-mono text-muted-foreground">~${svc.typicalCostUsdc.toFixed(2)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        } catch {
+          return null;
+        }
+      })()}
       {/* @ts-expect-error */}
       {part.output?._meta?.["x402.payment-response"] && (
         <div className="mt-3 pt-3 border-t border-muted/40">
@@ -226,13 +326,6 @@ export const ToolOutput = ({
               Payment Successful
               {(() => {
                 // x402-mcp doesn't include amount in payment response, use known prices
-                const TOOL_PRICES: Record<string, number> = {
-                  get_crypto_price: 0.01,
-                  get_wallet_profile: 0.02,
-                  summarize_url: 0.03,
-                  analyze_contract: 0.03,
-                  generate_image: 0.05,
-                };
                 const tName = part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
                 // @ts-expect-error - x402 payment metadata
                 const amount = part.output?._meta?.["x402.payment-response"]?.amount;
@@ -273,18 +366,6 @@ export const ToolOutput = ({
     </div>
   );
 };
-
-const ToolOutputSchema = z
-  .object({
-    content: z.array(
-      z.object({
-        type: z.literal("text"),
-        text: z.string(),
-      })
-    ),
-    isError: z.boolean().optional(),
-  })
-  .optional();
 
 type RenderOutputResult =
   | {

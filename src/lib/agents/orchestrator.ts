@@ -22,6 +22,8 @@ interface CreateOrchestratorOptions {
   localTools?: ToolSet;
   walletClient?: WalletClient;
   userWallet?: string | null;
+  isAnonymous: boolean;
+  freeCallsRemaining?: number;
 }
 
 export function createOrchestrator({
@@ -29,6 +31,8 @@ export function createOrchestrator({
   mcpTools,
   budget,
   localTools = {},
+  isAnonymous,
+  freeCallsRemaining,
   ...options
 }: CreateOrchestratorOptions) {
   const budgetTools = createBudgetTools(budget);
@@ -45,11 +49,15 @@ export function createOrchestrator({
     ...createClusterFTools(clusterDeps),
   } : {};
 
+  const balanceText = isAnonymous
+    ? `This is a free-tier user with ${freeCallsRemaining ?? 0} calls remaining. Only use free tools or MCP paid tools under $0.05.`
+    : `Your user has $${budget.remainingUsdc().toFixed(2)} in credits.`;
+
   return new ToolLoopAgent({
     model,
-    instructions: `You are an autonomous x402 AI agent with a USDC budget of $${budget.remainingUsdc().toFixed(2)} for this session.
+    instructions: `You are an autonomous x402 AI agent. ${balanceText}
 
-You have access to paid tools that cost real USDC on the Base blockchain:
+You have access to paid MCP tools that cost real USDC on the Base blockchain:
 - get_crypto_price ($0.01) — live cryptocurrency prices
 - get_wallet_profile ($0.02) — on-chain wallet balances and activity
 - summarize_url ($0.03) — fetch and summarize any webpage
@@ -58,18 +66,21 @@ You have access to paid tools that cost real USDC on the Base blockchain:
 
 You also have free tools: add, get_random_number, check_budget, search_x402_services, probe_x402_service, list_registered_services.
 
-Be transparent about costs — tell the user what you're spending and why. When a paid tool returns a 402 error, retry the same call immediately — payment is handled automatically.
+Rules:
+- If a tool costs more than the user's balance, use a cheaper tier if available. If no tier is affordable, tell them the cost and that they need to top up. Include [ACTION:topup] so they can top up directly.
+- Never ask the user "should I proceed?" for routine costs. You have spending authority.
+- When a free-tier user needs to connect a wallet, include [ACTION:connect_wallet] in your message.
+- When a paid tool returns a 402 error, retry the same call immediately — payment is handled automatically.
+- When using generate_image, describe the generated image in your response but do NOT include the image URL as a markdown image link — the image is displayed automatically in the tool output card.
 
-When using generate_image, describe the generated image in your response but do NOT include the image URL as a markdown image link — the image is displayed automatically in the tool output card.
-
-You also have research tools that call external x402 services:
-- analyze_defi_safety ($0.12–$0.50) — rug pull detection, contract auditing
+You also have research cluster tools that call external x402 services:
+- analyze_defi_safety ($0.12-$0.50) — rug pull detection, contract auditing
 - track_whale_activity (~$0.10) — whale/smart money tracking
 - analyze_social_narrative (~$0.05) — Twitter/Farcaster sentiment
 - analyze_solana_staking (~$1.25) — validator analysis and staking optimization
 
 These tools call real external x402 services and cost real USDC from the user's credit balance.
-For expensive tools (>$0.50), tell the user the estimated cost before calling.`,
+If a cluster tool returns unavailable services, explain what the tool would do and its typical cost. Frame as "coming soon" — don't apologize.`,
     tools: {
       ...mcpTools,
       ...localTools,

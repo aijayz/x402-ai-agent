@@ -37,6 +37,7 @@ export const POST = async (request: Request) => {
   const walletAddress = request.headers.get("x-wallet-address");
 
   let budget: BudgetController;
+  let freeCallsRemaining: number | undefined;
 
   if (walletAddress) {
     // Wallet user — credit-based
@@ -61,6 +62,7 @@ export const POST = async (request: Request) => {
     // Increment in DB BEFORE constructing BudgetController.
     // Do NOT call budget.recordCall() later — the DB is the source of truth.
     await SessionStore.incrementCallCount(sessionId);
+    freeCallsRemaining = SessionStore.MAX_FREE_CALLS - (session.freeCallsUsed + 1);
     budget = new BudgetController({
       sessionLimitUsdc: 0.50,
       maxCalls: 2,
@@ -134,6 +136,8 @@ export const POST = async (request: Request) => {
       localTools: {},
       walletClient: houseWalletClient,
       userWallet: walletAddress,
+      isAnonymous: !walletAddress,
+      freeCallsRemaining: walletAddress ? undefined : freeCallsRemaining,
     });
 
     const turnSpendEvents: Array<{ toolName: string; amountUsdc: number }> = [];
@@ -147,6 +151,7 @@ export const POST = async (request: Request) => {
         network: env.NETWORK,
         budgetRemaining: budget.remainingUsdc(),
         spendEvents: turnSpendEvents,
+        freeCallsRemaining: walletAddress ? undefined : freeCallsRemaining,
       }),
       onStepFinish: async ({ toolResults }) => {
         // Known prices per tool (must match MCP server paidTool prices)

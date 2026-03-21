@@ -4,7 +4,7 @@ import { x402Fetch } from "../x402-client";
 import { env } from "../env";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
 
 interface ClusterBDeps {
   walletClient: WalletClient;
@@ -22,8 +22,11 @@ export function createClusterBTools(deps: ClusterBDeps) {
         query: z.string().describe("What to track, e.g. 'what are whales buying', 'smart money flows ETH'"),
       }),
       execute: async ({ query }): Promise<ClusterResult> => {
+        const unavailable: UnavailableService[] = [];
+        const hasAnyService = !!(env.EINSTEIN_AI_URL || env.SLAMAI_URL);
         const maxReservationMicro = 200_000;
-        if (deps.userWallet) {
+
+        if (hasAnyService && deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance. Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
@@ -45,7 +48,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
             errors.push(`Einstein AI: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("Einstein AI: not configured");
+          unavailable.push({ name: "Einstein AI", purpose: "Whale wallet tracking and large transaction alerts", typicalCostUsdc: 0.05 });
         }
 
         if (env.SLAMAI_URL) {
@@ -60,7 +63,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
             errors.push(`SLAMai: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("SLAMai: not configured");
+          unavailable.push({ name: "SLAMai", purpose: "Smart money flow analysis", typicalCostUsdc: 0.05 });
         }
 
         if (env.MYCELIA_URL) {
@@ -78,17 +81,17 @@ export function createClusterBTools(deps: ClusterBDeps) {
 
         const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
 
-        if (deps.userWallet) {
+        if (hasAnyService && deps.userWallet) {
           const unusedMicro = maxReservationMicro - totalCost;
           if (unusedMicro > 0) await CreditStore.release(deps.userWallet, unusedMicro);
         }
 
         const summary = calls.length > 0
           ? `Tracked whale activity using ${calls.map(c => c.serviceName).join(", ")}. ` +
-            (errors.length > 0 ? `Unavailable: ${errors.join("; ")}` : "")
-          : `No whale intelligence services available. ${errors.join("; ")}`;
+            (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
+          : `Whale Intelligence requires external x402 services that aren't connected yet.`;
 
-        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
+        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
       },
     }),
   };

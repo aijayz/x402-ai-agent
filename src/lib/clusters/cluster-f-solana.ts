@@ -4,7 +4,7 @@ import { x402Fetch } from "../x402-client";
 import { env } from "../env";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
 
 interface ClusterFDeps {
   walletClient: WalletClient;
@@ -22,8 +22,11 @@ export function createClusterFTools(deps: ClusterFDeps) {
         query: z.string().describe("Staking question, e.g. 'best validators', 'compare validator X vs Y'"),
       }),
       execute: async ({ query }): Promise<ClusterResult> => {
+        const unavailable: UnavailableService[] = [];
+        const hasAnyService = !!(env.STAKEVIA_URL);
         const maxReservationMicro = 1_500_000;
-        if (deps.userWallet) {
+
+        if (hasAnyService && deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance for staking analysis (~$1.25). Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
@@ -45,7 +48,7 @@ export function createClusterFTools(deps: ClusterFDeps) {
             errors.push(`Stakevia: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("Stakevia: not configured");
+          unavailable.push({ name: "Stakevia", purpose: "Solana validator scoring and staking simulation", typicalCostUsdc: 1.00 });
         }
 
         if (env.MYCELIA_URL) {
@@ -63,17 +66,17 @@ export function createClusterFTools(deps: ClusterFDeps) {
 
         const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
 
-        if (deps.userWallet) {
+        if (hasAnyService && deps.userWallet) {
           const unusedMicro = maxReservationMicro - totalCost;
           if (unusedMicro > 0) await CreditStore.release(deps.userWallet, unusedMicro);
         }
 
         const summary = calls.length > 0
           ? `Analyzed Solana staking using ${calls.map(c => c.serviceName).join(", ")}. ` +
-            (errors.length > 0 ? `Unavailable: ${errors.join("; ")}` : "")
-          : `No staking analysis services available. ${errors.join("; ")}`;
+            (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
+          : `Solana Staking Analysis requires external x402 services that aren't connected yet.`;
 
-        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
+        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
       },
     }),
   };

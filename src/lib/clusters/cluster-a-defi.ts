@@ -4,7 +4,7 @@ import { x402Fetch } from "../x402-client";
 import { env } from "../env";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
 
 interface ClusterADeps {
   walletClient: WalletClient;
@@ -24,8 +24,11 @@ export function createClusterATools(deps: ClusterADeps) {
           .describe("'quick' = core scan only (~$0.12), 'full' = all services (~$0.50)"),
       }),
       execute: async ({ target, depth }): Promise<ClusterResult> => {
+        const unavailable: UnavailableService[] = [];
+        const hasAnyService = !!(env.RUGMUNCH_URL || env.AUGUR_URL || (depth === "full" && env.DIAMONDCLAWS_URL));
         const maxReservationMicro = depth === "full" ? 2_200_000 : 200_000;
-        if (deps.userWallet) {
+
+        if (hasAnyService && deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return {
@@ -56,7 +59,7 @@ export function createClusterATools(deps: ClusterADeps) {
             errors.push(`RugMunch: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("RugMunch: not configured");
+          unavailable.push({ name: "RugMunch", purpose: "Rug pull detection and honeypot scanning", typicalCostUsdc: 0.05 });
         }
 
         if (env.AUGUR_URL) {
@@ -76,30 +79,34 @@ export function createClusterATools(deps: ClusterADeps) {
             errors.push(`Augur: ${err instanceof Error ? err.message : "unavailable"}`);
           }
         } else {
-          errors.push("Augur: not configured");
+          unavailable.push({ name: "Augur", purpose: "Smart contract vulnerability analysis", typicalCostUsdc: 0.05 });
         }
 
-        if (depth === "full" && env.DIAMONDCLAWS_URL) {
-          try {
-            const result = await x402Fetch(
-              `${env.DIAMONDCLAWS_URL}/score?target=${encodeURIComponent(target)}`,
-              undefined,
-              { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
-            );
-            calls.push({
-              serviceName: "DiamondClaws",
-              data: result.data,
-              costMicroUsdc: result.amountMicroUsdc,
-              paid: result.paid,
-            });
-          } catch (err) {
-            errors.push(`DiamondClaws: ${err instanceof Error ? err.message : "unavailable"}`);
+        if (depth === "full") {
+          if (env.DIAMONDCLAWS_URL) {
+            try {
+              const result = await x402Fetch(
+                `${env.DIAMONDCLAWS_URL}/score?target=${encodeURIComponent(target)}`,
+                undefined,
+                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
+              );
+              calls.push({
+                serviceName: "DiamondClaws",
+                data: result.data,
+                costMicroUsdc: result.amountMicroUsdc,
+                paid: result.paid,
+              });
+            } catch (err) {
+              errors.push(`DiamondClaws: ${err instanceof Error ? err.message : "unavailable"}`);
+            }
+          } else {
+            unavailable.push({ name: "DiamondClaws", purpose: "Diamond hands scoring and holder analysis", typicalCostUsdc: 0.01 });
           }
         }
 
         const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
 
-        if (deps.userWallet) {
+        if (hasAnyService && deps.userWallet) {
           const unusedMicro = maxReservationMicro - totalCost;
           if (unusedMicro > 0) {
             await CreditStore.release(deps.userWallet, unusedMicro);
@@ -108,10 +115,10 @@ export function createClusterATools(deps: ClusterADeps) {
 
         const summary = calls.length > 0
           ? `Analyzed ${target} using ${calls.map(c => c.serviceName).join(", ")}. ` +
-            (errors.length > 0 ? `Unavailable: ${errors.join("; ")}` : "")
-          : `No DeFi safety services available. ${errors.join("; ")}`;
+            (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
+          : `DeFi Safety Analysis requires external x402 services that aren't connected yet.`;
 
-        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
+        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
       },
     }),
   };
