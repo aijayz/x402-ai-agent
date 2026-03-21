@@ -1,10 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { x402Fetch } from "../x402-client";
-import { env } from "../env";
+import { getService } from "../services";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
+import type { PaymentContext } from "../services/types";
+import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterBDeps {
   walletClient: WalletClient;
@@ -15,19 +15,17 @@ export function createClusterBTools(deps: ClusterBDeps) {
   return {
     track_whale_activity: tool({
       description:
-        "Track whale and smart money activity — what large wallets are buying/selling. " +
-        "Calls Einstein AI, SLAMai, and Mycelia Signal x402 services. " +
-        "Costs ~$0.05-$0.15 depending on available services.",
+        "Track whale and smart money activity — wallet profiling and token holder analysis. " +
+        "Calls WalletIQ and DiamondClaws x402 services. " +
+        "Costs ~$0.01.",
       inputSchema: z.object({
         query: z.string().describe("What to track, e.g. 'what are whales buying', 'smart money flows ETH'"),
       }),
       execute: async ({ query }): Promise<ClusterResult> => {
-        const unavailable: UnavailableService[] = [];
-        const hasAnyService = !!(env.EINSTEIN_AI_URL || env.SLAMAI_URL);
-        const maxReservationMicro = 200_000;
+        const maxReservationMicro = 20_000;
         let reserved = false;
 
-        if (hasAnyService && deps.userWallet) {
+        if (deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance. Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
@@ -37,59 +35,36 @@ export function createClusterBTools(deps: ClusterBDeps) {
 
         const calls: ServiceCallResult[] = [];
         const errors: string[] = [];
+        const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          if (env.EINSTEIN_AI_URL) {
-            try {
-              const result = await x402Fetch(
-                `${env.EINSTEIN_AI_URL}/whales?q=${encodeURIComponent(query)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 100_000 },
-              );
-              calls.push({ serviceName: "Einstein AI", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-            } catch (err) {
-              errors.push(`Einstein AI: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "Einstein AI", purpose: "Whale wallet tracking and large transaction alerts", typicalCostUsdc: 0.05 });
-          }
+          const serviceNames = ["wallet-iq", "diamond-claws"] as const;
 
-          if (env.SLAMAI_URL) {
+          for (const name of serviceNames) {
             try {
-              const result = await x402Fetch(
-                `${env.SLAMAI_URL}/smart-money?q=${encodeURIComponent(query)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 100_000 },
-              );
-              calls.push({ serviceName: "SLAMai", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+              const adapter = await getService(name);
+              const input = name === "wallet-iq" ? { address: query } : { target: query };
+              const result = await adapter.call(input, ctx);
+              calls.push({
+                serviceName: adapter.name,
+                data: result.data,
+                costMicroUsdc: result.cost,
+                paid: result.cost > 0,
+              });
             } catch (err) {
-              errors.push(`SLAMai: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "SLAMai", purpose: "Smart money flow analysis", typicalCostUsdc: 0.05 });
-          }
-
-          if (env.MYCELIA_URL) {
-            try {
-              const result = await x402Fetch(
-                `${env.MYCELIA_URL}/prices?symbols=BTC,ETH,SOL`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
-              );
-              calls.push({ serviceName: "Mycelia Signal", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-            } catch (err) {
-              errors.push(`Mycelia Signal: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+          const failedNames = errors.map(e => e.split(":")[0]);
+          const successNames = calls.map(c => c.serviceName);
+          const summary = successNames.length > 0
+            ? `Tracked whale activity using ${successNames.join(", ")}.` +
+              (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
+            : `Whale Intelligence unavailable — all services failed to respond.`;
 
-          const summary = calls.length > 0
-            ? `Tracked whale activity using ${calls.map(c => c.serviceName).join(", ")}. ` +
-              (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
-            : `Whale Intelligence requires external x402 services that aren't connected yet.`;
-
-          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
+          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);

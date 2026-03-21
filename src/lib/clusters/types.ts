@@ -26,9 +26,7 @@ export interface ClusterResult {
 
 /** Markup rates in basis points. */
 export const MARKUP_BPS: Record<string, number> = {
-  default: 3000,     // 30%
-  stakevia: 2500,    // 25%
-  blockrun: 1000,    // 10% net
+  default: 3000, // 30%
 };
 
 /** Apply markup to a micro-USDC amount. */

@@ -1,10 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { x402Fetch } from "../x402-client";
-import { env } from "../env";
+import { getService } from "../services";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
+import type { PaymentContext } from "../services/types";
+import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterFDeps {
   walletClient: WalletClient;
@@ -13,68 +13,58 @@ interface ClusterFDeps {
 
 export function createClusterFTools(deps: ClusterFDeps) {
   return {
-    analyze_solana_staking: tool({
+    analyze_market_trends: tool({
       description:
-        "Analyze Solana staking options — validator scoring, risk analysis, and stake simulations. " +
-        "Calls Stakevia and Mycelia Signal x402 services. " +
-        "Costs ~$1.25 (Stakevia is $1.00 + SOL price feed).",
+        "Analyze market trends — trending narratives, emerging tokens, and market intelligence. " +
+        "Calls GenVox and DiamondClaws x402 services. " +
+        "Costs ~$0.03.",
       inputSchema: z.object({
-        query: z.string().describe("Staking question, e.g. 'best validators', 'compare validator X vs Y'"),
+        query: z.string().describe("Market trend query, e.g. 'trending narratives', 'emerging tokens this week'"),
       }),
       execute: async ({ query }): Promise<ClusterResult> => {
-        const unavailable: UnavailableService[] = [];
-        const hasAnyService = !!(env.STAKEVIA_URL);
-        const maxReservationMicro = 1_500_000;
+        const maxReservationMicro = 100_000;
         let reserved = false;
 
-        if (hasAnyService && deps.userWallet) {
+        if (deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
-            return { summary: "Insufficient credit balance for staking analysis (~$1.25). Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
+            return { summary: "Insufficient credit balance for market trend analysis (~$0.03). Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
           }
           reserved = true;
         }
 
         const calls: ServiceCallResult[] = [];
         const errors: string[] = [];
+        const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          if (env.STAKEVIA_URL) {
-            try {
-              const result = await x402Fetch(
-                `${env.STAKEVIA_URL}/analyze?q=${encodeURIComponent(query)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 1_200_000 },
-              );
-              calls.push({ serviceName: "Stakevia", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-            } catch (err) {
-              errors.push(`Stakevia: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "Stakevia", purpose: "Solana validator scoring and staking simulation", typicalCostUsdc: 1.00 });
-          }
+          const serviceNames = ["genvox", "diamond-claws"] as const;
 
-          if (env.MYCELIA_URL) {
+          for (const name of serviceNames) {
             try {
-              const result = await x402Fetch(
-                `${env.MYCELIA_URL}/prices?symbols=SOL`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
-              );
-              calls.push({ serviceName: "Mycelia Signal", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+              const adapter = await getService(name);
+              const input = name === "genvox" ? { topic: query } : { target: query };
+              const result = await adapter.call(input, ctx);
+              calls.push({
+                serviceName: adapter.name,
+                data: result.data,
+                costMicroUsdc: result.cost,
+                paid: result.cost > 0,
+              });
             } catch (err) {
-              errors.push(`Mycelia Signal: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+          const failedNames = errors.map(e => e.split(":")[0]);
+          const successNames = calls.map(c => c.serviceName);
+          const summary = successNames.length > 0
+            ? `Analyzed market trends using ${successNames.join(", ")}.` +
+              (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
+            : `Market Trend Analysis unavailable — all services failed to respond.`;
 
-          const summary = calls.length > 0
-            ? `Analyzed Solana staking using ${calls.map(c => c.serviceName).join(", ")}. ` +
-              (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
-            : `Solana Staking Analysis requires external x402 services that aren't connected yet.`;
-
-          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
+          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
