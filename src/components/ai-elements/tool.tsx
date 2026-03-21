@@ -230,13 +230,8 @@ export type ToolInputProps = ComponentProps<"div"> & {
 };
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden p-4", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
-    </h4>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
-    </div>
+  <div className={cn("overflow-hidden", className)} {...props}>
+    {/* Parameters hidden by default — included in raw data toggle */}
   </div>
 );
 
@@ -266,29 +261,31 @@ export const ToolOutput = ({
     return null;
   }
 
+  // Build a user-friendly summary for errors
+  const friendlyError = errorText
+    ? errorText.includes("Payment required")
+      ? "Processing payment..."
+      : errorText.length > 100
+        ? errorText.slice(0, 100) + "..."
+        : errorText
+    : undefined;
+
   return (
     <div className={cn("space-y-3 p-4", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
-      </h4>
-      <div
-        className={cn(
-          "overflow-x-auto rounded-md text-xs [&_table]:w-full",
-          errorText ? "text-destructive" : "bg-muted/50 text-foreground"
-        )}
-      >
-        {errorText && <div>{errorText}</div>}
-        {renderResult.type === "success" ? (
-          renderResult.content
-        ) : renderResult.type === "non-dynamic-tool" ? (
-          JSON.stringify(renderResult.content)
-        ) : renderResult.type === "failed-to-parse" ? (
-          <CodeBlock
-            code={JSON.stringify(renderResult.content, null, 2)}
-            language="json"
-          />
-        ) : null}
-      </div>
+      {/* Friendly error message */}
+      {friendlyError && (
+        <div className="text-sm text-destructive">{friendlyError}</div>
+      )}
+      {/* Friendly result content (no raw JSON) */}
+      {!errorText && (
+        <div className="overflow-x-auto rounded-md text-xs [&_table]:w-full bg-muted/50 text-foreground">
+          {renderResult.type === "success" ? (
+            renderResult.content
+          ) : renderResult.type === "non-dynamic-tool" ? (
+            <Response>{String(renderResult.content)}</Response>
+          ) : null}
+        </div>
+      )}
       {/* Cluster unavailable services */}
       {(() => {
         const parsed = ToolOutputSchema.safeParse(part.output);
@@ -319,15 +316,30 @@ export const ToolOutput = ({
           return null;
         }
       })()}
-      {/* Raw data toggle */}
-      {part.output && (
+      {/* Raw data toggle — parameters + full output hidden here */}
+      {(part.output != null || part.input != null) && (
         <details className="mt-2">
           <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
             Show raw data
           </summary>
-          <pre className="mt-1 text-xs bg-muted/50 rounded p-2 overflow-auto max-h-40">
-            {JSON.stringify(part.output, null, 2)}
-          </pre>
+          <div className="mt-1 space-y-2">
+            {part.input != null && (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Parameters</div>
+                <pre className="text-xs bg-muted/50 rounded p-2 overflow-auto max-h-40">
+                  {JSON.stringify(part.input, null, 2)}
+                </pre>
+              </div>
+            )}
+            {part.output != null && (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Output</div>
+                <pre className="text-xs bg-muted/50 rounded p-2 overflow-auto max-h-40">
+                  {JSON.stringify(part.output, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
         </details>
       )}
       {/* @ts-expect-error */}
