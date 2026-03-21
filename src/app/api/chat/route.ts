@@ -135,9 +135,9 @@ export const POST = async (request: Request) => {
 
   // Model fallback chain: try each until one succeeds
   const MODEL_FALLBACK_CHAIN = [
-    "google/gemini-2.5-flash",
+    env.AI_MODEL,
     "deepseek/deepseek-chat",
-    "deepseek/deepseek-reasoner",
+    "google/gemini-2.5-flash",
   ];
 
   try {
