@@ -13,7 +13,7 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Check, Loader2, ExternalLink, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
@@ -161,7 +161,7 @@ const ChatBotDemo = () => {
       setDepositInfo({ depositAddress: data.depositAddress, network: data.network });
       setTopUpSheetOpen(true);
     } catch {
-      alert("Failed to fetch deposit info");
+      setTopUpError("Failed to fetch deposit info");
     }
   }, [walletAddress, connectWallet]);
 
@@ -206,7 +206,7 @@ const ChatBotDemo = () => {
     else if (action === "connect_wallet") connectWallet();
   }, [handleOpenTopUp, connectWallet]);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     const lastUserMessage = messages.filter(m => m.role === "user").pop();
     if (!lastUserMessage) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,25 +219,28 @@ const ChatBotDemo = () => {
     setMessages(prev => prev.filter(m => m.id !== lastUserMessage.id));
     setLastError(null);
     sendMessage({ text }, { headers });
-  };
+  }, [messages, setMessages, sendMessage, headers]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
       sendMessage({ text: input }, { headers });
       setInput("");
     }
-  };
+  }, [input, sendMessage, headers]);
 
-  const handlePromptClick = (prompt: string) => {
+  const handlePromptClick = useCallback((prompt: string) => {
     sendMessage({ text: prompt }, { headers });
-  };
+  }, [sendMessage, headers]);
 
   // Determine if a message is the currently-streaming one
-  const isLastAssistantMessage = (msgId: string) => {
-    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-    return lastAssistant?.id === msgId;
-  };
+  const lastAssistantId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant") return messages[i].id;
+    }
+    return null;
+  }, [messages]);
+  const isLastAssistantMessage = (msgId: string) => lastAssistantId === msgId;
 
   return (
     <div className="w-full h-[calc(100vh-60px)] p-4 md:p-6 relative">

@@ -11,9 +11,8 @@ import { createClusterDTools } from "@/lib/clusters/cluster-d-social";
 import { createClusterFTools } from "@/lib/clusters/cluster-f-solana";
 import type { WalletClient } from "viem";
 
-// Seed the registry once on first import
-const registry = getRegistry();
-seedRegistry(registry);
+// Lazy-init: seed the registry on first orchestrator creation
+let registrySeeded = false;
 
 interface CreateOrchestratorOptions {
   model: LanguageModel;
@@ -35,6 +34,12 @@ export function createOrchestrator({
   freeCallsRemaining,
   ...options
 }: CreateOrchestratorOptions) {
+  const registry = getRegistry();
+  if (!registrySeeded) {
+    seedRegistry(registry);
+    registrySeeded = true;
+  }
+
   const budgetTools = createBudgetTools(budget);
   const discoveryTools = createDiscoveryTools(registry);
 

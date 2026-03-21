@@ -44,6 +44,7 @@ export default function RootLayout({
                 <Link
                   href="https://github.com/aijayz/x402-ai-agent"
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="flex items-center gap-2.5 group"
                 >
                   <div className="relative flex items-center justify-center">

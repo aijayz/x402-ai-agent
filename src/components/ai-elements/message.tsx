@@ -1,7 +1,6 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { UIMessage } from "ai";
-import type { ComponentProps, HTMLAttributes } from "react";
+import type { HTMLAttributes } from "react";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
@@ -44,28 +43,3 @@ export const MessageContent = ({
   </div>
 );
 
-export type MessageAvatarProps = ComponentProps<typeof Avatar> & {
-  src: string;
-  name?: string;
-};
-
-export const MessageAvatar = ({
-  src,
-  name,
-  className,
-  ...props
-}: MessageAvatarProps) => (
-  <Avatar
-    className={cn(
-      "size-8 ring-2 ring-background shadow-sm",
-      "bg-gradient-to-br from-primary/20 to-primary/5",
-      className,
-    )}
-    {...props}
-  >
-    <AvatarImage alt="" className="mt-0 mb-0" src={src} />
-    <AvatarFallback className="text-xs font-medium">
-      {name?.slice(0, 2) || "ME"}
-    </AvatarFallback>
-  </Avatar>
-);

@@ -7,12 +7,15 @@ export function createBudgetTools(budget: BudgetController) {
     check_budget: tool({
       description: "Check remaining USDC budget for this session",
       inputSchema: z.object({}),
-      execute: async () => ({
-        remainingUsdc: budget.remainingUsdc(),
-        spentUsdc: budget.sessionLimitUsdc - budget.remainingUsdc(),
-        sessionLimitUsdc: budget.sessionLimitUsdc,
-        history: budget.getHistory(),
-      }),
+      execute: async () => {
+        const history = budget.getHistory();
+        const totalSpentMicro = history.reduce((sum, h) => sum + h.amountMicroUsdc, 0);
+        return {
+          remainingUsdc: budget.remainingUsdc(),
+          spentUsdc: totalSpentMicro / 1_000_000,
+          history,
+        };
+      },
     }),
   };
 }

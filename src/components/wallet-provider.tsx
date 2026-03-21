@@ -68,55 +68,79 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [walletAddress]);
 
+  const [isConnecting, setIsConnecting] = useState(false);
+
   const connectWallet = useCallback(async (): Promise<string | undefined> => {
+    if (isConnecting) return undefined;
     if (typeof window === "undefined" || typeof window.ethereum === "undefined") {
       alert("Please install MetaMask or another EVM wallet");
       return undefined;
     }
 
-    // Request accounts
-    const accounts = await window.ethereum.request({
-      method: "eth_requestAccounts",
-    }) as string[];
-    const address = accounts[0];
-
-    // Switch to target chain
-    const chain = CHAIN_CONFIG[network];
+    setIsConnecting(true);
     try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: chain.chainId }],
-      });
-    } catch (switchError: unknown) {
-      // Chain not added to wallet — add it
-      if ((switchError as { code?: number })?.code === 4902) {
+      // Request accounts
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts",
+      }) as string[];
+      const address = accounts[0];
+
+      // Switch to target chain
+      const chain = CHAIN_CONFIG[network];
+      try {
         await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: chain.chainId,
-            chainName: chain.chainName,
-            rpcUrls: chain.rpcUrls,
-            blockExplorerUrls: chain.blockExplorerUrls,
-            nativeCurrency: chain.nativeCurrency,
-          }],
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: chain.chainId }],
         });
-      } else {
-        throw switchError;
+      } catch (switchError: unknown) {
+        // Chain not added to wallet — add it
+        if ((switchError as { code?: number })?.code === 4902) {
+          await window.ethereum.request({
+            method: "wallet_addEthereumChain",
+            params: [{
+              chainId: chain.chainId,
+              chainName: chain.chainName,
+              rpcUrls: chain.rpcUrls,
+              blockExplorerUrls: chain.blockExplorerUrls,
+              nativeCurrency: chain.nativeCurrency,
+            }],
+          });
+        } else {
+          throw switchError;
+        }
       }
+
+      setWalletAddress(address);
+
+      // Claim free credits
+      try {
+        const res = await fetch("/api/credits/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ walletAddress: address }),
+        });
+        const data = await res.json();
+        if (res.ok || res.status === 409) {
+          setBalance(data.balance ?? data.granted ?? 0);
+        } else {
+          console.error("[WALLET] Failed to claim free credits", { status: res.status, data });
+          await refreshBalance();
+        }
+      } catch (err) {
+        console.error("[WALLET] Network error during free credits claim", err);
+        await refreshBalance();
+      }
+
+      return address;
+    } catch (err) {
+      // User rejected or wallet error — return undefined silently
+      if ((err as { code?: number })?.code === 4001) return undefined;
+      console.error("[WALLET] Connection failed", err);
+      return undefined;
+    } finally {
+      setIsConnecting(false);
     }
-
-    setWalletAddress(address);
-
-    // Claim free credits
-    const res = await fetch("/api/credits/claim", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ walletAddress: address }),
-    });
-    const data = await res.json();
-    setBalance(data.balance ?? 0);
-    return address;
-  }, [network]);
+  }, [network, isConnecting, refreshBalance]);
 
   const sendUsdc = useCallback(async (to: string, amountUsdc: number): Promise<string> => {
     if (!walletAddress || typeof window.ethereum === "undefined") {

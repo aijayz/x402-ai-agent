@@ -340,27 +340,29 @@ export const ToolOutput = ({
             </div>
             <span className="text-muted-foreground">via x402</span>
           </div>
-          <div className="mt-2 flex items-center gap-2">
-            <Link
-              href={`https://${
-                network === "base-sepolia" ? "sepolia." : ""
-              }basescan.org/tx/${
+          {/* @ts-expect-error */}
+          {part.output?._meta?.["x402.payment-response"]?.transaction && (
+            <div className="mt-2 flex items-center gap-2">
+              <Link
+                href={`https://${
+                  network === "base-sepolia" ? "sepolia." : ""
+                  // @ts-expect-error
+                }basescan.org/tx/${part.output._meta["x402.payment-response"].transaction}`}
+                target="_blank"
+                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline font-mono"
+              >
+                {/* @ts-expect-error */}
+                {part.output._meta["x402.payment-response"].transaction.slice(0, 18)}...
+                {/* @ts-expect-error */}
+                {part.output._meta["x402.payment-response"].transaction.slice(-6)}
+              </Link>
+              <CopyToClipboardButton
                 // @ts-expect-error
-                part.output._meta["x402.payment-response"].transaction}`}
-              target="_blank"
-              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline font-mono"
-            >
-              {/* @ts-expect-error */}
-              {part.output._meta["x402.payment-response"].transaction.slice(0, 18)}...
-              {/* @ts-expect-error */}
-              {part.output._meta["x402.payment-response"].transaction.slice(-6)}
-            </Link>
-            <CopyToClipboardButton
-              // @ts-expect-error
-              content={part.output._meta["x402.payment-response"].transaction}
-              className="size-6"
-            />
-          </div>
+                content={part.output._meta["x402.payment-response"].transaction}
+                className="size-6"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

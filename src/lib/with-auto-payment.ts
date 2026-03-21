@@ -175,7 +175,7 @@ export async function withAutoPayment(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const client = mcpClient as any;
 
-  const maxPaymentValue = options.maxPaymentValue ?? BigInt(0.1 * 10 ** 6);
+  const maxPaymentValue = BigInt(options.maxPaymentValue ?? 100_000);
 
   // Per-request-lifetime cache: tool name → payment requirements received on
   // the first 402. Once populated the next call will auto-pay.
@@ -237,7 +237,7 @@ export async function withAutoPayment(
             const maxAmountRequired = BigInt(
               storedRequirements.maxAmountRequired,
             );
-            if (maxAmountRequired > BigInt(maxPaymentValue)) {
+            if (maxAmountRequired > maxPaymentValue) {
               throw new Error(
                 "Payment requirements exceed user configured max payment value",
               );
