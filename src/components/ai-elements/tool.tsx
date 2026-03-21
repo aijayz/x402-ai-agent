@@ -24,6 +24,7 @@ import { CodeBlock } from "./code-block";
 import z from "zod";
 import { CopyToClipboardButton } from "../copy-to-clipboard";
 import Link from "next/link";
+import { getToolDisplay } from "@/lib/tool-display-config";
 
 // Paid tool names (could also be determined dynamically)
 const PAID_TOOLS = [
@@ -35,7 +36,7 @@ const PAID_TOOLS = [
   "analyze_defi_safety",
   "track_whale_activity",
   "analyze_social_narrative",
-  "analyze_solana_staking",
+  "analyze_market_trends",
 ];
 
 const isPaidTool = (toolName: string) => PAID_TOOLS.includes(toolName);
@@ -161,6 +162,7 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
       : rawState;
 
   const paid = isPaidTool(toolname);
+  const displayInfo = getToolDisplay(toolname);
 
   return (
     <CollapsibleTrigger
@@ -184,7 +186,7 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
           {paid ? <CreditCardIcon className="size-4" /> : <WrenchIcon className="size-4" />}
         </div>
         <div className="flex flex-col items-start gap-0.5">
-          <span className="font-semibold text-sm">{toolname}</span>
+          <span className="font-semibold text-sm">{displayInfo.label}</span>
           {paid && (
             <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
               Paid Tool
@@ -317,6 +319,17 @@ export const ToolOutput = ({
           return null;
         }
       })()}
+      {/* Raw data toggle */}
+      {part.output && (
+        <details className="mt-2">
+          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+            Show raw data
+          </summary>
+          <pre className="mt-1 text-xs bg-muted/50 rounded p-2 overflow-auto max-h-40">
+            {JSON.stringify(part.output, null, 2)}
+          </pre>
+        </details>
+      )}
       {/* @ts-expect-error */}
       {part.output?._meta?.["x402.payment-response"] && (
         <div className="mt-3 pt-3 border-t border-muted/40">
@@ -386,6 +399,58 @@ type RenderOutputResult =
 function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode | null {
   try {
     const data = JSON.parse(jsonText);
+
+    // Cluster tools - parse the JSON from the text content
+    if (["analyze_defi_safety", "track_whale_activity", "analyze_social_narrative", "analyze_market_trends"].includes(toolName)) {
+      if (data.serviceCalls?.length > 0 || data.summary) {
+        return (
+          <div className="p-3 space-y-3">
+            {data.summary && (
+              <p className="text-sm text-muted-foreground">{data.summary}</p>
+            )}
+            {data.serviceCalls?.map((call: any, i: number) => (
+              <div key={i} className="rounded-lg bg-muted/30 px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{call.serviceName}</span>
+                  {call.costMicroUsdc > 0 && (
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ${(call.costMicroUsdc / 1_000_000).toFixed(4)}
+                    </span>
+                  )}
+                </div>
+                {/* Show key data points based on service type */}
+                {call.data?.riskScore != null && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Risk Score: {call.data.riskScore}/100 ({call.data.riskLevel})
+                    {call.data.flags?.length > 0 && ` — ${call.data.flags.join(", ")}`}
+                  </div>
+                )}
+                {call.data?.sentimentScore != null && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Sentiment: {call.data.sentimentScore > 0 ? "+" : ""}{call.data.sentimentScore} ({call.data.sentimentLabel})
+                  </div>
+                )}
+                {call.data?.walletType && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Type: {call.data.walletType} — ${call.data.totalValueUsd?.toLocaleString()}
+                  </div>
+                )}
+                {call.data?.diamondHandsScore != null && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Diamond Hands: {call.data.diamondHandsScore}/100 — {call.data.holderCount?.toLocaleString()} holders
+                  </div>
+                )}
+                {call.data?.predictionMarkets && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {call.data.predictionMarkets.length} markets — {call.data.overallSentiment}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      }
+    }
 
     if (toolName === "get_crypto_price" && data.priceUsd != null) {
       const changePositive = (data.change24h ?? 0) >= 0;
