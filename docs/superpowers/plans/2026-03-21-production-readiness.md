@@ -351,7 +351,7 @@ Repeat for each service, adjusting URL, endpoint, and `maxPaymentMicroUsdc` (set
 
 | Adapter | env var | Endpoint | `estimatedCostMicroUsdc` | `maxPaymentMicroUsdc` |
 |---------|---------|----------|--------------------------|----------------------|
-| `rug-munch.ts` | `env.RUGMUNCH_URL` | `/scan?target=...` | 50_000 | 2_000_000 |
+| `rug-munch.ts` | `env.RUGMUNCH_URL` | `/scan?target=...` | 50_000 | 2_000_000 (higher buffer — rug-munch has variable pricing $0.02-$2.00) |
 | `diamond-claws.ts` | `env.DIAMONDCLAWS_URL` | `/score?target=...` | 1_000 | 2_000 |
 | `wallet-iq.ts` | `env.WALLETIQ_URL` | `/profile?address=...` | 5_000 | 10_000 |
 | `genvox.ts` | `env.GENVOX_URL` | `/sentiment?topic=...` | 30_000 | 60_000 |
