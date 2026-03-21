@@ -2,6 +2,14 @@
 
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
+const USDC_ADDRESS: Record<string, string> = {
+  "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+};
+
+// ERC-20 transfer(address,uint256) function selector
+const TRANSFER_SELECTOR = "0xa9059cbb";
+
 const CHAIN_CONFIG = {
   "base-sepolia": {
     chainId: "0x14a34", // 84532
@@ -35,6 +43,7 @@ interface WalletContextValue {
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   refreshBalance: () => Promise<void>;
+  sendUsdc: (to: string, amountUsdc: number) => Promise<string>;
   updateFromMetadata: (meta: { budgetRemaining?: number; freeCallsRemaining?: number }) => void;
 }
 
@@ -108,6 +117,32 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setBalance(data.balance ?? 0);
   }, [network]);
 
+  const sendUsdc = useCallback(async (to: string, amountUsdc: number): Promise<string> => {
+    if (!walletAddress || typeof window.ethereum === "undefined") {
+      throw new Error("Wallet not connected");
+    }
+
+    const usdcContract = USDC_ADDRESS[network];
+    // USDC has 6 decimals — amountUsdc is a float like 5.00
+    const amountRaw = BigInt(Math.round(amountUsdc * 1_000_000));
+
+    // Encode transfer(address, uint256) calldata
+    const paddedTo = to.slice(2).toLowerCase().padStart(64, "0");
+    const paddedAmount = amountRaw.toString(16).padStart(64, "0");
+    const data = `${TRANSFER_SELECTOR}${paddedTo}${paddedAmount}`;
+
+    const txHash = await window.ethereum.request({
+      method: "eth_sendTransaction",
+      params: [{
+        from: walletAddress,
+        to: usdcContract,
+        data,
+      }],
+    }) as string;
+
+    return txHash;
+  }, [walletAddress, network]);
+
   const disconnectWallet = useCallback(() => {
     setWalletAddress(null);
     setBalance(null);
@@ -125,7 +160,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, connectWallet, disconnectWallet, refreshBalance, updateFromMetadata }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata }}>
       {children}
     </WalletContext.Provider>
   );

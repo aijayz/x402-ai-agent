@@ -8,11 +8,6 @@ import {
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import {
   PromptInput,
-  PromptInputModelSelect,
-  PromptInputModelSelectContent,
-  PromptInputModelSelectItem,
-  PromptInputModelSelectTrigger,
-  PromptInputModelSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputToolbar,
@@ -21,8 +16,7 @@ import {
 import { useEffect, useState, useCallback } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Check, Loader2, ExternalLink, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -48,18 +42,40 @@ import {
 } from "@/components/ui/sheet";
 import { useWallet } from "@/components/wallet-provider";
 
-const models = [
-  { name: "Gemini 2.5 Flash", value: "gemini-2.5-flash" },
-  { name: "DeepSeek Chat", value: "deepseek-chat" },
-  { name: "DeepSeek Reasoner", value: "deepseek-reasoner" },
+const capabilities = [
+  {
+    icon: TrendingUp,
+    title: "Market Intelligence",
+    prompts: [
+      "What's the current price of Ethereum?",
+      "Give me a morning crypto market briefing",
+    ],
+  },
+  {
+    icon: Shield,
+    title: "DeFi Research",
+    prompts: [
+      "Is contract 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984 safe?",
+      "Analyze the top lending protocols on Base",
+    ],
+  },
+  {
+    icon: Sparkles,
+    title: "Whale Tracking",
+    prompts: [
+      "What are whales buying right now?",
+      "Track large wallet movements on Ethereum",
+    ],
+  },
+  {
+    icon: MessageCircle,
+    title: "Social Sentiment",
+    prompts: [
+      "What's the narrative around Solana on Twitter?",
+      "Summarize crypto sentiment from Farcaster",
+    ],
+  },
 ];
-
-const suggestions = {
-  "Is this token safe?": "Analyze the safety of contract 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984",
-  "Whale activity": "What are whales buying right now?",
-  "Crypto sentiment": "What's the narrative around Solana on Twitter and Farcaster?",
-  "Check price ($0.01)": "What's the current price of Ethereum?",
-};
 
 // Parse [ACTION:xxx] markers from completed message text
 function parseActions(text: string): { cleanText: string; actions: string[] } {
@@ -73,11 +89,14 @@ function parseActions(text: string): { cleanText: string; actions: string[] } {
 
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
-  const [model, setModel] = useState<string>(models[0].value);
   const [lastError, setLastError] = useState<Error | null>(null);
   const [topUpSheetOpen, setTopUpSheetOpen] = useState(false);
   const [depositInfo, setDepositInfo] = useState<{ depositAddress: string; network: string } | null>(null);
-  const { walletAddress, connectWallet, updateFromMetadata } = useWallet();
+  const [topUpAmount, setTopUpAmount] = useState<number>(5);
+  const [topUpStatus, setTopUpStatus] = useState<"idle" | "sending" | "confirming" | "done" | "error">("idle");
+  const [topUpTxHash, setTopUpTxHash] = useState<string | null>(null);
+  const [topUpError, setTopUpError] = useState<string | null>(null);
+  const { walletAddress, connectWallet, sendUsdc, refreshBalance, updateFromMetadata } = useWallet();
 
   const { messages, sendMessage, status } = useChat({
     onError: (error) => {
@@ -104,6 +123,11 @@ const ChatBotDemo = () => {
       await connectWallet();
       return;
     }
+    // Reset state
+    setTopUpStatus("idle");
+    setTopUpTxHash(null);
+    setTopUpError(null);
+    setTopUpAmount(5);
     try {
       const res = await fetch("/api/credits/topup", {
         method: "POST",
@@ -117,6 +141,42 @@ const ChatBotDemo = () => {
       alert("Failed to fetch deposit info");
     }
   }, [walletAddress, connectWallet]);
+
+  const handleSendTopUp = useCallback(async () => {
+    if (!walletAddress || !depositInfo) return;
+    setTopUpStatus("sending");
+    setTopUpError(null);
+    try {
+      const txHash = await sendUsdc(depositInfo.depositAddress, topUpAmount);
+      setTopUpTxHash(txHash);
+      setTopUpStatus("confirming");
+
+      // Confirm on server — polls until tx is mined
+      const res = await fetch("/api/credits/topup/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress, txHash }),
+      });
+
+      if (res.ok) {
+        setTopUpStatus("done");
+        await refreshBalance();
+      } else {
+        const data = await res.json();
+        setTopUpError(data.error || "Failed to confirm transaction");
+        setTopUpStatus("error");
+      }
+    } catch (err: unknown) {
+      // User rejected in MetaMask or other error
+      const msg = err instanceof Error ? err.message : "Transaction failed";
+      if (msg.includes("User denied") || msg.includes("rejected")) {
+        setTopUpStatus("idle"); // just go back, not an error
+      } else {
+        setTopUpError(msg);
+        setTopUpStatus("error");
+      }
+    }
+  }, [walletAddress, depositInfo, topUpAmount, sendUsdc, refreshBalance]);
 
   const handleAction = useCallback((action: string) => {
     if (action === "topup") handleOpenTopUp();
@@ -132,20 +192,20 @@ const ChatBotDemo = () => {
         ?.filter((p: any) => p.type === "text")
         .map((p: any) => p.text)
         .join("") || "";
-      sendMessage({ text }, { body: { model }, headers });
+      sendMessage({ text }, { headers });
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
-      sendMessage({ text: input }, { body: { model }, headers });
+      sendMessage({ text: input }, { headers });
       setInput("");
     }
   };
 
-  const handleSuggestionClick = (suggestion: keyof typeof suggestions) => {
-    sendMessage({ text: suggestions[suggestion] }, { body: { model }, headers });
+  const handlePromptClick = (prompt: string) => {
+    sendMessage({ text: prompt }, { headers });
   };
 
   // Determine if a message is the currently-streaming one
@@ -160,39 +220,37 @@ const ChatBotDemo = () => {
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="min-h-full flex flex-col justify-end">
             {messages.length === 0 && status === "ready" && (
-              <div className="flex flex-col items-center justify-center py-16 text-center animate-in fade-in duration-500">
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-400 to-amber-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
-                    <svg className="w-10 h-10 text-white" viewBox="0 0 32 32" fill="none">
-                      <circle cx="10" cy="10" r="2.5" fill="white" fillOpacity="0.9"/>
-                      <circle cx="22" cy="10" r="2.5" fill="white" fillOpacity="0.9"/>
-                      <circle cx="16" cy="18" r="2.5" fill="white" fillOpacity="0.9"/>
-                      <circle cx="16" cy="26" r="2" fill="white" fillOpacity="0.7"/>
-                      <path d="M10 10h6M10 10l4 6M22 10l-4 6M16 18v6" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.6"/>
-                      <path d="M18 6l-4 8h4l-2 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                    </svg>
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-md">
-                    <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                    </svg>
-                  </div>
-                </div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">
-                  Welcome to x402 AI Agent
+              <div className="flex flex-col items-center justify-center py-10 animate-in fade-in duration-500">
+                <h2 className="text-lg font-semibold text-foreground mb-1">
+                  What can I help you with?
                 </h2>
-                <p className="text-muted-foreground max-w-sm mb-6">
-                  An AI agent that discovers, budgets, and pays for external API services using USDC on Base blockchain.
+                <p className="text-sm text-muted-foreground mb-8 max-w-md text-center">
+                  Ask anything about crypto. I&apos;ll orchestrate the right tools and handle payments automatically.
                 </p>
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <div className="w-2 h-2 rounded-full bg-green-500" />
-                    Free tools available
-                  </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <div className="w-2 h-2 rounded-full bg-amber-500" />
-                    Paid tools supported
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+                  {capabilities.map((cap) => (
+                    <div
+                      key={cap.title}
+                      className="rounded-lg border border-border bg-muted/30 p-4 space-y-2.5"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <cap.icon className="size-4 text-muted-foreground" />
+                        {cap.title}
+                      </div>
+                      <div className="space-y-1.5">
+                        {cap.prompts.map((prompt) => (
+                          <button
+                            key={prompt}
+                            onClick={() => handlePromptClick(prompt)}
+                            className="block w-full text-left text-xs text-muted-foreground hover:text-foreground
+                              px-2.5 py-1.5 rounded-md hover:bg-muted/80 transition-colors truncate"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -305,20 +363,6 @@ const ChatBotDemo = () => {
           <ConversationScrollButton />
         </Conversation>
 
-        {messages.length === 0 && (
-          <Suggestions className="justify-center">
-            {Object.keys(suggestions).map((suggestion) => (
-              <Suggestion
-                key={suggestion}
-                suggestion={suggestion}
-                onClick={() => handleSuggestionClick(suggestion as keyof typeof suggestions)}
-                variant="outline"
-                size="sm"
-              />
-            ))}
-          </Suggestions>
-        )}
-
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
@@ -327,18 +371,15 @@ const ChatBotDemo = () => {
           />
           <PromptInputToolbar>
             <PromptInputTools>
-              <PromptInputModelSelect onValueChange={setModel} value={model}>
-                <PromptInputModelSelectTrigger>
-                  <PromptInputModelSelectValue />
-                </PromptInputModelSelectTrigger>
-                <PromptInputModelSelectContent>
-                  {models.map((m) => (
-                    <PromptInputModelSelectItem key={m.value} value={m.value}>
-                      {m.name}
-                    </PromptInputModelSelectItem>
-                  ))}
-                </PromptInputModelSelectContent>
-              </PromptInputModelSelect>
+              <button
+                onClick={() => handlePromptClick("What tools and capabilities do you have? List them with costs.")}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-muted-foreground
+                  hover:text-foreground hover:bg-muted/80 transition-colors border border-transparent hover:border-border"
+                title="Explore available tools"
+              >
+                <Sparkles className="size-3" />
+                <span>Explore</span>
+              </button>
             </PromptInputTools>
             <PromptInputSubmit disabled={!input} status={status} />
           </PromptInputToolbar>
@@ -350,26 +391,94 @@ const ChatBotDemo = () => {
             <SheetHeader>
               <SheetTitle>Top Up Credits</SheetTitle>
               <SheetDescription>
-                Send USDC to this address on {depositInfo?.network === "base-sepolia" ? "Base Sepolia" : "Base"} to add credits.
+                Add USDC credits on {depositInfo?.network === "base-sepolia" ? "Base Sepolia" : "Base"}.
               </SheetDescription>
             </SheetHeader>
             {depositInfo && (
-              <div className="mt-6 space-y-4">
-                <div className="p-4 rounded-lg bg-muted/50 border border-border">
-                  <div className="text-xs text-muted-foreground mb-1">Deposit Address</div>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono break-all">{depositInfo.depositAddress}</code>
-                    <button
-                      onClick={() => navigator.clipboard.writeText(depositInfo.depositAddress)}
-                      className="shrink-0 px-2 py-1 rounded text-xs border hover:bg-muted"
-                    >
-                      Copy
-                    </button>
+              <div className="mt-6 space-y-5">
+                {topUpStatus === "done" ? (
+                  <div className="flex flex-col items-center gap-4 py-6">
+                    <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <Check className="size-6 text-green-400" />
+                    </div>
+                    <div className="text-center space-y-1">
+                      <p className="font-medium text-foreground">${topUpAmount.toFixed(2)} credited</p>
+                      <p className="text-sm text-muted-foreground">Your credits have been updated.</p>
+                    </div>
+                    {topUpTxHash && (
+                      <a
+                        href={`${depositInfo.network === "base-sepolia" ? "https://sepolia.basescan.org" : "https://basescan.org"}/tx/${topUpTxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        View transaction <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setTopUpSheetOpen(false)}>
+                      Done
+                    </Button>
                   </div>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  Minimum deposit: $1.00 USDC. Your balance will update automatically.
-                </div>
+                ) : (
+                  <>
+                    {/* Amount selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">Amount (USDC)</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[1, 5, 10].map((amt) => (
+                          <button
+                            key={amt}
+                            onClick={() => setTopUpAmount(amt)}
+                            disabled={topUpStatus !== "idle"}
+                            className={`py-2.5 rounded-lg text-sm font-medium border transition-colors
+                              ${topUpAmount === amt
+                                ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
+                                : "bg-muted/50 border-border text-muted-foreground hover:border-blue-500/30"
+                              }`}
+                          >
+                            ${amt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Send button */}
+                    <Button
+                      onClick={handleSendTopUp}
+                      disabled={topUpStatus !== "idle"}
+                      className="w-full"
+                    >
+                      {topUpStatus === "sending" && (
+                        <><Loader2 className="size-4 animate-spin mr-2" /> Approve in wallet...</>
+                      )}
+                      {topUpStatus === "confirming" && (
+                        <><Loader2 className="size-4 animate-spin mr-2" /> Confirming on-chain...</>
+                      )}
+                      {topUpStatus === "idle" && `Send $${topUpAmount.toFixed(2)} USDC`}
+                      {topUpStatus === "error" && "Try again"}
+                    </Button>
+
+                    {topUpError && (
+                      <p className="text-sm text-red-400 text-center">{topUpError}</p>
+                    )}
+
+                    {/* Manual fallback */}
+                    <div className="pt-3 border-t border-border space-y-2">
+                      <p className="text-xs text-muted-foreground">Or send manually to:</p>
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs font-mono text-muted-foreground break-all flex-1">
+                          {depositInfo.depositAddress}
+                        </code>
+                        <button
+                          onClick={() => navigator.clipboard.writeText(depositInfo.depositAddress)}
+                          className="shrink-0 px-2 py-1 rounded text-xs border border-border hover:bg-muted transition-colors"
+                        >
+                          Copy
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </SheetContent>

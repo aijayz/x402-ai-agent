@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getOrCreateSellerAccount } from "@/lib/accounts";
+import { getOrCreatePurchaserAccount } from "@/lib/accounts";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { env } from "@/lib/env";
 
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
   await CreditStore.getOrCreate(parsed.data.walletAddress);
 
-  const treasuryAccount = await getOrCreateSellerAccount();
+  const treasuryAccount = await getOrCreatePurchaserAccount();
   return NextResponse.json({
     depositAddress: treasuryAccount.address,
     network: env.NETWORK,

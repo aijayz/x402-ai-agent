@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import Link from "next/link";
 import { ClientProviders } from "@/components/client-providers";
-import { WalletPill } from "@/components/wallet-pill";
+import { WalletPill, CreditBadge } from "@/components/wallet-pill";
 
 export const metadata: Metadata = {
   title: "x402 AI Agent",
@@ -96,8 +96,11 @@ export default function RootLayout({
                   </div>
                 </div>
 
-                {/* Right: Wallet Pill */}
-                <WalletPill />
+                {/* Right: Credits + Wallet */}
+                <div className="flex items-center gap-2">
+                  <CreditBadge />
+                  <WalletPill />
+                </div>
               </div>
             </header>
 

@@ -1,10 +1,10 @@
 "use client";
 
 import { useWallet } from "./wallet-provider";
-import { LogOut, Wallet } from "lucide-react";
+import { LogOut, Wallet, Coins } from "lucide-react";
 
 export function WalletPill() {
-  const { walletAddress, balance, network, connectWallet, disconnectWallet } = useWallet();
+  const { walletAddress, network, connectWallet, disconnectWallet } = useWallet();
 
   const networkLabel = network === "base-sepolia" ? "Sepolia" : "Base";
 
@@ -24,10 +24,6 @@ export function WalletPill() {
     );
   }
 
-  const displayBalance = balance != null
-    ? `$${(balance / 1_000_000).toFixed(2)}`
-    : null;
-
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm
       bg-muted/50 border border-border">
@@ -37,12 +33,6 @@ export function WalletPill() {
       </span>
       <span className="text-muted-foreground">|</span>
       <span className="text-xs text-muted-foreground">{networkLabel}</span>
-      {displayBalance && (
-        <>
-          <span className="text-muted-foreground">|</span>
-          <span className="font-mono text-xs font-medium">{displayBalance}</span>
-        </>
-      )}
       <button
         onClick={disconnectWallet}
         className="ml-1 p-0.5 rounded hover:bg-muted transition-colors"
@@ -50,6 +40,23 @@ export function WalletPill() {
       >
         <LogOut className="size-3 text-muted-foreground" />
       </button>
+    </div>
+  );
+}
+
+export function CreditBadge() {
+  const { walletAddress, balance } = useWallet();
+
+  if (!walletAddress || balance == null) return null;
+
+  const displayBalance = (balance / 1_000_000).toFixed(2);
+
+  return (
+    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs
+      bg-amber-500/10 border border-amber-500/30 text-amber-300">
+      <Coins className="size-3" />
+      <span className="font-mono font-medium">${displayBalance}</span>
+      <span className="text-amber-400/60">credits</span>
     </div>
   );
 }
