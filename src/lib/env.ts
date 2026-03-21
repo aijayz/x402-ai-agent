@@ -25,6 +25,9 @@ export const env = createEnv({
     // Cron authentication
     CRON_SECRET: z.string().optional(),
 
+    // Alchemy webhook signature verification
+    ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
+
     // x402 service URLs (optional — cluster tools gracefully degrade when unavailable)
     // Cluster A
     RUGMUNCH_URL: z.string().url().optional(),
@@ -58,6 +61,7 @@ export const env = createEnv({
     URL: process.env.URL,
     DATABASE_URL: process.env.DATABASE_URL,
     CRON_SECRET: process.env.CRON_SECRET,
+    ALCHEMY_WEBHOOK_SIGNING_KEY: process.env.ALCHEMY_WEBHOOK_SIGNING_KEY,
     RUGMUNCH_URL: process.env.RUGMUNCH_URL,
     AUGUR_URL: process.env.AUGUR_URL,
     DIAMONDCLAWS_URL: process.env.DIAMONDCLAWS_URL,

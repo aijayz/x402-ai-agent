@@ -75,6 +75,9 @@ export const CreditStore = {
       WHERE wallet_address = ${walletAddress}
       RETURNING balance_micro_usdc
     `;
+    if (rows.length === 0) {
+      throw new Error(`CreditStore.credit: no account found for wallet ${walletAddress}`);
+    }
     return Number(rows[0].balance_micro_usdc);
   },
 

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPublicClient, http } from "viem";
 import { baseSepolia, base } from "viem/chains";
-import { CreditStore, MICRO_USDC } from "@/lib/credits/credit-store";
+import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
 import { getOrCreatePurchaserAccount } from "@/lib/accounts";
 import { env } from "@/lib/env";
+import { sql } from "@/lib/db";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -86,22 +87,57 @@ export async function POST(req: Request) {
   // USDC has 6 decimals — transferAmount is already in micro-USDC
   const amountMicro = Number(transferAmount);
 
-  // Credit the user
-  const newBalance = await CreditStore.credit(walletAddress, amountMicro);
+  // Atomic: insert idempotency record + credit balance in one transaction.
+  // If the idempotency INSERT conflicts (concurrent request), the whole tx is rolled back
+  // and the second caller gets a clean "already_processed" on retry.
+  try {
+    const results = await sql.transaction([
+      sql`
+        INSERT INTO spend_events (
+          wallet_address, tool_name,
+          service_cost_micro_usdc, charged_amount_micro_usdc,
+          markup_bps, tx_hash
+        ) VALUES (
+          ${walletAddress}, ${"topup"},
+          ${0}, ${-amountMicro},
+          ${0}, ${txHash}
+        )
+      `,
+      sql`
+        UPDATE credit_accounts
+        SET balance_micro_usdc = balance_micro_usdc + ${amountMicro},
+            updated_at = now()
+        WHERE wallet_address = ${walletAddress}
+        RETURNING balance_micro_usdc
+      `,
+    ]);
 
-  // Record for idempotency
-  await SpendEventStore.record({
-    walletAddress,
-    toolName: "topup",
-    serviceCostMicroUsdc: 0,
-    chargedAmountMicroUsdc: -amountMicro, // negative = credit
-    markupBps: 0,
-    txHash,
-  });
+    const creditRows = results[1] as Array<Record<string, unknown>>;
+    if (creditRows.length === 0) {
+      return NextResponse.json(
+        { error: "No credit account found for this wallet. Please connect your wallet first." },
+        { status: 400 }
+      );
+    }
 
-  return NextResponse.json({
-    credited: true,
-    amountUsdc: amountMicro / 1_000_000,
-    balanceMicroUsdc: newBalance,
-  });
+    const newBalance = Number(creditRows[0].balance_micro_usdc);
+    return NextResponse.json({
+      credited: true,
+      amountUsdc: amountMicro / 1_000_000,
+      balanceMicroUsdc: newBalance,
+    });
+  } catch (err) {
+    // If the INSERT hit a unique constraint (concurrent duplicate), treat as already processed
+    const pgErr = err as { code?: string };
+    if (pgErr.code === "23505") {
+      const account = await CreditStore.get(walletAddress);
+      return NextResponse.json({
+        credited: false,
+        reason: "already_processed",
+        balanceMicroUsdc: account?.balanceMicroUsdc ?? 0,
+      });
+    }
+    console.error("[TOPUP_CONFIRM] Transaction failed", { walletAddress, txHash, error: err });
+    return NextResponse.json({ error: "Failed to credit account" }, { status: 500 });
+  }
 }

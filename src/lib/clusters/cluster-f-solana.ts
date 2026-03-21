@@ -25,58 +25,69 @@ export function createClusterFTools(deps: ClusterFDeps) {
         const unavailable: UnavailableService[] = [];
         const hasAnyService = !!(env.STAKEVIA_URL);
         const maxReservationMicro = 1_500_000;
+        let reserved = false;
 
         if (hasAnyService && deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance for staking analysis (~$1.25). Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
           }
+          reserved = true;
         }
 
         const calls: ServiceCallResult[] = [];
         const errors: string[] = [];
 
-        if (env.STAKEVIA_URL) {
-          try {
-            const result = await x402Fetch(
-              `${env.STAKEVIA_URL}/analyze?q=${encodeURIComponent(query)}`,
-              undefined,
-              { walletClient: deps.walletClient, maxPaymentMicroUsdc: 1_200_000 },
-            );
-            calls.push({ serviceName: "Stakevia", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-          } catch (err) {
-            errors.push(`Stakevia: ${err instanceof Error ? err.message : "unavailable"}`);
+        try {
+          if (env.STAKEVIA_URL) {
+            try {
+              const result = await x402Fetch(
+                `${env.STAKEVIA_URL}/analyze?q=${encodeURIComponent(query)}`,
+                undefined,
+                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 1_200_000 },
+              );
+              calls.push({ serviceName: "Stakevia", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+            } catch (err) {
+              errors.push(`Stakevia: ${err instanceof Error ? err.message : "unavailable"}`);
+            }
+          } else {
+            unavailable.push({ name: "Stakevia", purpose: "Solana validator scoring and staking simulation", typicalCostUsdc: 1.00 });
           }
-        } else {
-          unavailable.push({ name: "Stakevia", purpose: "Solana validator scoring and staking simulation", typicalCostUsdc: 1.00 });
-        }
 
-        if (env.MYCELIA_URL) {
-          try {
-            const result = await x402Fetch(
-              `${env.MYCELIA_URL}/prices?symbols=SOL`,
-              undefined,
-              { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
-            );
-            calls.push({ serviceName: "Mycelia Signal", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-          } catch (err) {
-            errors.push(`Mycelia Signal: ${err instanceof Error ? err.message : "unavailable"}`);
+          if (env.MYCELIA_URL) {
+            try {
+              const result = await x402Fetch(
+                `${env.MYCELIA_URL}/prices?symbols=SOL`,
+                undefined,
+                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
+              );
+              calls.push({ serviceName: "Mycelia Signal", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+            } catch (err) {
+              errors.push(`Mycelia Signal: ${err instanceof Error ? err.message : "unavailable"}`);
+            }
+          }
+
+          const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+
+          const summary = calls.length > 0
+            ? `Analyzed Solana staking using ${calls.map(c => c.serviceName).join(", ")}. ` +
+              (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
+            : `Solana Staking Analysis requires external x402 services that aren't connected yet.`;
+
+          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
+        } finally {
+          if (reserved && deps.userWallet) {
+            const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+            const unusedMicro = maxReservationMicro - totalCost;
+            if (unusedMicro > 0) {
+              await CreditStore.release(deps.userWallet, unusedMicro).catch((err) => {
+                console.error("[CLUSTER_F] Failed to release credit reservation", {
+                  userWallet: deps.userWallet, unusedMicro, error: err,
+                });
+              });
+            }
           }
         }
-
-        const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
-
-        if (hasAnyService && deps.userWallet) {
-          const unusedMicro = maxReservationMicro - totalCost;
-          if (unusedMicro > 0) await CreditStore.release(deps.userWallet, unusedMicro);
-        }
-
-        const summary = calls.length > 0
-          ? `Analyzed Solana staking using ${calls.map(c => c.serviceName).join(", ")}. ` +
-            (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
-          : `Solana Staking Analysis requires external x402 services that aren't connected yet.`;
-
-        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
       },
     }),
   };

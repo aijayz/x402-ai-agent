@@ -38,42 +38,58 @@ export const POST = async (request: Request) => {
   let budget: BudgetController;
   let freeCallsRemaining: number | undefined;
 
-  if (walletAddress) {
-    // Wallet user — credit-based
-    const account = await CreditStore.getOrCreate(walletAddress);
-    budget = new BudgetController({
-      mode: "credit",
-      walletAddress,
-      balanceMicroUsdc: account.balanceMicroUsdc,
-    });
-  } else {
-    // Anonymous — session-based, 2 free calls
-    const session = await SessionStore.getOrCreate(sessionId);
-    if (SessionStore.isFreeCallsExhausted(session.freeCallsUsed)) {
-      return new Response(
-        JSON.stringify({
-          error: "Free calls exhausted. Connect a wallet to continue.",
-          code: "FREE_CALLS_EXHAUSTED",
-        }),
-        { status: 402, headers: { "Content-Type": "application/json" } }
-      );
+  try {
+    if (walletAddress) {
+      // Wallet user — credit-based
+      const account = await CreditStore.getOrCreate(walletAddress);
+      budget = new BudgetController({
+        mode: "credit",
+        walletAddress,
+        balanceMicroUsdc: account.balanceMicroUsdc,
+      });
+    } else {
+      // Anonymous — session-based, 2 free calls
+      const session = await SessionStore.getOrCreate(sessionId);
+      if (SessionStore.isFreeCallsExhausted(session.freeCallsUsed)) {
+        return new Response(
+          JSON.stringify({
+            error: "Free calls exhausted. Connect a wallet to continue.",
+            code: "FREE_CALLS_EXHAUSTED",
+          }),
+          { status: 402, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      // Increment in DB BEFORE constructing BudgetController.
+      // Do NOT call budget.recordCall() later — the DB is the source of truth.
+      await SessionStore.incrementCallCount(sessionId);
+      freeCallsRemaining = SessionStore.MAX_FREE_CALLS - (session.freeCallsUsed + 1);
+      budget = new BudgetController({
+        sessionLimitUsdc: 0.50,
+        maxCalls: 2,
+        initialCallCount: session.freeCallsUsed + 1, // post-increment
+      });
     }
-    // Increment in DB BEFORE constructing BudgetController.
-    // Do NOT call budget.recordCall() later — the DB is the source of truth.
-    await SessionStore.incrementCallCount(sessionId);
-    freeCallsRemaining = SessionStore.MAX_FREE_CALLS - (session.freeCallsUsed + 1);
-    budget = new BudgetController({
-      sessionLimitUsdc: 0.50,
-      maxCalls: 2,
-      initialCallCount: session.freeCallsUsed + 1, // post-increment
-    });
+  } catch (err) {
+    console.error("[CHAT] Failed to initialize session/credits", err);
+    return new Response(
+      JSON.stringify({ error: "Service temporarily unavailable. Please try again." }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // Do NOT call budget.recordCall() here — DB handles anonymous counts,
   // credit mode has no call limit.
 
   // Parse and validate request body
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Invalid JSON body" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
   const validated = ChatRequestSchema.safeParse(body);
   if (!validated.success) {
     return new Response(
@@ -168,35 +184,49 @@ export const POST = async (request: Request) => {
               | { transaction?: string; amount?: number }
               | undefined;
             if (paymentResponse?.transaction) {
-              // All amounts in micro-USDC
-              const serviceCostMicro = TOOL_PRICES[toolResult.toolName]
-                ? Math.round(TOOL_PRICES[toolResult.toolName] * 1_000_000)
-                : 0;
-              const markupBps = 3000; // 30%
-              const chargedMicro = Math.round(serviceCostMicro * 1.30);
+              try {
+                // All amounts in micro-USDC
+                const serviceCostMicro = TOOL_PRICES[toolResult.toolName]
+                  ? Math.round(TOOL_PRICES[toolResult.toolName] * 1_000_000)
+                  : 0;
+                const markupBps = 3000; // 30%
+                const chargedMicro = Math.round(serviceCostMicro * 1.30);
 
-              // Track in BudgetController (micro-USDC in both modes)
-              budget.recordSpend(chargedMicro, toolResult.toolName, paymentResponse.transaction);
+                // Track in BudgetController (micro-USDC in both modes)
+                budget.recordSpend(chargedMicro, toolResult.toolName, paymentResponse.transaction);
 
-              turnSpendEvents.push({
-                toolName: toolResult.toolName,
-                amountUsdc: chargedMicro / 1_000_000,
-              });
+                turnSpendEvents.push({
+                  toolName: toolResult.toolName,
+                  amountUsdc: chargedMicro / 1_000_000,
+                });
 
-              if (walletAddress) {
-                // Atomic DB deduction for wallet users
-                const result = await CreditStore.deduct(walletAddress, chargedMicro);
-                if (!result.success) {
-                  console.error("Credit deduction failed — balance may have gone negative");
+                if (walletAddress) {
+                  // Atomic DB deduction for wallet users
+                  const result = await CreditStore.deduct(walletAddress, chargedMicro);
+                  if (!result.success) {
+                    console.error("[PAYMENT] Credit deduction failed after on-chain payment", {
+                      walletAddress,
+                      toolName: toolResult.toolName,
+                      txHash: paymentResponse.transaction,
+                      chargedMicro,
+                    });
+                  }
+
+                  await SpendEventStore.record({
+                    walletAddress,
+                    toolName: toolResult.toolName,
+                    serviceCostMicroUsdc: serviceCostMicro,
+                    chargedAmountMicroUsdc: chargedMicro,
+                    markupBps,
+                    txHash: paymentResponse.transaction,
+                  });
                 }
-
-                await SpendEventStore.record({
+              } catch (err) {
+                console.error("[PAYMENT] Failed to record spend event — on-chain payment may be untracked", {
                   walletAddress,
                   toolName: toolResult.toolName,
-                  serviceCostMicroUsdc: serviceCostMicro,
-                  chargedAmountMicroUsdc: chargedMicro,
-                  markupBps,
                   txHash: paymentResponse.transaction,
+                  error: err,
                 });
               }
             }

@@ -25,73 +25,84 @@ export function createClusterBTools(deps: ClusterBDeps) {
         const unavailable: UnavailableService[] = [];
         const hasAnyService = !!(env.EINSTEIN_AI_URL || env.SLAMAI_URL);
         const maxReservationMicro = 200_000;
+        let reserved = false;
 
         if (hasAnyService && deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance. Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
           }
+          reserved = true;
         }
 
         const calls: ServiceCallResult[] = [];
         const errors: string[] = [];
 
-        if (env.EINSTEIN_AI_URL) {
-          try {
-            const result = await x402Fetch(
-              `${env.EINSTEIN_AI_URL}/whales?q=${encodeURIComponent(query)}`,
-              undefined,
-              { walletClient: deps.walletClient, maxPaymentMicroUsdc: 100_000 },
-            );
-            calls.push({ serviceName: "Einstein AI", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-          } catch (err) {
-            errors.push(`Einstein AI: ${err instanceof Error ? err.message : "unavailable"}`);
+        try {
+          if (env.EINSTEIN_AI_URL) {
+            try {
+              const result = await x402Fetch(
+                `${env.EINSTEIN_AI_URL}/whales?q=${encodeURIComponent(query)}`,
+                undefined,
+                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 100_000 },
+              );
+              calls.push({ serviceName: "Einstein AI", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+            } catch (err) {
+              errors.push(`Einstein AI: ${err instanceof Error ? err.message : "unavailable"}`);
+            }
+          } else {
+            unavailable.push({ name: "Einstein AI", purpose: "Whale wallet tracking and large transaction alerts", typicalCostUsdc: 0.05 });
           }
-        } else {
-          unavailable.push({ name: "Einstein AI", purpose: "Whale wallet tracking and large transaction alerts", typicalCostUsdc: 0.05 });
-        }
 
-        if (env.SLAMAI_URL) {
-          try {
-            const result = await x402Fetch(
-              `${env.SLAMAI_URL}/smart-money?q=${encodeURIComponent(query)}`,
-              undefined,
-              { walletClient: deps.walletClient, maxPaymentMicroUsdc: 100_000 },
-            );
-            calls.push({ serviceName: "SLAMai", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-          } catch (err) {
-            errors.push(`SLAMai: ${err instanceof Error ? err.message : "unavailable"}`);
+          if (env.SLAMAI_URL) {
+            try {
+              const result = await x402Fetch(
+                `${env.SLAMAI_URL}/smart-money?q=${encodeURIComponent(query)}`,
+                undefined,
+                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 100_000 },
+              );
+              calls.push({ serviceName: "SLAMai", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+            } catch (err) {
+              errors.push(`SLAMai: ${err instanceof Error ? err.message : "unavailable"}`);
+            }
+          } else {
+            unavailable.push({ name: "SLAMai", purpose: "Smart money flow analysis", typicalCostUsdc: 0.05 });
           }
-        } else {
-          unavailable.push({ name: "SLAMai", purpose: "Smart money flow analysis", typicalCostUsdc: 0.05 });
-        }
 
-        if (env.MYCELIA_URL) {
-          try {
-            const result = await x402Fetch(
-              `${env.MYCELIA_URL}/prices?symbols=BTC,ETH,SOL`,
-              undefined,
-              { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
-            );
-            calls.push({ serviceName: "Mycelia Signal", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-          } catch (err) {
-            errors.push(`Mycelia Signal: ${err instanceof Error ? err.message : "unavailable"}`);
+          if (env.MYCELIA_URL) {
+            try {
+              const result = await x402Fetch(
+                `${env.MYCELIA_URL}/prices?symbols=BTC,ETH,SOL`,
+                undefined,
+                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
+              );
+              calls.push({ serviceName: "Mycelia Signal", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+            } catch (err) {
+              errors.push(`Mycelia Signal: ${err instanceof Error ? err.message : "unavailable"}`);
+            }
+          }
+
+          const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+
+          const summary = calls.length > 0
+            ? `Tracked whale activity using ${calls.map(c => c.serviceName).join(", ")}. ` +
+              (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
+            : `Whale Intelligence requires external x402 services that aren't connected yet.`;
+
+          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
+        } finally {
+          if (reserved && deps.userWallet) {
+            const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+            const unusedMicro = maxReservationMicro - totalCost;
+            if (unusedMicro > 0) {
+              await CreditStore.release(deps.userWallet, unusedMicro).catch((err) => {
+                console.error("[CLUSTER_B] Failed to release credit reservation", {
+                  userWallet: deps.userWallet, unusedMicro, error: err,
+                });
+              });
+            }
           }
         }
-
-        const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
-
-        if (hasAnyService && deps.userWallet) {
-          const unusedMicro = maxReservationMicro - totalCost;
-          if (unusedMicro > 0) await CreditStore.release(deps.userWallet, unusedMicro);
-        }
-
-        const summary = calls.length > 0
-          ? `Tracked whale activity using ${calls.map(c => c.serviceName).join(", ")}. ` +
-            (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
-          : `Whale Intelligence requires external x402 services that aren't connected yet.`;
-
-        return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
       },
     }),
   };
