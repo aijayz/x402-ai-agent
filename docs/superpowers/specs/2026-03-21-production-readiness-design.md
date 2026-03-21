@@ -39,8 +39,8 @@ interface X402ServiceAdapter<TInput, TOutput> {
 ```
 src/lib/services/
 ├── types.ts                    # X402ServiceAdapter interface, PaymentContext
-├── registry.ts                 # Maps service names → adapters by environment
-├── payment-handler.ts          # Shared x402 HTTP+402 flow (sign, retry)
+├── registry.ts                 # Maps service names → adapters by env, reads URLs from env.ts
+├── payment-handler.ts          # Shared x402 HTTP+402 flow (wraps x402Fetch pattern)
 ├── adapters/
 │   ├── rug-munch.ts           # DeFi safety scoring
 │   ├── diamond-claws.ts       # Token metrics
@@ -64,7 +64,20 @@ src/lib/services/
 
 ### Payment Handler
 
-A shared `callWithPayment(url, body, paymentContext)` function handles the x402 dance: request → 402 response → sign EIP-3009 authorization → retry with Payment header. Reuses the existing `withPayment` pattern from `src/lib/with-auto-payment.ts`.
+A shared `callWithPayment(url, body, paymentContext)` function handles the x402 HTTP payment flow for direct service calls: request → 402 response → sign EIP-3009 authorization → retry with Payment header.
+
+**Important distinction:** The codebase has two payment paths:
+1. **MCP tool payments** — handled by `withPayment()` in `src/lib/with-auto-payment.ts`, which wraps MCP client calls and injects payment into `_meta` fields. Used by the existing MCP paid tools (prices, images, etc.).
+2. **Direct HTTP service payments** — handled by `x402Fetch()` (used in existing cluster files like `cluster-f-solana.ts`), which makes direct HTTP calls and handles 402 responses.
+
+The new `payment-handler.ts` wraps the `x402Fetch` pattern (not the MCP `withPayment`), providing a typed wrapper that cluster service adapters call. `PaymentContext` contains the wallet client and user wallet address needed to sign EIP-3009 authorizations:
+
+```typescript
+interface PaymentContext {
+  walletClient: WalletClient;
+  userWallet: string | null;
+}
+```
 
 ---
 
@@ -108,7 +121,7 @@ Each cluster tool orchestrates 2-3 services and synthesizes results. Existing cl
 
 ### Cluster F: Market Intelligence (`analyze_market_trends`)
 
-Renamed from `analyze_solana_staking` — Solana staking was too narrow for a general market intelligence tool.
+Renamed from `analyze_solana_staking` — Solana staking was too narrow for a general market intelligence tool. The existing `STAKEVIA_URL` and `MYCELIA_URL` env vars in `env.ts` are removed as part of this refactor, since those services are replaced by GenVox and DiamondClaws.
 
 | Service | Cost | Purpose |
 |---------|------|---------|
@@ -125,7 +138,7 @@ When a real service is unreachable on mainnet, the cluster tool returns partial 
 
 ### Stub Behavior
 
-Each stub returns realistic, varied mock data. Stubs use a seeded random based on input (same token address → same mock result) for predictable testing behavior.
+Each stub returns realistic, varied mock data. Stubs use a simple string-hash of the input (e.g., sum of char codes mod N) to select from a pool of mock responses — same token address always returns same mock result. Do not use `Math.random()` (not seedable); a deterministic hash function is required.
 
 ---
 
@@ -194,6 +207,8 @@ Upstash Redis + `@upstash/ratelimit` in Next.js middleware.
 
 **Key extraction:** Check `x-wallet-address` header (set by frontend for authenticated users) → wallet-based limit. Fallback to `x-forwarded-for` or `request.ip` → IP-based limit.
 
+**Header spoofing caveat:** The `x-wallet-address` header is set by the frontend and not cryptographically verified in the middleware. A malicious user could spoof this header to get authenticated-tier limits. This is an accepted limitation for now — the rate limit tiers are close enough that spoofing provides minimal benefit (20 vs 5 req/min). The real auth gate is the credit system: spoofing the header doesn't grant credits or spending ability. Phase 2 can add signed-challenge verification if abuse is observed.
+
 **Route matching:** Different limits for `/api/chat`, `/mcp`, and everything else. Simple path prefix check.
 
 **429 Response:** Return `429 Too Many Requests` with `Retry-After` header and JSON body: `{ error: "Rate limit exceeded", retryAfter: 30 }`.
@@ -235,18 +250,25 @@ Single file at `src/app/page.tsx`. Four sections:
 
 ### Chat Page
 
-Move current `src/app/page.tsx` → `src/app/chat/page.tsx`. Layout wrapper, providers, and header stay in `layout.tsx`. Chat-specific providers may need a `src/app/chat/layout.tsx`.
+Move current `src/app/page.tsx` → `src/app/chat/page.tsx`.
+
+**Layout restructure:** The current root `layout.tsx` renders chat-specific UI (header with `WalletPill`, `CreditBadge`, wallet providers). This must be split:
+- **Root `layout.tsx`** — Slim: html/body, theme provider, fonts, metadata. No chat-specific UI.
+- **`src/app/chat/layout.tsx`** — Required (not optional): wallet providers, header with WalletPill/CreditBadge, chat-specific context providers.
+- **Landing page (`src/app/page.tsx`)** — Has its own simple header (logo + "Launch App" CTA). No wallet providers needed.
 
 ### Navigation
 
 - Landing page header: Logo + "Launch App" button → `/chat`
 - Chat page header: Existing header + logo click → `/`
+- No redirect from `/` → `/chat`. Users arriving at `/` see the landing page and click through. This is intentional — the landing page is the new front door.
 
 ### Files
 
 - `src/app/page.tsx` — Replace with landing page
+- `src/app/layout.tsx` — Slim down: remove chat-specific header, wallet providers
 - `src/app/chat/page.tsx` — Current chat page moved here
-- `src/app/chat/layout.tsx` — Chat-specific layout if needed
+- `src/app/chat/layout.tsx` — Required: wallet providers, chat header, credit badge
 
 ---
 
@@ -268,23 +290,27 @@ No separate `.env.staging` / `.env.production` files. Vercel environment variabl
 | MCP paid tools | Real calls (testnet USDC) | Real calls (mainnet USDC) |
 | CDP wallets | Testnet wallets, auto-faucet | Mainnet wallets, real funds |
 | Rate limiting | Same limits | Same limits |
-| Free tier credits | $0.50 test credits | $0.50 real credits |
+| Free tier credits | $0.50 test credits | $0.50 real credits (same amount — intentional) |
 | RPC URLs | Base Sepolia RPC | Base mainnet RPC |
 
 ### Service URL Config
 
-New `src/lib/services/config.ts` maps service names to URLs per network:
+Service URLs are defined as optional env vars in `src/lib/env.ts` (consistent with existing pattern — the codebase already has `RUGMUNCH_URL`, `AUGUR_URL`, etc. defined there via `@t3-oss/env-nextjs`). The registry reads URLs from `env.*`, not from a separate config file. No new `config.ts` needed — `registry.ts` handles the mapping:
 
 ```typescript
-const SERVICE_URLS: Record<Network, Record<string, string>> = {
-  "base-sepolia": {},  // empty — stubs don't need URLs
-  "base": {
-    "rug-munch": "https://api.rugmunch.com/...",
-    "diamond-claws": "https://api.diamondclaws.xyz/...",
-    // ...
-  }
+// In registry.ts
+import { env } from "@/lib/env";
+
+const serviceUrls: Record<string, string | undefined> = {
+  "rug-munch": env.RUGMUNCH_URL,
+  "diamond-claws": env.DIAMONDCLAWS_URL,
+  "wallet-iq": env.WALLETIQ_URL,
+  "genvox": env.GENVOX_URL,
+  "augur": env.AUGUR_URL,
 };
 ```
+
+New service URL env vars (`GENVOX_URL`, `DIAMONDCLAWS_URL`) are added to `env.ts` as `.optional()`. Existing unused vars (`STAKEVIA_URL`, `MYCELIA_URL`) are removed.
 
 ### Deployment
 
@@ -316,7 +342,6 @@ No other new packages required.
 | `src/lib/services/types.ts` | Service adapter interface, PaymentContext type |
 | `src/lib/services/registry.ts` | Service name → adapter resolution by env |
 | `src/lib/services/payment-handler.ts` | Shared x402 HTTP+402 payment flow |
-| `src/lib/services/config.ts` | Service URLs per network |
 | `src/lib/services/index.ts` | `getService()` entry point |
 | `src/lib/services/adapters/rug-munch.ts` | Rug Munch real adapter |
 | `src/lib/services/adapters/diamond-claws.ts` | DiamondClaws real adapter |
@@ -338,14 +363,16 @@ No other new packages required.
 | File | Change |
 |------|--------|
 | `src/app/page.tsx` | Replace with landing page |
+| `src/app/layout.tsx` | Slim down: remove chat-specific header/providers |
 | `src/middleware.ts` | Add rate limiting |
 | `src/components/ai-elements/tool.tsx` | Tool UI cleanup, expand renderers |
+| `src/app/chat/page.tsx` | Handle 429 rate limit responses in chat UI |
 | `src/lib/clusters/cluster-a-defi.ts` | Use service layer |
 | `src/lib/clusters/cluster-b-whale.ts` | Use service layer |
 | `src/lib/clusters/cluster-d-social.ts` | Use service layer |
 | `src/lib/clusters/cluster-f-solana.ts` | Rename tool, use service layer |
 | `src/lib/agents/orchestrator.ts` | Update tool names/descriptions |
-| `src/lib/env.ts` | Add Upstash env vars (optional) |
+| `src/lib/env.ts` | Add Upstash env vars (optional), add new service URLs, remove STAKEVIA_URL/MYCELIA_URL |
 
 ## Out of Scope
 
