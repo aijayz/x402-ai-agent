@@ -79,10 +79,10 @@ Rules:
 - When using generate_image, describe the generated image in your response but do NOT include the image URL as a markdown image link — the image is displayed automatically in the tool output card.
 
 You also have research cluster tools that call external x402 services:
-- analyze_defi_safety ($0.12-$0.50) — rug pull detection, contract auditing
-- track_whale_activity (~$0.10) — whale/smart money tracking
-- analyze_social_narrative (~$0.05) — Twitter/Farcaster sentiment
-- analyze_solana_staking (~$1.25) — validator analysis and staking optimization
+- analyze_defi_safety ($0.12-$2.10) — rug pull detection, contract auditing, token metrics
+- track_whale_activity (~$0.01) — wallet profiling, smart money tracking
+- analyze_social_narrative (~$0.13) — social sentiment, prediction markets
+- analyze_market_trends (~$0.03) — trending narratives, emerging tokens, market intelligence
 
 These tools call real external x402 services and cost real USDC from the user's credit balance.
 If a cluster tool returns unavailable services, explain what the tool would do and its typical cost. Frame as "coming soon" — don't apologize.`,
