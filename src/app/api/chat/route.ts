@@ -22,9 +22,7 @@ const ChatRequestSchema = z.object({
     role: z.enum(["user", "assistant", "system"]),
     parts: z.array(z.any()).optional(),
     content: z.string().optional(),
-  }).passthrough().refine((msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0, {
-    message: "Message must have either parts or content",
-  })),
+  }).passthrough()),
 });
 
 export const maxDuration = 60;
@@ -97,7 +95,17 @@ export const POST = async (request: Request) => {
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
-  const { messages } = validated.data;
+  // Filter out messages with no content (e.g. assistant metadata-only messages from interrupted streams)
+  const messages = validated.data.messages.filter(
+    (msg) => (msg.parts?.length ?? 0) > 0 || (msg.content?.length ?? 0) > 0
+  );
+
+  if (messages.length === 0) {
+    return new Response(
+      JSON.stringify({ error: "No messages with content provided" }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   // Get the purchaser account (wallet that pays for tools)
   const purchaserAccount = await getOrCreatePurchaserAccount();

@@ -328,7 +328,7 @@ const ChatBotDemo = () => {
                       );
                     } else if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
                       return (
-                        <Tool defaultOpen={true} key={`${message.id}-${i}`}>
+                        <Tool defaultOpen={false} key={`${message.id}-${i}`}>
                           {/* @ts-expect-error: ToolHeader expects ToolUIPart but part may be DynamicToolUIPart */}
                           <ToolHeader part={part} />
                           <ToolContent>
