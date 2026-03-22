@@ -14,7 +14,7 @@ export const rugMunchAdapter: X402ServiceAdapter<RugMunchInput, unknown> = {
     const url = env.RUGMUNCH_URL;
     if (!url) throw new Error("RUGMUNCH_URL not configured");
     const result = await callWithPayment(
-      `${url}/scan?target=${encodeURIComponent(input.target)}`,
+      `${url}/api/agent/v1/scan?target=${encodeURIComponent(input.target)}`,
       undefined,
       ctx,
       { maxPaymentMicroUsdc: 2_000_000 },

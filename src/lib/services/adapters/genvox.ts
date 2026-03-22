@@ -13,7 +13,7 @@ export const genvoxAdapter: X402ServiceAdapter<GenvoxInput, unknown> = {
     const url = env.GENVOX_URL;
     if (!url) throw new Error("GENVOX_URL not configured");
     const result = await callWithPayment(
-      `${url}/sentiment?topic=${encodeURIComponent(input.topic)}`,
+      `${url}/v1/sentiment/${encodeURIComponent(input.topic)}`,
       undefined,
       ctx,
       { maxPaymentMicroUsdc: 60_000 },
