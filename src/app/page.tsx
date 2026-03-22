@@ -1,26 +1,26 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, Zap, ArrowRight, Layers, DollarSign, Image, Globe, FileSearch } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, Zap, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
   {
     icon: Shield, title: "DeFi Safety Analysis",
-    description: "Rug pull detection, honeypot checks, and contract auditing via RugMunch, Augur, and QuantumShield",
+    description: "Rug pull detection, honeypot checks, and smart contract auditing from 3 independent sources",
     cost: "from $0.05",
   },
   {
     icon: Fish, title: "Whale Tracking",
-    description: "Smart money movements, wallet risk scoring, and holder analysis via WalletIQ, DiamondClaws, and QuantumShield",
+    description: "Smart money movements, wallet risk scoring, and large holder concentration analysis",
     cost: "from $0.01",
   },
   {
     icon: MessageCircle, title: "Social & Market Intelligence",
-    description: "Sentiment analysis, contract risk scoring, and wallet reputation via GenVox, Augur, and QuantumShield",
+    description: "Sentiment analysis, contract risk scoring, and wallet reputation cross-referenced across services",
     cost: "from $0.13",
   },
   {
     icon: TrendingUp, title: "Market Trends",
-    description: "Liquidity analysis, smart contract intelligence, and emerging narrative discovery via GenVox, DiamondClaws, and QuantumShield",
+    description: "Liquidity analysis, DEX pair safety metrics, and emerging narrative discovery",
     cost: "from $0.03",
   },
 ];
@@ -30,7 +30,7 @@ const tools = [
   { icon: Layers, title: "Wallet Profile", cost: "$0.02", description: "On-chain balances and activity" },
   { icon: Globe, title: "URL Summarizer", cost: "$0.03", description: "Fetch and summarize any webpage" },
   { icon: FileSearch, title: "Contract Analysis", cost: "$0.03", description: "Verified smart contract analysis" },
-  { icon: Image, title: "Image Generation", cost: "$0.05", description: "AI-powered image generation" },
+  { icon: ImageIcon, title: "Image Generation", cost: "$0.05", description: "AI-powered image generation" },
 ];
 
 export default function LandingPage() {
@@ -149,29 +149,6 @@ export default function LandingPage() {
               <p className="text-2xl font-bold text-foreground">Pay as you go</p>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Services */}
-      <section className="py-16 px-6 border-t border-border">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <h2 className="text-2xl font-semibold text-foreground">Powered by real x402 services</h2>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <span>RugMunch</span>
-            <span className="text-border">·</span>
-            <span>Augur</span>
-            <span className="text-border">·</span>
-            <span>DiamondClaws</span>
-            <span className="text-border">·</span>
-            <span>WalletIQ</span>
-            <span className="text-border">·</span>
-            <span>GenVox</span>
-            <span className="text-border">·</span>
-            <span>QuantumShield</span>
-          </div>
-          <p className="text-xs text-muted-foreground/60">
-            Each service is independently operated and paid via HTTP 402 micropayments on Base
-          </p>
         </div>
       </section>
 
