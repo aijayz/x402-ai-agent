@@ -1,15 +1,12 @@
 /**
- * withAutoPayment — a hybrid payment wrapper for MCP clients.
+ * withAutoPayment — transparent payment wrapper for MCP clients.
  *
  * Behavior:
- *   - First call to a paid tool: the 402 error (with cost info) is returned
- *     to the AI so it can inform the user.
- *   - Second call to the same tool (or any subsequent call): the wrapper
- *     detects that we already know the payment requirements, auto-signs an
- *     EIP-3009 authorization via `createPaymentHeader`, retries the MCP call
- *     with `_meta["x402.payment"]`, and returns the result transparently.
+ *   - When a tool returns 402: automatically signs an EIP-3009 authorization
+ *     via `createPaymentHeader`, retries the call with the payment header,
+ *     and returns the result as if the tool succeeded on the first try.
+ *   - The AI never sees the 402 error — payment is fully transparent.
  *   - Exposes `viewAccountBalance` for the AI to check the wallet balance.
- *   - Does NOT expose `generatePaymentAuthorization` (no longer needed).
  */
 
 import { z } from "zod";
@@ -152,10 +149,9 @@ function parseX402Error(
 // ── main export ────────────────────────────────────────────────────────────
 
 /**
- * Wraps an MCP client with auto-payment behaviour.
+ * Wraps an MCP client with transparent auto-payment.
  *
- * First 402 → pass through to the AI (so it can show the user the cost).
- * Subsequent calls → auto-sign & retry transparently.
+ * 402 → auto-sign → retry → return result. The AI never sees the 402.
  */
 export async function withAutoPayment(
   mcpClient: MCPClient,
@@ -176,10 +172,6 @@ export async function withAutoPayment(
   const client = mcpClient as any;
 
   const maxPaymentValue = BigInt(options.maxPaymentValue ?? 100_000);
-
-  // Per-request-lifetime cache: tool name → payment requirements received on
-  // the first 402. Once populated the next call will auto-pay.
-  const pendingPayments = new Map<string, PaymentRequirements>();
 
   // ── viewAccountBalance tool ──────────────────────────────────────────────
 
@@ -230,13 +222,19 @@ export async function withAutoPayment(
         ...t,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         execute: async (args: Record<string, unknown>, execOptions?: any) => {
-          const storedRequirements = pendingPayments.get(name);
+          if (!t.execute) {
+            throw new Error(`Tool ${name} does not have an execute function`);
+          }
 
-          // ── auto-pay path ─────────────────────────────────────────────
-          if (storedRequirements) {
-            const maxAmountRequired = BigInt(
-              storedRequirements.maxAmountRequired,
-            );
+          const result = await t.execute(args, execOptions);
+
+          const x402Error = parseX402Error(result);
+          if (x402Error) {
+            // 402 received — auto-sign and retry transparently
+            const requirements = x402Error.accepts[0];
+            if (!requirements) return result;
+
+            const maxAmountRequired = BigInt(requirements.maxAmountRequired);
             if (maxAmountRequired > maxPaymentValue) {
               throw new Error(
                 "Payment requirements exceed user configured max payment value",
@@ -244,16 +242,11 @@ export async function withAutoPayment(
             }
 
             const paymentHeader = await createPaymentHeader(
-              // createPaymentHeader accepts WalletClient | LocalAccount
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               walletClient as any,
               X402_VERSION,
-              storedRequirements,
+              requirements,
             );
-
-            // Clear after consuming so a failed settlement doesn't leave
-            // stale requirements for the next call.
-            pendingPayments.delete(name);
 
             return callToolWithPayment(
               client,
@@ -264,24 +257,6 @@ export async function withAutoPayment(
             );
           }
 
-          // ── first call path ───────────────────────────────────────────
-          if (!t.execute) {
-            throw new Error(`Tool ${name} does not have an execute function`);
-          }
-
-          const result = await t.execute(args, execOptions);
-
-          const x402Error = parseX402Error(result);
-          if (x402Error) {
-            // Store requirements so the next call auto-pays.
-            const requirements = x402Error.accepts[0];
-            if (requirements) {
-              pendingPayments.set(name, requirements);
-            }
-          }
-
-          // Return the 402 error to the AI on the first call so it can
-          // inform the user about the cost before proceeding.
           return result;
         },
       };
