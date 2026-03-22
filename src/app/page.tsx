@@ -84,12 +84,9 @@ export default function LandingPage() {
       {/* Research Clusters */}
       <section className="py-16 px-6 border-t border-border">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-semibold text-foreground text-center mb-2">
+          <h2 className="text-2xl font-semibold text-foreground text-center mb-10">
             Research clusters
           </h2>
-          <p className="text-sm text-muted-foreground text-center mb-10">
-            Each cluster orchestrates 3 independent x402 services for cross-referenced intelligence
-          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {clusters.map((f) => (
               <div key={f.title} className="rounded-lg border border-border p-5 space-y-2">
