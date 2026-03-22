@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, Zap, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
@@ -40,11 +40,17 @@ export default function LandingPage() {
       <header className="border-b border-border">
         <div className="max-w-5xl mx-auto flex items-center justify-between py-4 px-6">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-amber-500 p-[1.5px]">
-              <div className="w-full h-full rounded-[6px] bg-background flex items-center justify-center">
-                <Zap className="w-4 h-4 text-blue-500" />
-              </div>
-            </div>
+            <svg className="w-8 h-8" viewBox="0 0 32 32">
+              <defs>
+                <linearGradient id="obol-g" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#3b82f6"/>
+                  <stop offset="100%" stopColor="#8b5cf6"/>
+                </linearGradient>
+              </defs>
+              <rect width="32" height="32" rx="7" fill="#09090b"/>
+              <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#obol-g)" strokeWidth="3.5"/>
+              <line x1="4" y1="16" x2="28" y2="16" stroke="url(#obol-g)" strokeWidth="3" strokeLinecap="round"/>
+            </svg>
             <span className="text-sm font-bold text-foreground">Obol AI</span>
           </div>
           <Button asChild size="sm">
