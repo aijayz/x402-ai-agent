@@ -327,9 +327,14 @@ const ChatBotDemo = () => {
                         </Reasoning>
                       );
                     } else if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
-                      // Hide the first 402 "error" tool call (payment negotiation) — only show the successful retry
-                      const toolPart = part as import("ai").ToolUIPart | import("ai").DynamicToolUIPart;
-                      if (toolPart.state === "output-error") return null;
+                      // Hide the 402 payment-negotiation tool call — only show the successful retry
+                      const toolOutput = (part as any).output as { isError?: boolean; content?: Array<{ text: string }> } | undefined;
+                      if (toolOutput?.isError) {
+                        const errorText = toolOutput.content?.map(c => c.text).join("") ?? "";
+                        if (errorText.includes("x402Version") || errorText.includes("payment is required")) {
+                          return null;
+                        }
+                      }
                       return (
                         <Tool defaultOpen={false} key={`${message.id}-${i}`}>
                           {/* @ts-expect-error: ToolHeader expects ToolUIPart but part may be DynamicToolUIPart */}
