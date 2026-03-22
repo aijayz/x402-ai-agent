@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Obol — AI Agent",
+  title: "Obol AI",
   description: "AI agent that pays for intelligence via x402 micropayments on Base",
   icons: { icon: "/icon.svg" },
 };

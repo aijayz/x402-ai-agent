@@ -45,7 +45,7 @@ export default function LandingPage() {
                 <Zap className="w-4 h-4 text-blue-500" />
               </div>
             </div>
-            <span className="text-sm font-bold text-foreground">Obol</span>
+            <span className="text-sm font-bold text-foreground">Obol AI</span>
           </div>
           <Button asChild size="sm">
             <Link href="/chat">
@@ -62,7 +62,7 @@ export default function LandingPage() {
             AI agent that pays for intelligence
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ask anything about crypto. Obol orchestrates multiple paid services,
+            Ask anything about crypto. Obol AI orchestrates multiple paid services,
             handles USDC micropayments on Base automatically, and cross-references
             results from independent sources.
           </p>
