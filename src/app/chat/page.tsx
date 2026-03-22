@@ -327,6 +327,9 @@ const ChatBotDemo = () => {
                         </Reasoning>
                       );
                     } else if (part.type === "dynamic-tool" || part.type.startsWith("tool-")) {
+                      // Hide the first 402 "error" tool call (payment negotiation) — only show the successful retry
+                      const toolPart = part as import("ai").ToolUIPart | import("ai").DynamicToolUIPart;
+                      if (toolPart.state === "output-error") return null;
                       return (
                         <Tool defaultOpen={false} key={`${message.id}-${i}`}>
                           {/* @ts-expect-error: ToolHeader expects ToolUIPart but part may be DynamicToolUIPart */}
@@ -347,7 +350,7 @@ const ChatBotDemo = () => {
                 {message.role === "assistant" && (() => {
                   const meta = message.metadata as { spendEvents?: Array<{ toolName: string; amountUsdc: number }> } | undefined;
                   if (meta?.spendEvents?.length) {
-                    return <SessionReceipt items={meta.spendEvents} />;
+                    return <SessionReceipt items={meta.spendEvents} isAnonymous={!walletAddress} />;
                   }
                   return null;
                 })()}
