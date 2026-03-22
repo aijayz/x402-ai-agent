@@ -66,16 +66,11 @@ export default function LandingPage() {
             handles USDC micropayments on Base automatically, and cross-references
             results from independent sources.
           </p>
-          <div className="flex items-center justify-center gap-3 pt-2">
+          <div className="pt-2">
             <Button asChild size="lg">
               <Link href="/chat">
                 Start chatting <ArrowRight className="ml-1 size-4" />
               </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <a href="https://www.x402.org" target="_blank" rel="noopener noreferrer">
-                Learn about x402
-              </a>
             </Button>
           </div>
         </div>
@@ -154,8 +149,6 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <span>Built with the x402 protocol on Base</span>
           <div className="flex items-center gap-4">
-            <a href="https://www.x402.org" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">x402.org</a>
-            <a href="https://github.com/aijayz/x402-ai-agent" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">GitHub</a>
             <a href="https://base.org" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Base</a>
           </div>
         </div>
