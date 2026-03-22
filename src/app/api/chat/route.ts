@@ -141,11 +141,11 @@ export const POST = async (request: Request) => {
     }
   };
 
-  // Model fallback chain: try each until one succeeds (deduplicated)
+  // Model fallback chain: try each until one succeeds (deduplicated).
   const MODEL_FALLBACK_CHAIN = [...new Set([
     env.AI_MODEL,
-    "deepseek/deepseek-chat",
     "google/gemini-2.5-flash",
+    "deepseek/deepseek-chat",
   ])];
 
   try {

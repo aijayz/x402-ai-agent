@@ -120,3 +120,9 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .fill-mode-both {
+    animation-fill-mode: both;
+  }
+}

@@ -19,20 +19,26 @@ export function getModel(modelId: string): LanguageModel {
 }
 
 /**
- * Cached probe results to avoid re-probing healthy models on every request.
- * Cache entry expires after 5 minutes, or immediately on failure.
+ * Cached probe results — both successes AND failures are cached.
+ * Healthy probes: cached for 5 minutes.
+ * Failed probes: cached for 2 minutes (avoids re-probing dead models on every request).
  */
-const probeCache = new Map<string, { ok: boolean; ts: number }>();
-const PROBE_CACHE_TTL_MS = 5 * 60 * 1000;
+const probeCache = new Map<string, { ok: boolean; ts: number; error?: unknown }>();
+const PROBE_OK_TTL_MS = 5 * 60 * 1000;
+const PROBE_FAIL_TTL_MS = 2 * 60 * 1000;
 
 /**
  * Probes a model with a minimal request to verify it's reachable.
- * Results are cached for 5 minutes to avoid per-request latency.
+ * Both success and failure are cached to avoid wasting time on known-dead models.
  */
 export async function probeModel(modelId: string): Promise<void> {
   const cached = probeCache.get(modelId);
-  if (cached && cached.ok && Date.now() - cached.ts < PROBE_CACHE_TTL_MS) {
-    return; // recently confirmed healthy
+  if (cached) {
+    const ttl = cached.ok ? PROBE_OK_TTL_MS : PROBE_FAIL_TTL_MS;
+    if (Date.now() - cached.ts < ttl) {
+      if (cached.ok) return;
+      throw cached.error ?? new Error(`Model ${modelId} recently failed probe`);
+    }
   }
 
   try {
@@ -44,7 +50,7 @@ export async function probeModel(modelId: string): Promise<void> {
     });
     probeCache.set(modelId, { ok: true, ts: Date.now() });
   } catch (err) {
-    probeCache.set(modelId, { ok: false, ts: Date.now() });
+    probeCache.set(modelId, { ok: false, ts: Date.now(), error: err });
     throw err;
   }
 }

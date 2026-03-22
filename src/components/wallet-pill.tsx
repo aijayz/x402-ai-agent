@@ -13,10 +13,11 @@ export function WalletPill() {
       <button
         onClick={connectWallet}
         className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium
-          bg-gradient-to-r from-blue-500/10 via-cyan-400/10 to-amber-500/10
-          border border-blue-500/30 hover:border-blue-500/50
-          text-foreground hover:bg-gradient-to-r hover:from-blue-500/20 hover:via-cyan-400/20 hover:to-amber-500/20
-          transition-all duration-200"
+          bg-gradient-to-r from-blue-500/20 via-cyan-400/15 to-blue-500/20
+          border border-blue-500/40 hover:border-blue-400/60
+          text-blue-200 hover:text-blue-100
+          hover:from-blue-500/30 hover:via-cyan-400/25 hover:to-blue-500/30
+          transition-all duration-200 shadow-sm shadow-blue-500/10"
       >
         <Wallet className="size-4" />
         <span className="hidden sm:inline">Connect Wallet</span>

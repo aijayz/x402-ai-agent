@@ -41,13 +41,13 @@ async function getHandler() {
               );
               if (res.status === 404) {
                 return {
-                  content: [{ type: "text", text: `Token "${args.token}" not found. Use CoinGecko IDs like "bitcoin", "ethereum", "solana".` }],
+                  content: [{ type: "text", text: `I couldn't find a token called "${args.token}". Try the full name like "bitcoin", "ethereum", or "solana".` }],
                   isError: true,
                 };
               }
               if (!res.ok) {
                 return {
-                  content: [{ type: "text", text: `Error: CoinGecko API returned ${res.status}. ${res.status === 429 ? "Rate limited — try again in a moment." : ""}` }],
+                  content: [{ type: "text", text: `Price lookup temporarily unavailable.${res.status === 429 ? " Rate limited — try again in a moment." : ""}` }],
                   isError: true,
                 };
               }

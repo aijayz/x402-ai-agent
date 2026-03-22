@@ -13,7 +13,7 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
@@ -85,10 +85,11 @@ function parseActions(text: string): { cleanText: string; actions: string[]; sug
   return { cleanText: cleanText.trim(), actions: [...actionSet], suggestions };
 }
 
-const ChatBotDemo = () => {
+export function ChatPage() {
   const [input, setInput] = useState("");
   const [lastError, setLastError] = useState<Error | null>(null);
   const { walletAddress, connectWallet, setTopUpOpen, updateFromMetadata } = useWallet();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { messages, sendMessage, setMessages, status } = useChat({
     onError: (error) => {
@@ -111,6 +112,10 @@ const ChatBotDemo = () => {
       });
     }
   }, [messages, updateFromMetadata]);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const headers = walletAddress ? { "x-wallet-address": walletAddress } : undefined;
 
@@ -324,19 +329,30 @@ const ChatBotDemo = () => {
             )}
             {status === "error" && lastError?.message !== "RATE_LIMITED" && (
               lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted") ? (
-                <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
-                  <div className="flex flex-col items-center gap-4 p-6 bg-yellow-950/50 border border-yellow-800/50 rounded-lg text-center">
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-yellow-200">Free calls used up</h3>
-                      <p className="text-sm text-yellow-300">
-                        You&apos;ve used your 2 free tool calls. Connect a wallet to get up to $0.50 in free credits.
+                <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="relative flex flex-col items-center gap-5 p-8 rounded-xl border border-blue-500/20 bg-gradient-to-b from-blue-500/[0.08] to-purple-500/[0.05] text-center overflow-hidden">
+                    {/* Background glow */}
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
+                    <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30">
+                      <Wallet className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="relative space-y-2">
+                      <h3 className="text-base font-semibold text-foreground">Free calls used up</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Connect a wallet to claim up to <span className="text-blue-400 font-medium">$0.50</span> in free credits.
                       </p>
                     </div>
                     {!walletAddress ? (
                       <button
                         onClick={handleConnectAndRetry}
-                        className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm"
+                        className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium
+                          bg-gradient-to-r from-blue-500/20 to-purple-500/20
+                          border border-blue-500/40 hover:border-blue-400/60
+                          text-blue-200 hover:text-blue-100
+                          hover:from-blue-500/30 hover:to-purple-500/30
+                          transition-all duration-200 shadow-lg shadow-blue-500/10"
                       >
+                        <Wallet className="size-4" />
                         Connect Wallet
                       </button>
                     ) : (
@@ -375,7 +391,7 @@ const ChatBotDemo = () => {
           <PromptInputTextarea
             onChange={(e) => setInput(e.target.value)}
             value={input}
-            ref={(ref) => { if (ref) ref.focus(); }}
+            ref={textareaRef}
           />
           <PromptInputToolbar>
             <PromptInputTools>
@@ -398,4 +414,4 @@ const ChatBotDemo = () => {
   );
 };
 
-export default ChatBotDemo;
+export default ChatPage;
