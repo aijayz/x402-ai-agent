@@ -11,7 +11,7 @@ export default function ChatLayout({
   return (
     <ClientProviders>
       <div className="size-full flex flex-col">
-        <header className="relative overflow-hidden border-b border-border bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-background dark:to-gray-900">
+        <header className="relative border-b border-border bg-gradient-to-r from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-background dark:to-gray-900">
           {/* Subtle background pattern */}
           <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
             <div
@@ -74,7 +74,7 @@ export default function ChatLayout({
             </div>
 
             {/* Right: Credits + Wallet */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <CreditBadge />
               <WalletPill />
             </div>

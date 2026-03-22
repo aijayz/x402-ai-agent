@@ -19,7 +19,7 @@ export function WalletPill() {
           transition-all duration-200"
       >
         <Wallet className="size-4" />
-        <span>Connect Wallet</span>
+        <span className="hidden sm:inline">Connect Wallet</span>
       </button>
     );
   }
