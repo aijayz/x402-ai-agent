@@ -16,15 +16,15 @@ export function createClusterATools(deps: ClusterADeps) {
     analyze_defi_safety: tool({
       description:
         "Analyze a token or contract for rug pull risks, honeypot detection, and smart contract vulnerabilities. " +
-        "Calls external x402 DeFi safety services (RugMunch, Augur, DiamondClaws). " +
-        "Costs $0.12-$0.50 depending on depth.",
+        "Calls external x402 services (QuantumShield). " +
+        "Costs $0.003-$0.01 depending on depth.",
       inputSchema: z.object({
         target: z.string().describe("Token address, contract address, or token name to analyze"),
         depth: z.enum(["quick", "full"]).default("quick")
           .describe("'quick' = core scan only (~$0.12), 'full' = all services (~$0.50)"),
       }),
       execute: async ({ target, depth }): Promise<ClusterResult> => {
-        const maxReservationMicro = depth === "full" ? 2_200_000 : 200_000;
+        const maxReservationMicro = depth === "full" ? 20_000 : 10_000;
         let reserved = false;
 
         if (deps.userWallet) {

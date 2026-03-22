@@ -15,14 +15,14 @@ export function createClusterDTools(deps: ClusterDDeps) {
   return {
     analyze_social_narrative: tool({
       description:
-        "Analyze social media narrative and sentiment around a crypto topic. " +
-        "Calls GenVox and Augur x402 services. " +
-        "Costs ~$0.13.",
+        "Analyze market intelligence — whale activity and contract risk for a token or topic. " +
+        "Calls QuantumShield x402 services. " +
+        "Costs ~$0.005.",
       inputSchema: z.object({
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
       }),
       execute: async ({ topic }): Promise<ClusterResult> => {
-        const maxReservationMicro = 200_000;
+        const maxReservationMicro = 10_000;
         let reserved = false;
 
         if (deps.userWallet) {

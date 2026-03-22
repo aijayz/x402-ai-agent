@@ -29,7 +29,7 @@ export const env = createEnv({
     ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
 
     // x402 service URLs (optional — real adapters use these on mainnet; stubs used on testnet)
-    // Core services
+    // All currently backed by QuantumShield API (quantumshield-api.vercel.app)
     RUGMUNCH_URL: z.string().url().optional(),
     AUGUR_URL: z.string().url().optional(),
     DIAMONDCLAWS_URL: z.string().url().optional(),

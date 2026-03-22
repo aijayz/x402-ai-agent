@@ -15,9 +15,9 @@ export function createClusterBTools(deps: ClusterBDeps) {
   return {
     track_whale_activity: tool({
       description:
-        "Track whale and smart money activity — wallet profiling and token holder analysis. " +
-        "Calls WalletIQ and DiamondClaws x402 services. " +
-        "Costs ~$0.01.",
+        "Track whale and smart money activity — wallet risk scoring and holder analysis. " +
+        "Calls QuantumShield x402 services. " +
+        "Costs ~$0.004.",
       inputSchema: z.object({
         query: z.string().describe("What to track, e.g. 'what are whales buying', 'smart money flows ETH'"),
       }),

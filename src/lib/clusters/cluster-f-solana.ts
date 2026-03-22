@@ -15,14 +15,14 @@ export function createClusterFTools(deps: ClusterFDeps) {
   return {
     analyze_market_trends: tool({
       description:
-        "Analyze market trends — trending narratives, emerging tokens, and market intelligence. " +
-        "Calls GenVox and DiamondClaws x402 services. " +
-        "Costs ~$0.03.",
+        "Analyze market trends — liquidity analysis, whale activity, and market intelligence. " +
+        "Calls QuantumShield x402 services. " +
+        "Costs ~$0.006.",
       inputSchema: z.object({
         query: z.string().describe("Market trend query, e.g. 'trending narratives', 'emerging tokens this week'"),
       }),
       execute: async ({ query }): Promise<ClusterResult> => {
-        const maxReservationMicro = 100_000;
+        const maxReservationMicro = 15_000;
         let reserved = false;
 
         if (deps.userWallet) {

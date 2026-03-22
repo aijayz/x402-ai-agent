@@ -6,18 +6,20 @@ interface WalletIQInput {
   address: string;
 }
 
+// Maps to QuantumShield wallet/risk endpoint
 export const walletIQAdapter: X402ServiceAdapter<WalletIQInput, unknown> = {
   name: "WalletIQ",
-  estimatedCostMicroUsdc: 5_000,
+  estimatedCostMicroUsdc: 2_000, // $0.002
   async call(input: WalletIQInput, ctx: PaymentContext): Promise<X402ServiceResponse<unknown>> {
-    const url = env.WALLETIQ_URL;
-    if (!url) throw new Error("WALLETIQ_URL not configured");
+    const baseUrl = env.WALLETIQ_URL;
+    if (!baseUrl) throw new Error("WALLETIQ_URL not configured");
+
     const result = await callWithPayment(
-      `${url}/profile?address=${encodeURIComponent(input.address)}`,
+      `${baseUrl}/api/wallet/risk?address=${encodeURIComponent(input.address)}`,
       undefined,
       ctx,
-      { maxPaymentMicroUsdc: 10_000 },
+      { maxPaymentMicroUsdc: 5_000 },
     );
-    return { data: result.data, cost: result.costMicroUsdc, source: "WalletIQ" };
+    return { data: result.data, cost: result.costMicroUsdc, source: "QuantumShield (wallet risk)" };
   },
 };
