@@ -1,23 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Payment middleware disabled for AI agent testing
-// The MCP server handles its own payment for paid tools via createPaidMcpHandler
-// and the client uses withPayment to handle 402 responses
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export default async function middleware(request: NextRequest) {
-  // Pass through all requests
+  const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
+    return NextResponse.next();
+  }
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+    ?? request.headers.get("x-real-ip")
+    ?? "unknown";
+  const walletAddress = request.headers.get("x-wallet-address") || null;
+
+  const { allowed, retryAfter } = await checkRateLimit(pathname, ip, walletAddress);
+
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded", retryAfter },
+      {
+        status: 429,
+        headers: { "Retry-After": String(retryAfter ?? 30) },
+      },
+    );
+  }
+
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|icon.svg).*)",
   ],
-  runtime: "nodejs",
 };

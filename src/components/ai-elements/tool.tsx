@@ -14,8 +14,6 @@ import {
   ChevronDownIcon,
   CircleIcon,
   ClockIcon,
-  CreditCardIcon,
-  WrenchIcon,
   XCircleIcon,
   ZapIcon,
 } from "lucide-react";
@@ -24,6 +22,7 @@ import { CodeBlock } from "./code-block";
 import z from "zod";
 import { CopyToClipboardButton } from "../copy-to-clipboard";
 import Link from "next/link";
+import { getToolDisplay } from "@/lib/tool-display-config";
 
 // Paid tool names (could also be determined dynamically)
 const PAID_TOOLS = [
@@ -35,7 +34,7 @@ const PAID_TOOLS = [
   "analyze_defi_safety",
   "track_whale_activity",
   "analyze_social_narrative",
-  "analyze_solana_staking",
+  "analyze_market_trends",
 ];
 
 const isPaidTool = (toolName: string) => PAID_TOOLS.includes(toolName);
@@ -98,10 +97,9 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
     className={cn(
-      "not-prose mb-4 w-full rounded-xl border overflow-hidden",
-      "bg-gradient-to-br from-background to-muted/30",
-      "shadow-sm hover:shadow-md transition-shadow duration-200",
-      "border-muted/60",
+      "not-prose mb-2 w-full rounded-lg border overflow-hidden",
+      "bg-muted/20",
+      "border-muted/40",
       className,
     )}
     {...props}
@@ -113,33 +111,17 @@ export type ToolHeaderProps = {
   className?: string;
 };
 
-const getStatusBadge = (status: ToolUIPart["state"]) => {
-  const labels: Record<ToolUIPart["state"], string> = {
-    "input-streaming": "Pending",
-    "input-available": "Running",
-    "output-available": "Completed",
-    "output-error": "Error",
-    "approval-requested": "Awaiting Approval",
-    "approval-responded": "Approved",
-    "output-denied": "Denied",
-  };
-
+const getStatusIcon = (status: ToolUIPart["state"]): ReactNode => {
   const icons: Record<ToolUIPart["state"], ReactNode> = {
-    "input-streaming": <CircleIcon className="size-4" />,
-    "input-available": <ClockIcon className="size-4 animate-pulse" />,
-    "output-available": <CheckCircleIcon className="size-4 text-green-600" />,
-    "output-error": <XCircleIcon className="size-4 text-red-600" />,
-    "approval-requested": <ClockIcon className="size-4 text-yellow-600" />,
-    "approval-responded": <CheckCircleIcon className="size-4 text-blue-600" />,
-    "output-denied": <XCircleIcon className="size-4 text-orange-600" />,
+    "input-streaming": <CircleIcon className="size-3 text-muted-foreground" />,
+    "input-available": <ClockIcon className="size-3 animate-pulse text-muted-foreground" />,
+    "output-available": <CheckCircleIcon className="size-3 text-green-500" />,
+    "output-error": <XCircleIcon className="size-3 text-red-500" />,
+    "approval-requested": <ClockIcon className="size-3 text-yellow-500" />,
+    "approval-responded": <CheckCircleIcon className="size-3 text-blue-500" />,
+    "output-denied": <XCircleIcon className="size-3 text-orange-500" />,
   };
-
-  return (
-    <Badge className="rounded-full text-xs" variant="secondary">
-      {icons[status]}
-      {labels[status]}
-    </Badge>
-  );
+  return icons[status];
 };
 
 const mapRenderResultTypeToState = (
@@ -149,6 +131,29 @@ const mapRenderResultTypeToState = (
   if (type === "error") return "output-error";
   return "output-error";
 };
+
+/** Extract a brief text snippet from tool output for the header */
+function extractResultSnippet(part: ToolUIPart | DynamicToolUIPart): string | null {
+  if (part.state !== "output-available") return null;
+  const parsed = ToolOutputSchema.safeParse(part.output);
+  if (!parsed.success || !parsed.data?.content || parsed.data.isError) return null;
+  const text = parsed.data.content.map(c => c.text).join("");
+  try {
+    const data = JSON.parse(text);
+    if (data.priceUsd != null) {
+      const symbol = (data.token as string)?.toUpperCase() ?? "";
+      return `${symbol} $${Number(data.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    }
+    if (data.address && data.ethBalance != null) {
+      return `${(data.address as string).slice(0, 6)}…${(data.address as string).slice(-4)}`;
+    }
+    if (data.summary && data.url) return new URL(data.url).hostname;
+    if (data.contractName) return data.contractName;
+    if (data.imageUrl) return "Image generated";
+    if (data.serviceCalls?.length > 0) return `${data.serviceCalls.length} services`;
+  } catch { /* not JSON */ }
+  return null;
+}
 
 export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
   const { state: rawState } = part;
@@ -161,52 +166,34 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
       : rawState;
 
   const paid = isPaidTool(toolname);
+  const displayInfo = getToolDisplay(toolname);
+  const cost = extractToolCost(part);
+  const snippet = extractResultSnippet(part);
 
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex w-full items-center justify-between gap-4 p-4",
-        "bg-muted/30 hover:bg-muted/50 transition-colors duration-150",
-        "border-b border-muted/40",
+        "flex w-full items-center gap-2 px-3 py-2",
+        "hover:bg-muted/30 transition-colors duration-150",
         className
       )}
       {...props}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex items-center justify-center size-8 rounded-lg",
-            paid
-              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-          )}
-        >
-          {paid ? <CreditCardIcon className="size-4" /> : <WrenchIcon className="size-4" />}
-        </div>
-        <div className="flex flex-col items-start gap-0.5">
-          <span className="font-semibold text-sm">{toolname}</span>
-          {paid && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              Paid Tool
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {(() => {
-            const cost = extractToolCost(part);
-            if (cost != null && cost > 0) {
-              return (
-                <Badge className="rounded-full text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" variant="outline">
-                  ${cost.toFixed(2)}
-                </Badge>
-              );
-            }
-            return null;
-          })()}
-          {getStatusBadge(state)}
-        </div>
-      </div>
-      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      {getStatusIcon(state)}
+      <span className="text-xs font-medium text-muted-foreground">{displayInfo.label}</span>
+      {snippet && (
+        <>
+          <span className="text-xs text-muted-foreground/50">·</span>
+          <span className="text-xs font-medium">{snippet}</span>
+        </>
+      )}
+      {cost != null && cost > 0 && (
+        <>
+          <span className="text-xs text-muted-foreground/50">·</span>
+          <span className="text-xs text-amber-500 font-medium">${cost.toFixed(2)}</span>
+        </>
+      )}
+      <ChevronDownIcon className="size-3 ml-auto text-muted-foreground/50" />
     </CollapsibleTrigger>
   );
 };
@@ -228,13 +215,8 @@ export type ToolInputProps = ComponentProps<"div"> & {
 };
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-2 overflow-hidden p-4", className)} {...props}>
-    <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-      Parameters
-    </h4>
-    <div className="rounded-md bg-muted/50">
-      <CodeBlock code={JSON.stringify(input, null, 2)} language="json" />
-    </div>
+  <div className={cn("overflow-hidden", className)} {...props}>
+    {/* Parameters hidden by default — included in raw data toggle */}
   </div>
 );
 
@@ -264,29 +246,31 @@ export const ToolOutput = ({
     return null;
   }
 
+  // Build a user-friendly summary for errors
+  const friendlyError = errorText
+    ? errorText.includes("Payment required")
+      ? "Processing payment..."
+      : errorText.length > 100
+        ? errorText.slice(0, 100) + "..."
+        : errorText
+    : undefined;
+
   return (
     <div className={cn("space-y-3 p-4", className)} {...props}>
-      <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-        {errorText ? "Error" : "Result"}
-      </h4>
-      <div
-        className={cn(
-          "overflow-x-auto rounded-md text-xs [&_table]:w-full",
-          errorText ? "text-destructive" : "bg-muted/50 text-foreground"
-        )}
-      >
-        {errorText && <div>{errorText}</div>}
-        {renderResult.type === "success" ? (
-          renderResult.content
-        ) : renderResult.type === "non-dynamic-tool" ? (
-          JSON.stringify(renderResult.content)
-        ) : renderResult.type === "failed-to-parse" ? (
-          <CodeBlock
-            code={JSON.stringify(renderResult.content, null, 2)}
-            language="json"
-          />
-        ) : null}
-      </div>
+      {/* Friendly error message */}
+      {friendlyError && (
+        <div className="text-sm text-destructive">{friendlyError}</div>
+      )}
+      {/* Friendly result content (no raw JSON) */}
+      {!errorText && (
+        <div className="overflow-x-auto rounded-md text-xs [&_table]:w-full bg-muted/50 text-foreground">
+          {renderResult.type === "success" ? (
+            renderResult.content
+          ) : renderResult.type === "non-dynamic-tool" ? (
+            <Response>{String(renderResult.content)}</Response>
+          ) : null}
+        </div>
+      )}
       {/* Cluster unavailable services */}
       {(() => {
         const parsed = ToolOutputSchema.safeParse(part.output);
@@ -317,6 +301,32 @@ export const ToolOutput = ({
           return null;
         }
       })()}
+      {/* Raw data toggle — parameters + full output hidden here */}
+      {(part.output != null || part.input != null) && (
+        <details className="mt-2">
+          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+            Show raw data
+          </summary>
+          <div className="mt-1 space-y-2">
+            {part.input != null && (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Parameters</div>
+                <pre className="text-xs bg-muted/50 rounded p-2 overflow-auto max-h-40">
+                  {JSON.stringify(part.input, null, 2)}
+                </pre>
+              </div>
+            )}
+            {part.output != null && (
+              <div>
+                <div className="text-xs text-muted-foreground mb-1">Output</div>
+                <pre className="text-xs bg-muted/50 rounded p-2 overflow-auto max-h-40">
+                  {JSON.stringify(part.output, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </details>
+      )}
       {/* @ts-expect-error */}
       {part.output?._meta?.["x402.payment-response"] && (
         <div className="mt-3 pt-3 border-t border-muted/40">
@@ -386,6 +396,58 @@ type RenderOutputResult =
 function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode | null {
   try {
     const data = JSON.parse(jsonText);
+
+    // Cluster tools - parse the JSON from the text content
+    if (["analyze_defi_safety", "track_whale_activity", "analyze_social_narrative", "analyze_market_trends"].includes(toolName)) {
+      if (data.serviceCalls?.length > 0 || data.summary) {
+        return (
+          <div className="p-3 space-y-3">
+            {data.summary && (
+              <p className="text-sm text-muted-foreground">{data.summary}</p>
+            )}
+            {data.serviceCalls?.map((call: any, i: number) => (
+              <div key={i} className="rounded-lg bg-muted/30 px-3 py-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{call.serviceName}</span>
+                  {call.costMicroUsdc > 0 && (
+                    <span className="text-xs text-muted-foreground font-mono">
+                      ${(call.costMicroUsdc / 1_000_000).toFixed(4)}
+                    </span>
+                  )}
+                </div>
+                {/* Show key data points based on service type */}
+                {call.data?.riskScore != null && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Risk Score: {call.data.riskScore}/100 ({call.data.riskLevel})
+                    {call.data.flags?.length > 0 && ` — ${call.data.flags.join(", ")}`}
+                  </div>
+                )}
+                {call.data?.sentimentScore != null && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Sentiment: {call.data.sentimentScore > 0 ? "+" : ""}{call.data.sentimentScore} ({call.data.sentimentLabel})
+                  </div>
+                )}
+                {call.data?.walletType && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Type: {call.data.walletType} — ${call.data.totalValueUsd?.toLocaleString()}
+                  </div>
+                )}
+                {call.data?.diamondHandsScore != null && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Diamond Hands: {call.data.diamondHandsScore}/100 — {call.data.holderCount?.toLocaleString()} holders
+                  </div>
+                )}
+                {call.data?.predictionMarkets && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {call.data.predictionMarkets.length} markets — {call.data.overallSentiment}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      }
+    }
 
     if (toolName === "get_crypto_price" && data.priceUsd != null) {
       const changePositive = (data.change24h ?? 0) >= 0;

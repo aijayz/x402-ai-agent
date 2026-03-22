@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/credits/check-topups",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }

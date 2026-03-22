@@ -1,10 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { x402Fetch } from "../x402-client";
-import { env } from "../env";
+import { getService } from "../services";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
+import type { PaymentContext } from "../services/types";
+import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterADeps {
   walletClient: WalletClient;
@@ -24,12 +24,10 @@ export function createClusterATools(deps: ClusterADeps) {
           .describe("'quick' = core scan only (~$0.12), 'full' = all services (~$0.50)"),
       }),
       execute: async ({ target, depth }): Promise<ClusterResult> => {
-        const unavailable: UnavailableService[] = [];
-        const hasAnyService = !!(env.RUGMUNCH_URL || env.AUGUR_URL || (depth === "full" && env.DIAMONDCLAWS_URL));
         const maxReservationMicro = depth === "full" ? 2_200_000 : 200_000;
         let reserved = false;
 
-        if (hasAnyService && deps.userWallet) {
+        if (deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return {
@@ -43,78 +41,37 @@ export function createClusterATools(deps: ClusterADeps) {
 
         const calls: ServiceCallResult[] = [];
         const errors: string[] = [];
+        const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          if (env.RUGMUNCH_URL) {
+          const serviceNames = depth === "full"
+            ? ["rug-munch", "augur", "diamond-claws"] as const
+            : ["rug-munch", "augur"] as const;
+
+          for (const name of serviceNames) {
             try {
-              const result = await x402Fetch(
-                `${env.RUGMUNCH_URL}/scan?target=${encodeURIComponent(target)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 2_000_000 },
-              );
+              const adapter = await getService(name);
+              const result = await adapter.call({ target }, ctx);
               calls.push({
-                serviceName: "RugMunch",
+                serviceName: adapter.name,
                 data: result.data,
-                costMicroUsdc: result.amountMicroUsdc,
-                paid: result.paid,
+                costMicroUsdc: result.cost,
+                paid: result.cost > 0,
               });
             } catch (err) {
-              errors.push(`RugMunch: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "RugMunch", purpose: "Rug pull detection and honeypot scanning", typicalCostUsdc: 0.05 });
-          }
-
-          if (env.AUGUR_URL) {
-            try {
-              const result = await x402Fetch(
-                `${env.AUGUR_URL}/analyze?address=${encodeURIComponent(target)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 200_000 },
-              );
-              calls.push({
-                serviceName: "Augur",
-                data: result.data,
-                costMicroUsdc: result.amountMicroUsdc,
-                paid: result.paid,
-              });
-            } catch (err) {
-              errors.push(`Augur: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "Augur", purpose: "Smart contract vulnerability analysis", typicalCostUsdc: 0.05 });
-          }
-
-          if (depth === "full") {
-            if (env.DIAMONDCLAWS_URL) {
-              try {
-                const result = await x402Fetch(
-                  `${env.DIAMONDCLAWS_URL}/score?target=${encodeURIComponent(target)}`,
-                  undefined,
-                  { walletClient: deps.walletClient, maxPaymentMicroUsdc: 10_000 },
-                );
-                calls.push({
-                  serviceName: "DiamondClaws",
-                  data: result.data,
-                  costMicroUsdc: result.amountMicroUsdc,
-                  paid: result.paid,
-                });
-              } catch (err) {
-                errors.push(`DiamondClaws: ${err instanceof Error ? err.message : "unavailable"}`);
-              }
-            } else {
-              unavailable.push({ name: "DiamondClaws", purpose: "Diamond hands scoring and holder analysis", typicalCostUsdc: 0.01 });
+              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+          const failedNames = errors.map(e => e.split(":")[0]);
+          const successNames = calls.map(c => c.serviceName);
+          const summary = successNames.length > 0
+            ? `Analyzed ${target} using ${successNames.join(", ")}.` +
+              (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
+            : `DeFi Safety Analysis unavailable — all services failed to respond.`;
 
-          const summary = calls.length > 0
-            ? `Analyzed ${target} using ${calls.map(c => c.serviceName).join(", ")}. ` +
-              (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
-            : `DeFi Safety Analysis requires external x402 services that aren't connected yet.`;
-
-          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
+          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);

@@ -1,10 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { x402Fetch } from "../x402-client";
-import { env } from "../env";
+import { getService } from "../services";
 import { CreditStore } from "../credits/credit-store";
 import type { WalletClient } from "viem";
-import type { ClusterResult, ServiceCallResult, UnavailableService } from "./types";
+import type { PaymentContext } from "../services/types";
+import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterDDeps {
   walletClient: WalletClient;
@@ -16,18 +16,16 @@ export function createClusterDTools(deps: ClusterDDeps) {
     analyze_social_narrative: tool({
       description:
         "Analyze social media narrative and sentiment around a crypto topic. " +
-        "Calls twit.sh (Twitter/X), Neynar (Farcaster), and Firecrawl (web scraping) x402 services. " +
-        "Costs ~$0.03-$0.10.",
+        "Calls GenVox and Augur x402 services. " +
+        "Costs ~$0.13.",
       inputSchema: z.object({
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
       }),
       execute: async ({ topic }): Promise<ClusterResult> => {
-        const unavailable: UnavailableService[] = [];
-        const hasAnyService = !!(env.TWITSH_URL || env.NEYNAR_URL);
-        const maxReservationMicro = 130_000;
+        const maxReservationMicro = 200_000;
         let reserved = false;
 
-        if (hasAnyService && deps.userWallet) {
+        if (deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
             return { summary: "Insufficient credit balance. Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
@@ -37,59 +35,36 @@ export function createClusterDTools(deps: ClusterDDeps) {
 
         const calls: ServiceCallResult[] = [];
         const errors: string[] = [];
+        const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          if (env.TWITSH_URL) {
-            try {
-              const result = await x402Fetch(
-                `${env.TWITSH_URL}/search?q=${encodeURIComponent(topic)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 50_000 },
-              );
-              calls.push({ serviceName: "twit.sh", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-            } catch (err) {
-              errors.push(`twit.sh: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "twit.sh", purpose: "Twitter/X crypto sentiment search", typicalCostUsdc: 0.03 });
-          }
+          const serviceNames = ["genvox", "augur"] as const;
 
-          if (env.NEYNAR_URL) {
+          for (const name of serviceNames) {
             try {
-              const result = await x402Fetch(
-                `${env.NEYNAR_URL}/search?q=${encodeURIComponent(topic)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 50_000 },
-              );
-              calls.push({ serviceName: "Neynar", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
+              const adapter = await getService(name);
+              const input = name === "genvox" ? { topic } : { address: topic };
+              const result = await adapter.call(input, ctx);
+              calls.push({
+                serviceName: adapter.name,
+                data: result.data,
+                costMicroUsdc: result.cost,
+                paid: result.cost > 0,
+              });
             } catch (err) {
-              errors.push(`Neynar: ${err instanceof Error ? err.message : "unavailable"}`);
-            }
-          } else {
-            unavailable.push({ name: "Neynar", purpose: "Farcaster social graph and cast search", typicalCostUsdc: 0.03 });
-          }
-
-          if (env.FIRECRAWL_URL) {
-            try {
-              const result = await x402Fetch(
-                `${env.FIRECRAWL_URL}/scrape?q=${encodeURIComponent(topic)}`,
-                undefined,
-                { walletClient: deps.walletClient, maxPaymentMicroUsdc: 50_000 },
-              );
-              calls.push({ serviceName: "Firecrawl", data: result.data, costMicroUsdc: result.amountMicroUsdc, paid: result.paid });
-            } catch (err) {
-              errors.push(`Firecrawl: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+          const failedNames = errors.map(e => e.split(":")[0]);
+          const successNames = calls.map(c => c.serviceName);
+          const summary = successNames.length > 0
+            ? `Analyzed social narrative for "${topic}" using ${successNames.join(", ")}.` +
+              (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
+            : `Social Narrative Analysis unavailable — all services failed to respond.`;
 
-          const summary = calls.length > 0
-            ? `Analyzed social narrative for "${topic}" using ${calls.map(c => c.serviceName).join(", ")}. ` +
-              (unavailable.length > 0 ? `Not yet available: ${unavailable.map(u => u.name).join(", ")}` : "")
-            : `Social Narrative Analysis requires external x402 services that aren't connected yet.`;
-
-          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost, unavailableServices: unavailable.length > 0 ? unavailable : undefined };
+          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
