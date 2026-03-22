@@ -359,7 +359,7 @@ const ChatBotDemo = () => {
           <PromptInputToolbar>
             <PromptInputTools>
               <button
-                onClick={() => handlePromptClick("What tools and capabilities do you have? List them with costs.")}
+                onClick={() => handlePromptClick("Give me a quick overview of what you can do.")}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs text-muted-foreground
                   hover:text-foreground hover:bg-muted/80 transition-colors border border-transparent hover:border-border"
                 title="Explore available tools"

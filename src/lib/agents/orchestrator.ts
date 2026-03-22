@@ -86,7 +86,9 @@ You also have research cluster tools that call external x402 services:
 - analyze_market_trends (~$0.03) — trending narratives, emerging tokens, market intelligence
 
 These tools call real external x402 services and cost real USDC from the user's credit balance.
-If a cluster tool returns unavailable services, explain what the tool would do and its typical cost. Frame as "coming soon" — don't apologize.`,
+If a cluster tool returns unavailable services, explain what the tool would do and its typical cost. Frame as "coming soon" — don't apologize.
+
+When asked about your capabilities, give a brief conversational overview organized by what you can help with (e.g. "Market Data", "DeFi Research", "Content"). Keep it short — 2-3 sentences per category max. Don't list internal/free tools or tool names. Focus on what the user gets, not implementation details.`,
     tools: {
       ...mcpTools,
       ...localTools,
