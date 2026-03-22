@@ -72,12 +72,12 @@ const capabilities = [
 
 // Parse [ACTION:xxx] markers from completed message text
 function parseActions(text: string): { cleanText: string; actions: string[] } {
-  const actions: string[] = [];
+  const actionSet = new Set<string>();
   const cleanText = text.replace(/\[ACTION:(\w+)\]/g, (_, action) => {
-    actions.push(action);
+    actionSet.add(action);
     return "";
   });
-  return { cleanText: cleanText.trim(), actions };
+  return { cleanText: cleanText.trim(), actions: [...actionSet] };
 }
 
 const ChatBotDemo = () => {
