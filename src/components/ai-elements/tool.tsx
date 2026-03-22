@@ -14,8 +14,6 @@ import {
   ChevronDownIcon,
   CircleIcon,
   ClockIcon,
-  CreditCardIcon,
-  WrenchIcon,
   XCircleIcon,
   ZapIcon,
 } from "lucide-react";
@@ -99,10 +97,9 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
     className={cn(
-      "not-prose mb-4 w-full rounded-xl border overflow-hidden",
-      "bg-gradient-to-br from-background to-muted/30",
-      "shadow-sm hover:shadow-md transition-shadow duration-200",
-      "border-muted/60",
+      "not-prose mb-2 w-full rounded-lg border overflow-hidden",
+      "bg-muted/20",
+      "border-muted/40",
       className,
     )}
     {...props}
@@ -114,33 +111,17 @@ export type ToolHeaderProps = {
   className?: string;
 };
 
-const getStatusBadge = (status: ToolUIPart["state"]) => {
-  const labels: Record<ToolUIPart["state"], string> = {
-    "input-streaming": "Pending",
-    "input-available": "Running",
-    "output-available": "Completed",
-    "output-error": "Error",
-    "approval-requested": "Awaiting Approval",
-    "approval-responded": "Approved",
-    "output-denied": "Denied",
-  };
-
+const getStatusIcon = (status: ToolUIPart["state"]): ReactNode => {
   const icons: Record<ToolUIPart["state"], ReactNode> = {
-    "input-streaming": <CircleIcon className="size-4" />,
-    "input-available": <ClockIcon className="size-4 animate-pulse" />,
-    "output-available": <CheckCircleIcon className="size-4 text-green-600" />,
-    "output-error": <XCircleIcon className="size-4 text-red-600" />,
-    "approval-requested": <ClockIcon className="size-4 text-yellow-600" />,
-    "approval-responded": <CheckCircleIcon className="size-4 text-blue-600" />,
-    "output-denied": <XCircleIcon className="size-4 text-orange-600" />,
+    "input-streaming": <CircleIcon className="size-3 text-muted-foreground" />,
+    "input-available": <ClockIcon className="size-3 animate-pulse text-muted-foreground" />,
+    "output-available": <CheckCircleIcon className="size-3 text-green-500" />,
+    "output-error": <XCircleIcon className="size-3 text-red-500" />,
+    "approval-requested": <ClockIcon className="size-3 text-yellow-500" />,
+    "approval-responded": <CheckCircleIcon className="size-3 text-blue-500" />,
+    "output-denied": <XCircleIcon className="size-3 text-orange-500" />,
   };
-
-  return (
-    <Badge className="rounded-full text-xs" variant="secondary">
-      {icons[status]}
-      {labels[status]}
-    </Badge>
-  );
+  return icons[status];
 };
 
 const mapRenderResultTypeToState = (
@@ -150,6 +131,29 @@ const mapRenderResultTypeToState = (
   if (type === "error") return "output-error";
   return "output-error";
 };
+
+/** Extract a brief text snippet from tool output for the header */
+function extractResultSnippet(part: ToolUIPart | DynamicToolUIPart): string | null {
+  if (part.state !== "output-available") return null;
+  const parsed = ToolOutputSchema.safeParse(part.output);
+  if (!parsed.success || !parsed.data?.content || parsed.data.isError) return null;
+  const text = parsed.data.content.map(c => c.text).join("");
+  try {
+    const data = JSON.parse(text);
+    if (data.priceUsd != null) {
+      const symbol = (data.token as string)?.toUpperCase() ?? "";
+      return `${symbol} $${Number(data.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    }
+    if (data.address && data.ethBalance != null) {
+      return `${(data.address as string).slice(0, 6)}…${(data.address as string).slice(-4)}`;
+    }
+    if (data.summary && data.url) return new URL(data.url).hostname;
+    if (data.contractName) return data.contractName;
+    if (data.imageUrl) return "Image generated";
+    if (data.serviceCalls?.length > 0) return `${data.serviceCalls.length} services`;
+  } catch { /* not JSON */ }
+  return null;
+}
 
 export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
   const { state: rawState } = part;
@@ -163,52 +167,33 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
 
   const paid = isPaidTool(toolname);
   const displayInfo = getToolDisplay(toolname);
+  const cost = extractToolCost(part);
+  const snippet = extractResultSnippet(part);
 
   return (
     <CollapsibleTrigger
       className={cn(
-        "flex w-full items-center justify-between gap-4 p-4",
-        "bg-muted/30 hover:bg-muted/50 transition-colors duration-150",
-        "border-b border-muted/40",
+        "flex w-full items-center gap-2 px-3 py-2",
+        "hover:bg-muted/30 transition-colors duration-150",
         className
       )}
       {...props}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex items-center justify-center size-8 rounded-lg",
-            paid
-              ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-              : "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-          )}
-        >
-          {paid ? <CreditCardIcon className="size-4" /> : <WrenchIcon className="size-4" />}
-        </div>
-        <div className="flex flex-col items-start gap-0.5">
-          <span className="font-semibold text-sm">{displayInfo.label}</span>
-          {paid && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-              Paid Tool
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {(() => {
-            const cost = extractToolCost(part);
-            if (cost != null && cost > 0) {
-              return (
-                <Badge className="rounded-full text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" variant="outline">
-                  ${cost.toFixed(2)}
-                </Badge>
-              );
-            }
-            return null;
-          })()}
-          {getStatusBadge(state)}
-        </div>
-      </div>
-      <ChevronDownIcon className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+      {getStatusIcon(state)}
+      <span className="text-xs font-medium text-muted-foreground">{displayInfo.label}</span>
+      {snippet && (
+        <>
+          <span className="text-xs text-muted-foreground/50">·</span>
+          <span className="text-xs font-medium">{snippet}</span>
+        </>
+      )}
+      {cost != null && cost > 0 && (
+        <>
+          <span className="text-xs text-muted-foreground/50">·</span>
+          <span className="text-xs text-amber-500 font-medium">${cost.toFixed(2)}</span>
+        </>
+      )}
+      <ChevronDownIcon className="size-3 ml-auto text-muted-foreground/50" />
     </CollapsibleTrigger>
   );
 };
