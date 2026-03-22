@@ -53,10 +53,10 @@ export default function ChatLayout({
 
               <div className="flex flex-col items-start">
                 <span className="text-sm font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white bg-clip-text text-transparent">
-                  x402
+                  Obol
                 </span>
                 <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 -mt-0.5 tracking-wide">
-                  AI Agent
+                  AI agent
                 </span>
               </div>
             </Link>

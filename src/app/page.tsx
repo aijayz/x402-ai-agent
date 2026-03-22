@@ -45,7 +45,7 @@ export default function LandingPage() {
                 <Zap className="w-4 h-4 text-blue-500" />
               </div>
             </div>
-            <span className="text-sm font-bold text-foreground">x402</span>
+            <span className="text-sm font-bold text-foreground">Obol</span>
           </div>
           <Button asChild size="sm">
             <Link href="/chat">
@@ -62,9 +62,9 @@ export default function LandingPage() {
             AI agent that pays for intelligence
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ask anything about crypto. The agent orchestrates multiple paid x402 services,
-            handles USDC payments on Base automatically, and cross-references results from
-            independent sources.
+            Ask anything about crypto. Obol orchestrates multiple paid services,
+            handles USDC micropayments on Base automatically, and cross-references
+            results from independent sources.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
             <Button asChild size="lg">
@@ -109,7 +109,7 @@ export default function LandingPage() {
             Paid MCP tools
           </h2>
           <p className="text-sm text-muted-foreground text-center mb-10">
-            Individual tools paid per-call via x402 on Base
+            Individual tools paid per-call via x402 micropayments
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {tools.map((t) => (
