@@ -25,36 +25,6 @@ async function getHandler() {
 
     handler = createPaidMcpHandler(
       (server: PaymentMcpServer) => {
-        // Free tools (no payment required)
-        server.tool(
-          "get_random_number",
-          "Get a random number between two numbers",
-          {
-            min: z.number().int(),
-            max: z.number().int(),
-          },
-          async (args) => {
-            const randomNumber =
-              Math.floor(Math.random() * (args.max - args.min + 1)) + args.min;
-            return {
-              content: [{ type: "text", text: randomNumber.toString() }],
-            };
-          }
-        );
-        server.tool(
-          "add",
-          "Add two numbers",
-          {
-            a: z.number().int(),
-            b: z.number().int(),
-          },
-          async (args) => {
-            const result = args.a + args.b;
-            return {
-              content: [{ type: "text", text: result.toString() }],
-            };
-          }
-        );
         // Paid tools (require USDC payment)
         server.paidTool(
           "get_crypto_price",

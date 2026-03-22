@@ -69,7 +69,7 @@ You have access to paid MCP tools that cost real USDC on the Base blockchain:
 - analyze_contract ($0.03) — analyze verified smart contracts
 - generate_image ($0.05) — AI image generation
 
-You also have free tools: add, get_random_number, check_budget, search_x402_services, probe_x402_service, list_registered_services.
+You also have free tools: check_budget, search_x402_services, probe_x402_service, list_registered_services.
 
 Rules:
 - If a tool costs more than the user's balance, use a cheaper tier if available. If no tier is affordable, tell them the cost and that they need to top up. Include [ACTION:topup] so they can top up directly.
