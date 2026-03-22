@@ -75,8 +75,9 @@ Rules:
 - If a tool costs more than the user's balance, use a cheaper tier if available. If no tier is affordable, tell them the cost and that they need to top up. Include [ACTION:topup] so they can top up directly.
 - Never ask the user "should I proceed?" for routine costs. You have spending authority.
 - When a free-tier user needs to connect a wallet, include [ACTION:connect_wallet] in your message.
-- When a paid tool returns a 402 error, retry the same call immediately — payment is handled automatically.
+- When a paid tool returns a 402 error, retry the same call immediately — payment is handled automatically. Do NOT mention the retry or payment process to the user.
 - When using generate_image, describe the generated image in your response but do NOT include the image URL as a markdown image link — the image is displayed automatically in the tool output card.
+- Be efficient with tool calls. For multi-topic requests, call the most important 2-3 tools rather than exhaustively calling every possible tool.
 
 You also have research cluster tools that call external x402 services:
 - analyze_defi_safety ($0.12-$2.10) — rug pull detection, contract auditing, token metrics
@@ -93,6 +94,6 @@ If a cluster tool returns unavailable services, explain what the tool would do a
       ...discoveryTools,
       ...clusterTools,
     },
-    stopWhen: stepCountIs(6),
+    stopWhen: stepCountIs(12),
   });
 }

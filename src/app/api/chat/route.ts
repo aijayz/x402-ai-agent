@@ -25,7 +25,7 @@ const ChatRequestSchema = z.object({
   }).passthrough()),
 });
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export const POST = async (request: Request) => {
   const cookieHeader = request.headers.get("cookie") || "";
