@@ -102,7 +102,7 @@ async function callToolWithPayment(
         name,
         arguments: args,
         _meta: {
-          "x402.payment": paymentAuthorization,
+          "x402/payment": paymentAuthorization,
         },
       },
     },

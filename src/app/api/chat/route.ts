@@ -188,7 +188,7 @@ export const POST = async (request: Request) => {
           for (const toolResult of toolResults ?? []) {
             const output = toolResult.output as Record<string, unknown> | undefined;
             const meta = output?._meta as Record<string, unknown> | undefined;
-            const paymentResponse = meta?.["x402.payment-response"] as
+            const paymentResponse = meta?.["x402/payment-response"] as
               | { transaction?: string; amount?: number }
               | undefined;
             if (paymentResponse?.transaction) {

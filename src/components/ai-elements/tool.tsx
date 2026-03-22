@@ -67,7 +67,7 @@ function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
   // MCP tools: check payment metadata or known prices
   const output = part.output as Record<string, unknown> | undefined;
   const meta = output?._meta as Record<string, unknown> | undefined;
-  const paymentResponse = meta?.["x402.payment-response"] as { amount?: number } | undefined;
+  const paymentResponse = meta?.["x402/payment-response"] as { amount?: number } | undefined;
   if (paymentResponse?.amount != null) {
     return Number(paymentResponse.amount) / 1e6;
   }
@@ -328,7 +328,7 @@ export const ToolOutput = ({
         </details>
       )}
       {/* @ts-expect-error */}
-      {part.output?._meta?.["x402.payment-response"] && (
+      {part.output?._meta?.["x402/payment-response"] && (
         <div className="mt-3 pt-3 border-t border-muted/40">
           <div className="flex items-center gap-2 text-xs">
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium">
@@ -338,7 +338,7 @@ export const ToolOutput = ({
                 // x402-mcp doesn't include amount in payment response, use known prices
                 const tName = part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
                 // @ts-expect-error - x402 payment metadata
-                const amount = part.output?._meta?.["x402.payment-response"]?.amount;
+                const amount = part.output?._meta?.["x402/payment-response"]?.amount;
                 const displayAmount = amount != null
                   ? (Number(amount) / 1e6).toFixed(2)
                   : TOOL_PRICES[tName]?.toFixed(2);
@@ -351,24 +351,24 @@ export const ToolOutput = ({
             <span className="text-muted-foreground">via x402</span>
           </div>
           {/* @ts-expect-error */}
-          {part.output?._meta?.["x402.payment-response"]?.transaction && (
+          {part.output?._meta?.["x402/payment-response"]?.transaction && (
             <div className="mt-2 flex items-center gap-2">
               <Link
                 href={`https://${
                   network === "base-sepolia" ? "sepolia." : ""
                   // @ts-expect-error
-                }basescan.org/tx/${part.output._meta["x402.payment-response"].transaction}`}
+                }basescan.org/tx/${part.output._meta["x402/payment-response"].transaction}`}
                 target="_blank"
                 className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 hover:underline font-mono"
               >
                 {/* @ts-expect-error */}
-                {part.output._meta["x402.payment-response"].transaction.slice(0, 18)}...
+                {part.output._meta["x402/payment-response"].transaction.slice(0, 18)}...
                 {/* @ts-expect-error */}
-                {part.output._meta["x402.payment-response"].transaction.slice(-6)}
+                {part.output._meta["x402/payment-response"].transaction.slice(-6)}
               </Link>
               <CopyToClipboardButton
                 // @ts-expect-error
-                content={part.output._meta["x402.payment-response"].transaction}
+                content={part.output._meta["x402/payment-response"].transaction}
                 className="size-6"
               />
             </div>
