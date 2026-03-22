@@ -15,20 +15,20 @@ export function createClusterFTools(deps: ClusterFDeps) {
   return {
     analyze_market_trends: tool({
       description:
-        "Analyze market trends — liquidity analysis, whale activity, and market intelligence. " +
-        "Calls QuantumShield x402 services. " +
-        "Costs ~$0.006.",
+        "Analyze market trends — sentiment analysis, liquidity analysis, and smart contract intelligence. " +
+        "Calls external x402 services (GenVox, DiamondClaws, QuantumShield). " +
+        "Costs ~$0.03.",
       inputSchema: z.object({
         query: z.string().describe("Market trend query, e.g. 'trending narratives', 'emerging tokens this week'"),
       }),
       execute: async ({ query }): Promise<ClusterResult> => {
-        const maxReservationMicro = 15_000;
+        const maxReservationMicro = 100_000;
         let reserved = false;
 
         if (deps.userWallet) {
           const reservation = await CreditStore.reserve(deps.userWallet, maxReservationMicro);
           if (!reservation.success) {
-            return { summary: "Insufficient credit balance for market trend analysis (~$0.03). Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
+            return { summary: "Insufficient credit balance for market trend analysis. Please top up.", serviceCalls: [], totalCostMicroUsdc: 0 };
           }
           reserved = true;
         }
@@ -38,13 +38,16 @@ export function createClusterFTools(deps: ClusterFDeps) {
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          const serviceNames = ["genvox", "diamond-claws"] as const;
+          const serviceConfigs = [
+            { name: "genvox", input: { topic: query } },
+            { name: "diamond-claws", input: { target: query } },
+            { name: "qs-contract-audit", input: { address: query } },
+          ] as const;
 
-          for (const name of serviceNames) {
+          for (const svc of serviceConfigs) {
             try {
-              const adapter = await getService(name);
-              const input = name === "genvox" ? { topic: query } : { target: query };
-              const result = await adapter.call(input, ctx);
+              const adapter = await getService(svc.name);
+              const result = await adapter.call(svc.input, ctx);
               calls.push({
                 serviceName: adapter.name,
                 data: result.data,
@@ -52,7 +55,7 @@ export function createClusterFTools(deps: ClusterFDeps) {
                 paid: result.cost > 0,
               });
             } catch (err) {
-              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${svc.name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 

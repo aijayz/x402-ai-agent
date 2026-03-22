@@ -6,20 +6,18 @@ interface AugurInput {
   address: string;
 }
 
-// Maps to QuantumShield contract/audit endpoint
 export const augurAdapter: X402ServiceAdapter<AugurInput, unknown> = {
   name: "Augur",
-  estimatedCostMicroUsdc: 3_000, // $0.003
+  estimatedCostMicroUsdc: 100_000,
   async call(input: AugurInput, ctx: PaymentContext): Promise<X402ServiceResponse<unknown>> {
-    const baseUrl = env.AUGUR_URL;
-    if (!baseUrl) throw new Error("AUGUR_URL not configured");
-
+    const url = env.AUGUR_URL;
+    if (!url) throw new Error("AUGUR_URL not configured");
     const result = await callWithPayment(
-      `${baseUrl}/api/contract/audit?address=${encodeURIComponent(input.address)}`,
+      `${url}/analyze?address=${encodeURIComponent(input.address)}`,
       undefined,
       ctx,
-      { maxPaymentMicroUsdc: 10_000 },
+      { maxPaymentMicroUsdc: 200_000 },
     );
-    return { data: result.data, cost: result.costMicroUsdc, source: "QuantumShield (contract audit)" };
+    return { data: result.data, cost: result.costMicroUsdc, source: "Augur" };
   },
 };

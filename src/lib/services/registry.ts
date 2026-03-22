@@ -26,6 +26,23 @@ const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
     real: () => import("./adapters/augur").then(m => m.augurAdapter),
     stub: () => import("./adapters/stubs/augur.stub").then(m => m.augurStub),
   },
+  // QuantumShield endpoints (quantumshield-api.vercel.app)
+  "qs-token-security": {
+    real: () => import("./adapters/quantum-shield").then(m => m.qsTokenSecurity),
+    stub: () => import("./adapters/stubs/quantum-shield.stub").then(m => m.qsTokenSecurityStub),
+  },
+  "qs-contract-audit": {
+    real: () => import("./adapters/quantum-shield").then(m => m.qsContractAudit),
+    stub: () => import("./adapters/stubs/quantum-shield.stub").then(m => m.qsContractAuditStub),
+  },
+  "qs-wallet-risk": {
+    real: () => import("./adapters/quantum-shield").then(m => m.qsWalletRisk),
+    stub: () => import("./adapters/stubs/quantum-shield.stub").then(m => m.qsWalletRiskStub),
+  },
+  "qs-whale-activity": {
+    real: () => import("./adapters/quantum-shield").then(m => m.qsWhaleActivity),
+    stub: () => import("./adapters/stubs/quantum-shield.stub").then(m => m.qsWhaleActivityStub),
+  },
 };
 
 export type ServiceName = keyof typeof adapters;

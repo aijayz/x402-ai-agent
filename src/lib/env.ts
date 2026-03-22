@@ -29,12 +29,12 @@ export const env = createEnv({
     ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
 
     // x402 service URLs (optional — real adapters use these on mainnet; stubs used on testnet)
-    // All currently backed by QuantumShield API (quantumshield-api.vercel.app)
     RUGMUNCH_URL: z.string().url().optional(),
     AUGUR_URL: z.string().url().optional(),
     DIAMONDCLAWS_URL: z.string().url().optional(),
     WALLETIQ_URL: z.string().url().optional(),
     GENVOX_URL: z.string().url().optional(),
+    QUANTUM_SHIELD_URL: z.string().url().optional(),
 
     // Upstash Redis (Edge runtime compatible — used for rate limiting)
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
@@ -62,6 +62,7 @@ export const env = createEnv({
     DIAMONDCLAWS_URL: process.env.DIAMONDCLAWS_URL,
     WALLETIQ_URL: process.env.WALLETIQ_URL,
     GENVOX_URL: process.env.GENVOX_URL,
+    QUANTUM_SHIELD_URL: process.env.QUANTUM_SHIELD_URL,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
   },

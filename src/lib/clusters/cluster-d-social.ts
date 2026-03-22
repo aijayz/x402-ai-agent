@@ -15,14 +15,14 @@ export function createClusterDTools(deps: ClusterDDeps) {
   return {
     analyze_social_narrative: tool({
       description:
-        "Analyze market intelligence — whale activity and contract risk for a token or topic. " +
-        "Calls QuantumShield x402 services. " +
-        "Costs ~$0.005.",
+        "Analyze market intelligence — sentiment analysis, contract risk scoring, and wallet reputation for a token or topic. " +
+        "Calls external x402 services (GenVox, Augur, QuantumShield). " +
+        "Costs ~$0.13.",
       inputSchema: z.object({
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
       }),
       execute: async ({ topic }): Promise<ClusterResult> => {
-        const maxReservationMicro = 10_000;
+        const maxReservationMicro = 200_000;
         let reserved = false;
 
         if (deps.userWallet) {
@@ -38,13 +38,16 @@ export function createClusterDTools(deps: ClusterDDeps) {
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          const serviceNames = ["genvox", "augur"] as const;
+          const serviceConfigs = [
+            { name: "genvox", input: { topic } },
+            { name: "augur", input: { address: topic } },
+            { name: "qs-wallet-risk", input: { address: topic } },
+          ] as const;
 
-          for (const name of serviceNames) {
+          for (const svc of serviceConfigs) {
             try {
-              const adapter = await getService(name);
-              const input = name === "genvox" ? { topic } : { address: topic };
-              const result = await adapter.call(input, ctx);
+              const adapter = await getService(svc.name);
+              const result = await adapter.call(svc.input, ctx);
               calls.push({
                 serviceName: adapter.name,
                 data: result.data,
@@ -52,7 +55,7 @@ export function createClusterDTools(deps: ClusterDDeps) {
                 paid: result.cost > 0,
               });
             } catch (err) {
-              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${svc.name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 

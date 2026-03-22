@@ -15,9 +15,9 @@ export function createClusterBTools(deps: ClusterBDeps) {
   return {
     track_whale_activity: tool({
       description:
-        "Track whale and smart money activity — wallet risk scoring and holder analysis. " +
-        "Calls QuantumShield x402 services. " +
-        "Costs ~$0.004.",
+        "Track whale and smart money activity — wallet risk scoring, holder analysis, and large transaction monitoring. " +
+        "Calls external x402 services (WalletIQ, DiamondClaws, QuantumShield). " +
+        "Costs ~$0.01.",
       inputSchema: z.object({
         query: z.string().describe("What to track, e.g. 'what are whales buying', 'smart money flows ETH'"),
       }),
@@ -38,13 +38,16 @@ export function createClusterBTools(deps: ClusterBDeps) {
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          const serviceNames = ["wallet-iq", "diamond-claws"] as const;
+          const serviceConfigs = [
+            { name: "wallet-iq", input: { address: query } },
+            { name: "diamond-claws", input: { target: query } },
+            { name: "qs-whale-activity", input: { address: query } },
+          ] as const;
 
-          for (const name of serviceNames) {
+          for (const svc of serviceConfigs) {
             try {
-              const adapter = await getService(name);
-              const input = name === "wallet-iq" ? { address: query } : { target: query };
-              const result = await adapter.call(input, ctx);
+              const adapter = await getService(svc.name);
+              const result = await adapter.call(svc.input, ctx);
               calls.push({
                 serviceName: adapter.name,
                 data: result.data,
@@ -52,7 +55,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
                 paid: result.cost > 0,
               });
             } catch (err) {
-              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${svc.name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 

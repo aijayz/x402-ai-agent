@@ -16,15 +16,15 @@ export function createClusterATools(deps: ClusterADeps) {
     analyze_defi_safety: tool({
       description:
         "Analyze a token or contract for rug pull risks, honeypot detection, and smart contract vulnerabilities. " +
-        "Calls external x402 services (QuantumShield). " +
-        "Costs $0.003-$0.01 depending on depth.",
+        "Calls external x402 services (RugMunch, Augur, QuantumShield). " +
+        "Costs $0.05-$0.15 depending on depth.",
       inputSchema: z.object({
         target: z.string().describe("Token address, contract address, or token name to analyze"),
         depth: z.enum(["quick", "full"]).default("quick")
-          .describe("'quick' = core scan only (~$0.12), 'full' = all services (~$0.50)"),
+          .describe("'quick' = core scan (~$0.05), 'full' = all services (~$0.15)"),
       }),
       execute: async ({ target, depth }): Promise<ClusterResult> => {
-        const maxReservationMicro = depth === "full" ? 20_000 : 10_000;
+        const maxReservationMicro = depth === "full" ? 300_000 : 150_000;
         let reserved = false;
 
         if (deps.userWallet) {
@@ -44,14 +44,25 @@ export function createClusterATools(deps: ClusterADeps) {
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          const serviceNames = depth === "full"
-            ? ["rug-munch", "augur", "diamond-claws"] as const
-            : ["rug-munch", "augur"] as const;
+          // Quick: RugMunch + Augur + QS Token Security
+          // Full: adds QS Contract Audit
+          const serviceConfigs = depth === "full"
+            ? [
+                { name: "rug-munch", input: { target } },
+                { name: "augur", input: { address: target } },
+                { name: "qs-token-security", input: { address: target } },
+                { name: "qs-contract-audit", input: { address: target } },
+              ] as const
+            : [
+                { name: "rug-munch", input: { target } },
+                { name: "augur", input: { address: target } },
+                { name: "qs-token-security", input: { address: target } },
+              ] as const;
 
-          for (const name of serviceNames) {
+          for (const svc of serviceConfigs) {
             try {
-              const adapter = await getService(name);
-              const result = await adapter.call({ target }, ctx);
+              const adapter = await getService(svc.name);
+              const result = await adapter.call(svc.input, ctx);
               calls.push({
                 serviceName: adapter.name,
                 data: result.data,
@@ -59,7 +70,7 @@ export function createClusterATools(deps: ClusterADeps) {
                 paid: result.cost > 0,
               });
             } catch (err) {
-              errors.push(`${name}: ${err instanceof Error ? err.message : "unavailable"}`);
+              errors.push(`${svc.name}: ${err instanceof Error ? err.message : "unavailable"}`);
             }
           }
 
