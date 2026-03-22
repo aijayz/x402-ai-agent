@@ -8,7 +8,7 @@ import { getOrCreatePurchaserAccount, getChain } from "@/lib/accounts";
 import { createWalletClient, http } from "viem";
 import { BudgetController } from "@/lib/budget-controller";
 import { createOrchestrator } from "@/lib/agents/orchestrator";
-import { getModel, probeModel } from "@/lib/ai-provider";
+import { getModel, probeModel, invalidateProbe } from "@/lib/ai-provider";
 import { SessionStore } from "@/lib/credits/session-store";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
@@ -141,12 +141,12 @@ export const POST = async (request: Request) => {
     }
   };
 
-  // Model fallback chain: try each until one succeeds
-  const MODEL_FALLBACK_CHAIN = [
+  // Model fallback chain: try each until one succeeds (deduplicated)
+  const MODEL_FALLBACK_CHAIN = [...new Set([
     env.AI_MODEL,
     "deepseek/deepseek-chat",
     "google/gemini-2.5-flash",
-  ];
+  ])];
 
   try {
     const mcpTools = await mcpClient.tools();
@@ -239,6 +239,12 @@ export const POST = async (request: Request) => {
               }
             }
           }
+        },
+        onError: (error) => {
+          console.error(`[CHAT] Stream error with model ${modelId}:`, error);
+          invalidateProbe(modelId);
+          closeMcp();
+          return error instanceof Error ? error.message : "An unexpected error occurred";
         },
         onFinish: async () => {
           await closeMcp();
