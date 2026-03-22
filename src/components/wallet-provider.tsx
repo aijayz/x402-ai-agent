@@ -40,6 +40,8 @@ interface WalletContextValue {
   balance: number | null; // micro-USDC
   freeCallsRemaining: number | null;
   network: NetworkId;
+  topUpOpen: boolean;
+  setTopUpOpen: (open: boolean) => void;
   connectWallet: () => Promise<string | undefined>;
   disconnectWallet: () => void;
   refreshBalance: () => Promise<void>;
@@ -53,6 +55,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [freeCallsRemaining, setFreeCallsRemaining] = useState<number | null>(null);
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const network = getTargetNetwork();
 
   const refreshBalance = useCallback(async () => {
@@ -185,7 +188,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata }}>
       {children}
     </WalletContext.Provider>
   );

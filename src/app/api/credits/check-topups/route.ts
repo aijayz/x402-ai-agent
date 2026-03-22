@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
+import { getOrCreatePurchaserAccount, getChain } from "@/lib/accounts";
+import { createPublicClient, http, parseAbi } from "viem";
+
+const USDC_ADDRESS: Record<string, `0x${string}`> = {
+  "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+};
+
+// Warn if house wallet USDC drops below this (in USDC, not micro)
+const LOW_BALANCE_THRESHOLD = 5;
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -7,6 +17,37 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  console.log("Cron: check-topups ran (RPC polling not yet implemented — follow-up task)");
-  return NextResponse.json({ ok: true, stub: true });
+  // Check house wallet USDC balance
+  try {
+    const purchaser = await getOrCreatePurchaserAccount();
+    const publicClient = createPublicClient({
+      chain: getChain(),
+      transport: http(),
+    });
+
+    const balance = await publicClient.readContract({
+      address: USDC_ADDRESS[env.NETWORK],
+      abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
+      functionName: "balanceOf",
+      args: [purchaser.address],
+    });
+
+    const balanceUsdc = Number(balance) / 1_000_000;
+
+    if (balanceUsdc < LOW_BALANCE_THRESHOLD) {
+      console.warn(`[CRON] LOW BALANCE: House wallet ${purchaser.address} has $${balanceUsdc.toFixed(2)} USDC (threshold: $${LOW_BALANCE_THRESHOLD})`);
+    } else {
+      console.log(`[CRON] House wallet balance: $${balanceUsdc.toFixed(2)} USDC`);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      houseWallet: purchaser.address,
+      balanceUsdc,
+      lowBalance: balanceUsdc < LOW_BALANCE_THRESHOLD,
+    });
+  } catch (err) {
+    console.error("[CRON] Failed to check house wallet balance", err);
+    return NextResponse.json({ ok: false, error: "Failed to check balance" }, { status: 500 });
+  }
 }

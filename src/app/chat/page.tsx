@@ -16,7 +16,7 @@ import {
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Check, Loader2, ExternalLink, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -33,13 +33,6 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/ai-elements/tool";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { useWallet } from "@/components/wallet-provider";
 
 const capabilities = [
@@ -90,13 +83,7 @@ function parseActions(text: string): { cleanText: string; actions: string[] } {
 const ChatBotDemo = () => {
   const [input, setInput] = useState("");
   const [lastError, setLastError] = useState<Error | null>(null);
-  const [topUpSheetOpen, setTopUpSheetOpen] = useState(false);
-  const [depositInfo, setDepositInfo] = useState<{ depositAddress: string; network: string } | null>(null);
-  const [topUpAmount, setTopUpAmount] = useState<number>(5);
-  const [topUpStatus, setTopUpStatus] = useState<"idle" | "sending" | "confirming" | "done" | "error">("idle");
-  const [topUpTxHash, setTopUpTxHash] = useState<string | null>(null);
-  const [topUpError, setTopUpError] = useState<string | null>(null);
-  const { walletAddress, connectWallet, sendUsdc, refreshBalance, updateFromMetadata } = useWallet();
+  const { walletAddress, connectWallet, setTopUpOpen, updateFromMetadata } = useWallet();
 
   const { messages, sendMessage, setMessages, status } = useChat({
     onError: (error) => {
@@ -145,70 +132,10 @@ const ChatBotDemo = () => {
     sendMessage({ text }, { headers: { "x-wallet-address": address } });
   }, [connectWallet, messages, sendMessage, setMessages]);
 
-  const handleOpenTopUp = useCallback(async () => {
-    if (!walletAddress) {
-      await connectWallet();
-      return;
-    }
-    // Reset state
-    setTopUpStatus("idle");
-    setTopUpTxHash(null);
-    setTopUpError(null);
-    setTopUpAmount(5);
-    try {
-      const res = await fetch("/api/credits/topup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress }),
-      });
-      const data = await res.json();
-      setDepositInfo({ depositAddress: data.depositAddress, network: data.network });
-      setTopUpSheetOpen(true);
-    } catch {
-      setTopUpError("Failed to fetch deposit info");
-    }
-  }, [walletAddress, connectWallet]);
-
-  const handleSendTopUp = useCallback(async () => {
-    if (!walletAddress || !depositInfo) return;
-    setTopUpStatus("sending");
-    setTopUpError(null);
-    try {
-      const txHash = await sendUsdc(depositInfo.depositAddress, topUpAmount);
-      setTopUpTxHash(txHash);
-      setTopUpStatus("confirming");
-
-      // Confirm on server — polls until tx is mined
-      const res = await fetch("/api/credits/topup/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress, txHash }),
-      });
-
-      if (res.ok) {
-        setTopUpStatus("done");
-        await refreshBalance();
-      } else {
-        const data = await res.json();
-        setTopUpError(data.error || "Failed to confirm transaction");
-        setTopUpStatus("error");
-      }
-    } catch (err: unknown) {
-      // User rejected in MetaMask or other error
-      const msg = err instanceof Error ? err.message : "Transaction failed";
-      if (msg.includes("User denied") || msg.includes("rejected")) {
-        setTopUpStatus("idle"); // just go back, not an error
-      } else {
-        setTopUpError(msg);
-        setTopUpStatus("error");
-      }
-    }
-  }, [walletAddress, depositInfo, topUpAmount, sendUsdc, refreshBalance]);
-
   const handleAction = useCallback((action: string) => {
-    if (action === "topup") handleOpenTopUp();
+    if (action === "topup") setTopUpOpen(true);
     else if (action === "connect_wallet") connectWallet();
-  }, [handleOpenTopUp, connectWallet]);
+  }, [setTopUpOpen, connectWallet]);
 
   const handleRetry = useCallback(() => {
     const lastUserMessage = messages.filter(m => m.role === "user").pop();
@@ -445,104 +372,6 @@ const ChatBotDemo = () => {
           </PromptInputToolbar>
         </PromptInput>
 
-        {/* Top-up Sheet */}
-        <Sheet open={topUpSheetOpen} onOpenChange={setTopUpSheetOpen}>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>Top Up Credits</SheetTitle>
-              <SheetDescription>
-                Add USDC credits on {depositInfo?.network === "base-sepolia" ? "Base Sepolia" : "Base"}.
-              </SheetDescription>
-            </SheetHeader>
-            {depositInfo && (
-              <div className="mt-6 space-y-5">
-                {topUpStatus === "done" ? (
-                  <div className="flex flex-col items-center gap-4 py-6">
-                    <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
-                      <Check className="size-6 text-green-400" />
-                    </div>
-                    <div className="text-center space-y-1">
-                      <p className="font-medium text-foreground">${topUpAmount.toFixed(2)} credited</p>
-                      <p className="text-sm text-muted-foreground">Your credits have been updated.</p>
-                    </div>
-                    {topUpTxHash && (
-                      <a
-                        href={`${depositInfo.network === "base-sepolia" ? "https://sepolia.basescan.org" : "https://basescan.org"}/tx/${topUpTxHash}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        View transaction <ExternalLink className="size-3" />
-                      </a>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => setTopUpSheetOpen(false)}>
-                      Done
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    {/* Amount selection */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">Amount (USDC)</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[1, 5, 10].map((amt) => (
-                          <button
-                            key={amt}
-                            onClick={() => setTopUpAmount(amt)}
-                            disabled={topUpStatus !== "idle"}
-                            className={`py-2.5 rounded-lg text-sm font-medium border transition-colors
-                              ${topUpAmount === amt
-                                ? "bg-blue-500/20 border-blue-500/50 text-blue-300"
-                                : "bg-muted/50 border-border text-muted-foreground hover:border-blue-500/30"
-                              }`}
-                          >
-                            ${amt}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Send button */}
-                    <Button
-                      onClick={handleSendTopUp}
-                      disabled={topUpStatus !== "idle"}
-                      className="w-full"
-                    >
-                      {topUpStatus === "sending" && (
-                        <><Loader2 className="size-4 animate-spin mr-2" /> Approve in wallet...</>
-                      )}
-                      {topUpStatus === "confirming" && (
-                        <><Loader2 className="size-4 animate-spin mr-2" /> Confirming on-chain...</>
-                      )}
-                      {topUpStatus === "idle" && `Send $${topUpAmount.toFixed(2)} USDC`}
-                      {topUpStatus === "error" && "Try again"}
-                    </Button>
-
-                    {topUpError && (
-                      <p className="text-sm text-red-400 text-center">{topUpError}</p>
-                    )}
-
-                    {/* Manual fallback */}
-                    <div className="pt-3 border-t border-border space-y-2">
-                      <p className="text-xs text-muted-foreground">Or send manually to:</p>
-                      <div className="flex items-center gap-2">
-                        <code className="text-xs font-mono text-muted-foreground break-all flex-1">
-                          {depositInfo.depositAddress}
-                        </code>
-                        <button
-                          onClick={() => navigator.clipboard.writeText(depositInfo.depositAddress)}
-                          className="shrink-0 px-2 py-1 rounded text-xs border border-border hover:bg-muted transition-colors"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-          </SheetContent>
-        </Sheet>
       </div>
     </div>
   );

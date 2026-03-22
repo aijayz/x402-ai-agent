@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClientProviders } from "@/components/client-providers";
 import { WalletPill, CreditBadge } from "@/components/wallet-pill";
+import { TopUpSheet } from "@/components/topup-sheet";
 
 export default function ChatLayout({
   children,
@@ -87,6 +88,7 @@ export default function ChatLayout({
         </header>
 
         <main className="flex-1">{children}</main>
+        <TopUpSheet />
       </div>
     </ClientProviders>
   );

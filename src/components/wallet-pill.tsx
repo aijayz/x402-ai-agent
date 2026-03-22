@@ -1,7 +1,7 @@
 "use client";
 
 import { useWallet } from "./wallet-provider";
-import { LogOut, Wallet, Coins } from "lucide-react";
+import { LogOut, Wallet, Coins, ArrowUpRight } from "lucide-react";
 
 export function WalletPill() {
   const { walletAddress, network, connectWallet, disconnectWallet } = useWallet();
@@ -45,18 +45,31 @@ export function WalletPill() {
 }
 
 export function CreditBadge() {
-  const { walletAddress, balance } = useWallet();
+  const { walletAddress, balance, setTopUpOpen } = useWallet();
 
   if (!walletAddress || balance == null) return null;
 
   const displayBalance = (balance / 1_000_000).toFixed(2);
 
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs
-      bg-amber-500/10 border border-amber-500/30 text-amber-300">
-      <Coins className="size-3" />
-      <span className="font-mono font-medium">${displayBalance}</span>
-      <span className="text-amber-400/60">credits</span>
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs
+        bg-amber-500/10 border border-amber-500/30 text-amber-300">
+        <Coins className="size-3" />
+        <span className="font-mono font-medium">${displayBalance}</span>
+      </div>
+      <button
+        onClick={() => setTopUpOpen(true)}
+        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+          bg-gradient-to-r from-blue-500/20 to-cyan-400/20
+          border border-blue-500/40 hover:border-blue-400/60
+          text-blue-300 hover:text-blue-200
+          hover:from-blue-500/30 hover:to-cyan-400/30
+          transition-all duration-200"
+      >
+        <ArrowUpRight className="size-3" />
+        Top Up
+      </button>
     </div>
   );
 }

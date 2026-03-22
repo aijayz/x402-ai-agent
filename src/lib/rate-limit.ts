@@ -62,9 +62,15 @@ export async function checkRateLimit(
   const limiter = getLimiter(routeKey, tier);
   if (!limiter) return { allowed: true };
 
-  const result = await limiter.limit(key);
-  if (result.success) return { allowed: true };
+  try {
+    const result = await limiter.limit(key);
+    if (result.success) return { allowed: true };
 
-  const retryAfter = Math.ceil((result.reset - Date.now()) / 1000);
-  return { allowed: false, retryAfter: Math.max(retryAfter, 1) };
+    const retryAfter = Math.ceil((result.reset - Date.now()) / 1000);
+    return { allowed: false, retryAfter: Math.max(retryAfter, 1) };
+  } catch (err) {
+    // Redis unreachable — fail open rather than blocking all requests
+    console.error("[RATE_LIMIT] Redis error, allowing request:", err);
+    return { allowed: true };
+  }
 }

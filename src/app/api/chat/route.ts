@@ -8,7 +8,7 @@ import { getOrCreatePurchaserAccount, getChain } from "@/lib/accounts";
 import { createWalletClient, http } from "viem";
 import { BudgetController } from "@/lib/budget-controller";
 import { createOrchestrator } from "@/lib/agents/orchestrator";
-import { getModel } from "@/lib/ai-provider";
+import { getModel, probeModel } from "@/lib/ai-provider";
 import { SessionStore } from "@/lib/credits/session-store";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
@@ -246,24 +246,27 @@ export const POST = async (request: Request) => {
       });
     };
 
-    // Try each model in the fallback chain
-    let response: globalThis.Response | undefined;
+    // Probe models to find one that's reachable before committing to stream
+    let selectedModel: string | undefined;
     let lastError: unknown;
 
     for (const modelId of MODEL_FALLBACK_CHAIN) {
       try {
-        response = await buildStreamResponse(modelId);
+        await probeModel(modelId);
+        selectedModel = modelId;
         console.log(`Using model: ${modelId}`);
         break;
       } catch (err) {
-        console.warn(`Model ${modelId} failed, trying next fallback...`, err);
+        console.warn(`Model ${modelId} probe failed, trying next...`, err);
         lastError = err;
       }
     }
 
-    if (!response) {
+    if (!selectedModel) {
       throw lastError ?? new Error("All models in fallback chain failed");
     }
+
+    const response = await buildStreamResponse(selectedModel);
 
     // Add session cookie to response
     const headers = new Headers(response.headers);
