@@ -75,7 +75,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const connectWallet = useCallback(async (): Promise<string | undefined> => {
     if (isConnecting) return undefined;
-    if (typeof window === "undefined" || typeof window.ethereum === "undefined") {
+    if (typeof window === "undefined") return undefined;
+
+    // If no injected provider, try deep-linking into MetaMask mobile app
+    if (typeof window.ethereum === "undefined") {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        // MetaMask deep link opens the current page inside MetaMask's in-app browser
+        const mmUrl = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
+        window.location.href = mmUrl;
+        return undefined;
+      }
       alert("Please install MetaMask or another EVM wallet");
       return undefined;
     }
