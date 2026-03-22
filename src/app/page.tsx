@@ -1,28 +1,36 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, Zap, ArrowRight } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, Zap, ArrowRight, Layers, DollarSign, Image, Globe, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const features = [
+const clusters = [
   {
     icon: Shield, title: "DeFi Safety Analysis",
-    description: "Rug pull detection, contract auditing, and token risk scoring",
-    cost: "from $0.12",
+    description: "Rug pull detection, honeypot checks, and contract auditing via RugMunch, Augur, and QuantumShield",
+    cost: "from $0.05",
   },
   {
     icon: Fish, title: "Whale Tracking",
-    description: "Smart money movements and wallet profiling",
+    description: "Smart money movements, wallet risk scoring, and holder analysis via WalletIQ, DiamondClaws, and QuantumShield",
     cost: "from $0.01",
   },
   {
-    icon: MessageCircle, title: "Social Sentiment",
-    description: "Twitter and Farcaster narrative analysis",
+    icon: MessageCircle, title: "Social & Market Intelligence",
+    description: "Sentiment analysis, contract risk scoring, and wallet reputation via GenVox, Augur, and QuantumShield",
     cost: "from $0.13",
   },
   {
-    icon: TrendingUp, title: "Market Intelligence",
-    description: "Trending narratives and emerging token discovery",
+    icon: TrendingUp, title: "Market Trends",
+    description: "Liquidity analysis, smart contract intelligence, and emerging narrative discovery via GenVox, DiamondClaws, and QuantumShield",
     cost: "from $0.03",
   },
+];
+
+const tools = [
+  { icon: DollarSign, title: "Crypto Prices", cost: "$0.01", description: "Live prices, 24h change, market cap" },
+  { icon: Layers, title: "Wallet Profile", cost: "$0.02", description: "On-chain balances and activity" },
+  { icon: Globe, title: "URL Summarizer", cost: "$0.03", description: "Fetch and summarize any webpage" },
+  { icon: FileSearch, title: "Contract Analysis", cost: "$0.03", description: "Verified smart contract analysis" },
+  { icon: Image, title: "Image Generation", cost: "$0.05", description: "AI-powered image generation" },
 ];
 
 export default function LandingPage() {
@@ -54,9 +62,9 @@ export default function LandingPage() {
             AI agent that pays for intelligence
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Ask anything about crypto. The agent orchestrates paid research services,
-            handles USDC payments on Base automatically, and synthesizes answers from
-            multiple sources.
+            Ask anything about crypto. The agent orchestrates multiple paid x402 services,
+            handles USDC payments on Base automatically, and cross-references results from
+            independent sources.
           </p>
           <div className="flex items-center justify-center gap-3 pt-2">
             <Button asChild size="lg">
@@ -73,14 +81,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* Research Clusters */}
       <section className="py-16 px-6 border-t border-border">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-semibold text-foreground text-center mb-10">
+          <h2 className="text-2xl font-semibold text-foreground text-center mb-2">
             Research clusters
           </h2>
+          <p className="text-sm text-muted-foreground text-center mb-10">
+            Each cluster orchestrates 3 independent x402 services for cross-referenced intelligence
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {features.map((f) => (
+            {clusters.map((f) => (
               <div key={f.title} className="rounded-lg border border-border p-5 space-y-2">
                 <div className="flex items-center gap-2">
                   <f.icon className="size-5 text-muted-foreground" />
@@ -88,6 +99,28 @@ export default function LandingPage() {
                 </div>
                 <p className="text-sm text-muted-foreground">{f.description}</p>
                 <p className="text-xs text-muted-foreground/70">{f.cost}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* MCP Tools */}
+      <section className="py-16 px-6 border-t border-border">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-semibold text-foreground text-center mb-2">
+            Paid MCP tools
+          </h2>
+          <p className="text-sm text-muted-foreground text-center mb-10">
+            Individual tools paid per-call via x402 on Base
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            {tools.map((t) => (
+              <div key={t.title} className="rounded-lg border border-border p-4 space-y-1.5 text-center">
+                <t.icon className="size-5 text-muted-foreground mx-auto" />
+                <h3 className="text-sm font-medium text-foreground">{t.title}</h3>
+                <p className="text-xs text-muted-foreground">{t.description}</p>
+                <p className="text-xs font-mono text-blue-400">{t.cost}</p>
               </div>
             ))}
           </div>
@@ -116,6 +149,29 @@ export default function LandingPage() {
               <p className="text-2xl font-bold text-foreground">Pay as you go</p>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Services */}
+      <section className="py-16 px-6 border-t border-border">
+        <div className="max-w-3xl mx-auto text-center space-y-6">
+          <h2 className="text-2xl font-semibold text-foreground">Powered by real x402 services</h2>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+            <span>RugMunch</span>
+            <span className="text-border">·</span>
+            <span>Augur</span>
+            <span className="text-border">·</span>
+            <span>DiamondClaws</span>
+            <span className="text-border">·</span>
+            <span>WalletIQ</span>
+            <span className="text-border">·</span>
+            <span>GenVox</span>
+            <span className="text-border">·</span>
+            <span>QuantumShield</span>
+          </div>
+          <p className="text-xs text-muted-foreground/60">
+            Each service is independently operated and paid via HTTP 402 micropayments on Base
+          </p>
         </div>
       </section>
 
