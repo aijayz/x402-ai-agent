@@ -71,13 +71,18 @@ const capabilities = [
 ];
 
 // Parse [ACTION:xxx] markers from completed message text
-function parseActions(text: string): { cleanText: string; actions: string[] } {
+function parseActions(text: string): { cleanText: string; actions: string[]; suggestions: string[] } {
   const actionSet = new Set<string>();
-  const cleanText = text.replace(/\[ACTION:(\w+)\]/g, (_, action) => {
+  const suggestions: string[] = [];
+  let cleanText = text.replace(/\[ACTION:(\w+)\]/g, (_, action) => {
     actionSet.add(action);
     return "";
   });
-  return { cleanText: cleanText.trim(), actions: [...actionSet] };
+  cleanText = cleanText.replace(/\[SUGGEST:([^\]]+)\]/g, (_, suggest) => {
+    if (suggestions.length < 3) suggestions.push(suggest.trim());
+    return "";
+  });
+  return { cleanText: cleanText.trim(), actions: [...actionSet], suggestions };
 }
 
 const ChatBotDemo = () => {
@@ -219,8 +224,8 @@ const ChatBotDemo = () => {
                   {message.parts.map((part, i) => {
                     if (part.type === "text") {
                       const isStreaming = status === "streaming" && isLastAssistantMessage(message.id);
-                      const { cleanText, actions } = isStreaming
-                        ? { cleanText: part.text, actions: [] }
+                      const { cleanText, actions, suggestions } = isStreaming
+                        ? { cleanText: part.text, actions: [], suggestions: [] }
                         : parseActions(part.text);
 
                       return (
@@ -240,6 +245,22 @@ const ChatBotDemo = () => {
                                 >
                                   {action === "topup" && <><ArrowUpRight className="size-3.5" /> Top Up</>}
                                   {action === "connect_wallet" && <><Wallet className="size-3.5" /> Connect Wallet</>}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {suggestions.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              {suggestions.map((suggest) => (
+                                <button
+                                  key={suggest}
+                                  onClick={() => handlePromptClick(suggest)}
+                                  className="px-3 py-1.5 rounded-full text-xs font-medium
+                                    bg-muted/50 border border-border
+                                    text-muted-foreground hover:text-foreground hover:bg-muted/80 hover:border-muted-foreground/30
+                                    transition-all duration-200"
+                                >
+                                  {suggest}
                                 </button>
                               ))}
                             </div>
