@@ -346,9 +346,14 @@ export function ChatPage() {
                   {message.parts.map((part, i) => {
                     if (part.type === "text") {
                       const isStreaming = status === "streaming" && isLastAssistantMessage(message.id);
-                      const { cleanText, actions, suggestions } = isStreaming
-                        ? { cleanText: part.text, actions: [], suggestions: [] }
+                      const parsed = isStreaming
+                        ? { cleanText: part.text, actions: [] as string[], suggestions: [] as string[] }
                         : parseActions(part.text);
+                      // Strip connect_wallet action if user already has a wallet
+                      const actions = walletAddress
+                        ? parsed.actions.filter(a => a !== "connect_wallet")
+                        : parsed.actions;
+                      const { cleanText, suggestions } = parsed;
 
                       return (
                         <div key={`${message.id}-${i}`}>
