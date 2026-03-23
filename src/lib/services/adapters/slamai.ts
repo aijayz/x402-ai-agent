@@ -1,7 +1,8 @@
+import { env } from "../../env";
 import { callWithPayment } from "../payment-handler";
 import type { X402ServiceAdapter, X402ServiceResponse, PaymentContext } from "../types";
 
-const SLAMAI_BASE = "https://api.slamai.dev";
+const SLAMAI_BASE = env.SLAMAI_URL ?? "https://api.slamai.dev";
 
 interface SLAMaiWalletInput {
   address: string;

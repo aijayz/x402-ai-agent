@@ -3,8 +3,9 @@
  * Used to resolve contract addresses → token symbols before passing
  * to services that only accept names/symbols (e.g. Messari).
  */
+import { env } from "../env";
 
-const COINGECKO_BASE = "https://api.coingecko.com/api/v3";
+const COINGECKO_BASE = env.COINGECKO_URL ?? "https://api.coingecko.com/api/v3";
 
 // CoinGecko platform IDs for supported chains
 const PLATFORM_IDS: Record<string, string> = {

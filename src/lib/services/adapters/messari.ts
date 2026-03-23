@@ -1,6 +1,7 @@
+import { env } from "../../env";
 import type { X402ServiceAdapter, X402ServiceResponse, PaymentContext } from "../types";
 
-const MESSARI_BASE = "https://api.messari.io";
+const MESSARI_BASE = env.MESSARI_URL ?? "https://api.messari.io";
 
 interface MessariTokenUnlocksInput {
   target: string; // token name, symbol, or slug

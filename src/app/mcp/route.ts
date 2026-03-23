@@ -26,11 +26,13 @@ async function getHandler() {
 
     handler = createPaidMcpHandler(
       (server: PaymentMcpServer) => {
+        const coingeckoBase = env.COINGECKO_URL ?? "https://api.coingecko.com/api/v3";
+
         // Resolve a token name/symbol to a CoinGecko ID via search API
         async function resolveTokenId(input: string): Promise<string | null> {
           try {
             const res = await fetch(
-              `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(input)}`
+              `${coingeckoBase}/search?query=${encodeURIComponent(input)}`
             );
             if (!res.ok) return null;
             const data = await res.json();
@@ -60,7 +62,7 @@ async function getHandler() {
               // First try the input directly as a CoinGecko ID
               let tokenId = args.token.toLowerCase();
               let res = await fetch(
-                `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(tokenId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
+                `${coingeckoBase}/coins/${encodeURIComponent(tokenId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
               );
               // If not found, resolve via search API
               if (res.status === 404) {
@@ -73,7 +75,7 @@ async function getHandler() {
                 }
                 tokenId = resolved;
                 res = await fetch(
-                  `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(tokenId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
+                  `${coingeckoBase}/coins/${encodeURIComponent(tokenId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
                 );
               }
               if (!res.ok) {

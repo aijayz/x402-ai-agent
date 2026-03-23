@@ -19,7 +19,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
         "Track whale and smart money activity. Pass a wallet address to profile a specific whale (risk score, transaction history). " +
         "Pass a token contract address to see holder concentration and whale accumulation for that token. " +
         "Requires an Ethereum address (0x format). To analyze a token like ETH or USDC, use get_crypto_price first to get its contract address. " +
-        "Calls external x402 services (WalletIQ, DiamondClaws, QuantumShield). " +
+        "Calls external x402 services (SLAMai, QuantumShield). " +
         "Costs ~$0.01.",
       inputSchema: z.object({
         address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid Ethereum address (0x + 40 hex chars)").describe("Wallet address or token contract address to analyze (0x format)"),
