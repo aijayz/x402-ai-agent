@@ -34,3 +34,15 @@ CREATE TABLE IF NOT EXISTS spend_events (
 
 CREATE INDEX IF NOT EXISTS idx_spend_events_wallet
   ON spend_events (wallet_address, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS conversations (
+  id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  wallet_address TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT 'New conversation',
+  messages JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_wallet
+  ON conversations (wallet_address, updated_at DESC);

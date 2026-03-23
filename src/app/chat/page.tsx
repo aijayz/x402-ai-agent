@@ -18,6 +18,8 @@ import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConversationSidebar } from "@/components/conversation-sidebar";
+import { useConversations } from "@/hooks/use-conversations";
 
 import {
   Reasoning,
@@ -100,6 +102,40 @@ export function ChatPage() {
       }
     },
   });
+
+  const {
+    conversations,
+    activeId,
+    loading: conversationsLoading,
+    load: loadConversation,
+    save: saveConversation,
+    startNew: startNewConversation,
+    remove: removeConversation,
+  } = useConversations({ walletAddress });
+
+  // Auto-save conversation when AI finishes responding
+  const prevStatusRef = useRef(status);
+  useEffect(() => {
+    if (prevStatusRef.current === "streaming" && status === "ready" && messages.length > 0 && walletAddress) {
+      saveConversation(messages);
+    }
+    prevStatusRef.current = status;
+  }, [status, messages, walletAddress, saveConversation]);
+
+  const handleSelectConversation = useCallback(async (id: string) => {
+    const loaded = await loadConversation(id);
+    if (loaded) {
+      setMessages(loaded);
+      setLastError(null);
+    }
+  }, [loadConversation, setMessages]);
+
+  const handleNewConversation = useCallback(() => {
+    startNewConversation();
+    setMessages([]);
+    setLastError(null);
+    textareaRef.current?.focus();
+  }, [startNewConversation, setMessages]);
 
   // Update wallet context from message metadata
   useEffect(() => {
@@ -184,8 +220,18 @@ export function ChatPage() {
   const isLastAssistantMessage = (msgId: string) => lastAssistantId === msgId;
 
   return (
-    <div className="w-full h-[calc(100vh-60px)] p-4 md:p-6 relative">
-      <div className="flex flex-col h-full max-w-4xl mx-auto">
+    <div className="w-full h-[calc(100vh-60px)] flex relative">
+      {walletAddress && (
+        <ConversationSidebar
+          conversations={conversations}
+          activeId={activeId}
+          loading={conversationsLoading}
+          onSelect={handleSelectConversation}
+          onNew={handleNewConversation}
+          onDelete={removeConversation}
+        />
+      )}
+      <div className="flex-1 flex flex-col h-full max-w-4xl mx-auto p-4 md:p-6">
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="min-h-full flex flex-col justify-end">
             {messages.length === 0 && status === "ready" && (

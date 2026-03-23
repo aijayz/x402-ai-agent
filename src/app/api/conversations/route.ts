@@ -1,0 +1,64 @@
+import { ConversationStore } from "@/lib/credits/conversation-store";
+import { NextResponse } from "next/server";
+
+/** GET /api/conversations — list conversations for authenticated wallet */
+export async function GET(request: Request) {
+  const walletAddress = request.headers.get("x-wallet-address");
+  if (!walletAddress) {
+    return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
+  }
+
+  const conversations = await ConversationStore.list(walletAddress);
+  return NextResponse.json({ conversations });
+}
+
+/** POST /api/conversations — create or update a conversation */
+export async function POST(request: Request) {
+  const walletAddress = request.headers.get("x-wallet-address");
+  if (!walletAddress) {
+    return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const { id, title, messages } = body as {
+    id?: string;
+    title?: string;
+    messages?: unknown[];
+  };
+
+  if (!messages || !Array.isArray(messages)) {
+    return NextResponse.json({ error: "messages array required" }, { status: 400 });
+  }
+
+  // Update existing conversation
+  if (id) {
+    const updated = await ConversationStore.update(id, walletAddress, { title, messages });
+    if (!updated) {
+      return NextResponse.json({ error: "Conversation not found" }, { status: 404 });
+    }
+    return NextResponse.json({ id });
+  }
+
+  // Create new conversation — auto-generate title from first user message
+  const autoTitle = title || deriveTitle(messages);
+  const newId = await ConversationStore.create(walletAddress, autoTitle, messages);
+  return NextResponse.json({ id: newId }, { status: 201 });
+}
+
+/** Derive a short title from the first user message text. */
+function deriveTitle(messages: unknown[]): string {
+  for (const msg of messages) {
+    const m = msg as { role?: string; parts?: Array<{ type?: string; text?: string }> };
+    if (m.role === "user" && m.parts) {
+      const text = m.parts
+        .filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join(" ")
+        .trim();
+      if (text) {
+        return text.length > 60 ? text.slice(0, 57) + "..." : text;
+      }
+    }
+  }
+  return "New conversation";
+}
