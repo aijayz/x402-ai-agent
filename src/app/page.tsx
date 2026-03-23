@@ -134,7 +134,7 @@ export default function LandingPage() {
                 style={{ animationDelay: `${150 + i * 100}ms`, animationDuration: "500ms" }}
               >
                 {/* Card gradient background */}
-                <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                <div className={`absolute inset-0 rounded-xl bg-gradient-to-b ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
                 <div className="relative">
                   <div className="flex items-center gap-2.5">
                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/50 border border-border/50">
