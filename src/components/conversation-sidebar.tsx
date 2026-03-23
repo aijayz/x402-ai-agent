@@ -90,30 +90,28 @@ function SidebarContent({
       </div>
 
       {/* Search */}
-      {conversations.length > 3 && (
-        <div className="px-3 pb-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="Search conversations..."
-              className="w-full pl-8 pr-7 py-1.5 rounded-md text-xs bg-muted/40 border border-border
-                placeholder:text-muted-foreground/40 text-foreground
-                focus:outline-none focus:border-blue-500/40 focus:bg-muted/60 transition-colors"
-            />
-            {query && (
-              <button
-                onClick={() => handleQueryChange("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted text-muted-foreground/50 hover:text-muted-foreground"
-              >
-                <X className="size-3" />
-              </button>
-            )}
-          </div>
+      <div className="px-3 pb-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/50" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            placeholder="Search conversations..."
+            className="w-full pl-8 pr-7 py-1.5 rounded-md text-xs bg-muted/40 border border-border
+              placeholder:text-muted-foreground/40 text-foreground
+              focus:outline-none focus:border-blue-500/40 focus:bg-muted/60 transition-colors"
+          />
+          {query && (
+            <button
+              onClick={() => handleQueryChange("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted text-muted-foreground/50 hover:text-muted-foreground"
+            >
+              <X className="size-3" />
+            </button>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent mx-3" />
 
