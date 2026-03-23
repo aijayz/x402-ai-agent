@@ -21,7 +21,8 @@ describe("x402-client", () => {
     };
     const result = parse402Response(body);
     expect(result).not.toBeNull();
-    expect(result!.maxAmountRequired).toBe("10000");
+    expect(result!.requirements.maxAmountRequired).toBe("10000");
+    expect(result!.version).toBe(1);
   });
 
   it("returns null for non-402 body", () => {

@@ -52,11 +52,13 @@ export function createClusterATools(deps: ClusterADeps) {
                 { name: "augur", input: { address: target } },
                 { name: "qs-token-security", input: { address: target } },
                 { name: "qs-contract-audit", input: { address: target } },
+                { name: "messari-token-unlocks", input: { target } },
               ] as const
             : [
                 { name: "rug-munch", input: { target } },
                 { name: "augur", input: { address: target } },
                 { name: "qs-token-security", input: { address: target } },
+                { name: "messari-token-unlocks", input: { target } },
               ] as const;
 
           for (const svc of serviceConfigs) {

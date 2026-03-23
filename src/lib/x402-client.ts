@@ -2,8 +2,13 @@
 import { createPaymentHeader } from "x402/client";
 import type { WalletClient } from "viem";
 
-const X402_VERSION = 1;
 const DEFAULT_TIMEOUT_MS = 8000;
+
+// EIP-155 chain ID → x402 v1 network name
+const EIP155_NETWORK_MAP: Record<string, string> = {
+  "eip155:8453": "base",
+  "eip155:84532": "base-sepolia",
+};
 
 interface PaymentRequirements {
   scheme: string;
@@ -32,12 +37,39 @@ interface X402Result {
   paymentRequirements?: PaymentRequirements;
 }
 
-export function parse402Response(body: unknown): PaymentRequirements | null {
+/**
+ * Normalizes an x402 accepts entry to v1 PaymentRequirements format.
+ * Handles v2 differences: `amount` field, `eip155:<chainId>` network strings,
+ * and optional fields (`resource`, `description`, `mimeType`).
+ */
+function normalizeRequirements(raw: Record<string, unknown>): PaymentRequirements {
+  const network = raw.network as string ?? "base";
+  return {
+    scheme: (raw.scheme as string) ?? "exact",
+    network: EIP155_NETWORK_MAP[network] ?? network,
+    maxAmountRequired: ((raw.maxAmountRequired ?? raw.amount) as string) ?? "0",
+    resource: (raw.resource as string) ?? "",
+    description: (raw.description as string) ?? "",
+    mimeType: (raw.mimeType as string) ?? "application/json",
+    payTo: raw.payTo as string,
+    maxTimeoutSeconds: (raw.maxTimeoutSeconds as number) ?? 60,
+    asset: raw.asset as string,
+    extra: raw.extra as Record<string, unknown> | undefined,
+  };
+}
+
+export function parse402Response(body: unknown): { requirements: PaymentRequirements; version: number } | null {
   if (typeof body !== "object" || body === null) return null;
   const obj = body as Record<string, unknown>;
   if (typeof obj.x402Version !== "number") return null;
   if (!Array.isArray(obj.accepts) || obj.accepts.length === 0) return null;
-  return obj.accepts[0] as PaymentRequirements;
+  // Prefer Base mainnet entry; fall back to first
+  const accepts = obj.accepts as Record<string, unknown>[];
+  const baseEntry = accepts.find(a => {
+    const n = a.network as string ?? "";
+    return n === "base" || n === "eip155:8453";
+  }) ?? accepts[0];
+  return { requirements: normalizeRequirements(baseEntry), version: obj.x402Version as number };
 }
 
 export async function x402Fetch(
@@ -58,11 +90,12 @@ export async function x402Fetch(
   }
 
   const body402 = await res1.json();
-  const requirements = parse402Response(body402);
-  if (!requirements) {
+  const parsed = parse402Response(body402);
+  if (!parsed) {
     throw new Error(`x402: 402 response missing valid payment requirements from ${url}`);
   }
 
+  const { requirements, version } = parsed;
   const amountMicro = Number(requirements.maxAmountRequired);
   if (options.maxPaymentMicroUsdc && amountMicro > options.maxPaymentMicroUsdc) {
     throw new Error(
@@ -72,7 +105,7 @@ export async function x402Fetch(
 
   const paymentHeader = await createPaymentHeader(
     options.walletClient as any,
-    X402_VERSION,
+    version,
     requirements as any,
   );
 

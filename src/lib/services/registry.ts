@@ -26,6 +26,11 @@ const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
     real: () => import("./adapters/augur").then(m => m.augurAdapter),
     stub: () => import("./adapters/stubs/augur.stub").then(m => m.augurStub),
   },
+  // Messari endpoints (api.messari.io) — institutional crypto intelligence
+  "messari-token-unlocks": {
+    real: () => import("./adapters/messari").then(m => m.messariTokenUnlocksAdapter),
+    stub: () => import("./adapters/stubs/messari.stub").then(m => m.messariTokenUnlocksStub),
+  },
   // SLAMai endpoints (api.slamai.dev) — smart money intelligence, $0.001/call
   "slamai-wallet": {
     real: () => import("./adapters/slamai").then(m => m.slaMaiWalletAdapter),
