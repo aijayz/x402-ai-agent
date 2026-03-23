@@ -203,7 +203,7 @@ export default function LandingPage() {
             Simple pricing
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-border/50 p-6 space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both" style={{ animationDelay: "100ms" }}>
+            <div className="rounded-xl border border-border/50 bg-zinc-900/80 p-6 space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both" style={{ animationDelay: "100ms" }}>
               <h3 className="font-semibold text-foreground">Free</h3>
               <p className="text-sm text-muted-foreground">
                 2 free tool calls. Prices, summaries, images, and basic analysis.
@@ -211,12 +211,10 @@ export default function LandingPage() {
               <p className="text-2xl font-bold text-foreground">$0</p>
             </div>
             <div
-              className="relative rounded-xl border border-blue-500/30 p-6 space-y-3 overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both"
-              style={{ animationDelay: "200ms" }}
+              className="relative rounded-xl border border-blue-500/30 p-6 overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both"
+              style={{ animationDelay: "200ms", background: "linear-gradient(to bottom right, rgba(59,130,246,0.08), rgba(168,85,247,0.08)) no-repeat, rgb(24,24,27)" }}
             >
-              {/* Highlight glow */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/[0.08] to-purple-500/[0.08]" />
-              <div className="relative">
+              <div className="relative space-y-3">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-foreground">Credits</h3>
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
