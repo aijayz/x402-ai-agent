@@ -36,6 +36,7 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import { useWallet } from "@/components/wallet-provider";
+import { CreditStatusBanner, type BannerState } from "@/components/credit-status-banner";
 
 const capabilities = [
   {
@@ -90,14 +91,26 @@ function parseActions(text: string): { cleanText: string; actions: string[]; sug
 export function ChatPage() {
   const [input, setInput] = useState("");
   const [lastError, setLastError] = useState<Error | null>(null);
-  const { walletAddress, connectWallet, setTopUpOpen, updateFromMetadata } = useWallet();
+  const { walletAddress, balance, freeCallsRemaining, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef } = useWallet();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const pendingRetryRef = useRef<string | null>(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const { messages, sendMessage, setMessages, status } = useChat({
     onError: (error) => {
       if (error.message?.includes("429") || error.message?.includes("Rate limit")) {
         setLastError(new Error("RATE_LIMITED"));
       } else {
+        if (error.message?.includes("FREE_CALLS_EXHAUSTED") || error.message?.includes("Free calls exhausted")) {
+          const lastUserMsg = messages.filter(m => m.role === "user").pop();
+          const text = lastUserMsg?.parts
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ?.filter((p: any) => p.type === "text")
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((p: any) => p.text)
+            .join("") || "";
+          if (text) pendingRetryRef.current = text;
+        }
         setLastError(error);
       }
     },
@@ -150,39 +163,38 @@ export function ChatPage() {
     }
   }, [messages, updateFromMetadata]);
 
+  // Reset banner dismissed on new conversation turn
+  useEffect(() => {
+    if (status === "ready") setBannerDismissed(false);
+  }, [status]);
+  useEffect(() => {
+    setBannerDismissed(false);
+  }, [walletAddress]);
+
+  const bannerState: BannerState = useMemo(() => {
+    if (pendingRetryRef.current) return "retrying";
+    if (lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted")) {
+      return walletAddress ? "exhausted-wallet" : "exhausted-anon";
+    }
+    if (bannerDismissed) return "hidden";
+    if (!walletAddress && freeCallsRemaining === 1) return "low-anon";
+    if (walletAddress && balance !== null && balance <= 0) return "exhausted-wallet";
+    if (walletAddress && balance !== null && balance < 50000 && balance > 0) return "low-wallet";
+    return "hidden";
+  }, [lastError, walletAddress, freeCallsRemaining, balance, bannerDismissed]);
+
+  // Clear pendingRetryRef when streaming starts
+  useEffect(() => {
+    if (status === "streaming" && pendingRetryRef.current) {
+      pendingRetryRef.current = null;
+    }
+  }, [status]);
+
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
   const headers = walletAddress ? { "x-wallet-address": walletAddress } : undefined;
-
-  // Connect wallet then auto-retry the last failed message
-  const handleConnectAndRetry = useCallback(async () => {
-    const address = await connectWallet();
-    if (!address) return;
-
-    // Extract the last user message text before removing it
-    const lastUserMessage = messages.filter(m => m.role === "user").pop();
-    if (!lastUserMessage) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const text = lastUserMessage.parts
-      ?.filter((p: any) => p.type === "text")
-      .map((p: any) => p.text)
-      .join("") || "";
-    if (!text) return;
-
-    // Remove the failed user message so sendMessage doesn't duplicate it
-    setMessages(prev => prev.filter(m => m.id !== lastUserMessage.id));
-    setLastError(null);
-
-    // Resend with wallet header — this adds the user message back + gets a response
-    sendMessage({ text }, { headers: { "x-wallet-address": address } });
-  }, [connectWallet, messages, sendMessage, setMessages]);
-
-  const handleAction = useCallback((action: string) => {
-    if (action === "topup") setTopUpOpen(true);
-    else if (action === "connect_wallet") connectWallet();
-  }, [setTopUpOpen, connectWallet]);
 
   const handleRetry = useCallback(() => {
     const lastUserMessage = messages.filter(m => m.role === "user").pop();
@@ -198,6 +210,36 @@ export function ChatPage() {
     setLastError(null);
     sendMessage({ text }, { headers });
   }, [messages, setMessages, sendMessage, headers]);
+
+  const retryPendingMessage = useCallback((overrideAddress?: string) => {
+    const text = pendingRetryRef.current;
+    if (!text) return;
+    const lastUserMessage = messages.filter(m => m.role === "user").pop();
+    if (lastUserMessage) {
+      setMessages(prev => prev.filter(m => m.id !== lastUserMessage.id));
+    }
+    setLastError(null);
+    const addr = overrideAddress || walletAddress;
+    const h = addr ? { "x-wallet-address": addr } : undefined;
+    sendMessage({ text }, { headers: h });
+  }, [messages, setMessages, sendMessage, walletAddress]);
+
+  // Connect wallet then auto-retry the last failed message
+  const handleConnectAndRetry = useCallback(async () => {
+    const address = await connectWallet();
+    if (!address) return;
+    retryPendingMessage(address);
+  }, [connectWallet, retryPendingMessage]);
+
+  const handleAction = useCallback((action: string) => {
+    if (action === "topup") setTopUpOpen(true);
+    else if (action === "connect_wallet") connectWallet();
+  }, [setTopUpOpen, connectWallet]);
+
+  useEffect(() => {
+    onTopUpCompleteRef.current = () => retryPendingMessage();
+    return () => { onTopUpCompleteRef.current = null; };
+  }, [retryPendingMessage, onTopUpCompleteRef]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -362,7 +404,7 @@ export function ChatPage() {
                 })()}
               </Message>
             ))}
-            {status === "submitted" && <Loader />}
+            {status === "submitted" && !pendingRetryRef.current && <Loader />}
             {status === "error" && lastError?.message === "RATE_LIMITED" && (
               <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
                 <div className="flex flex-col items-center gap-4 p-6 bg-amber-950/50 border border-amber-800/50 rounded-lg text-center">
@@ -375,65 +417,35 @@ export function ChatPage() {
                 </div>
               </div>
             )}
-            {status === "error" && lastError?.message !== "RATE_LIMITED" && (
-              lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted") ? (
-                <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="relative flex flex-col items-center gap-5 p-8 rounded-xl border border-blue-500/20 bg-gradient-to-b from-blue-500/[0.08] to-purple-500/[0.05] text-center overflow-hidden">
-                    {/* Background glow */}
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl" />
-                    <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30">
-                      <Wallet className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div className="relative space-y-2">
-                      <h3 className="text-base font-semibold text-foreground">Free calls used up</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Connect a wallet to claim up to <span className="text-blue-400 font-medium">$0.50</span> in free credits.
-                      </p>
-                    </div>
-                    {!walletAddress ? (
-                      <button
-                        onClick={handleConnectAndRetry}
-                        className="relative flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium
-                          bg-gradient-to-r from-blue-500/20 to-purple-500/20
-                          border border-blue-500/40 hover:border-blue-400/60
-                          text-blue-200 hover:text-blue-100
-                          hover:from-blue-500/30 hover:to-purple-500/30
-                          transition-all duration-200 shadow-lg shadow-blue-500/10"
-                      >
-                        <Wallet className="size-4" />
-                        Connect Wallet
-                      </button>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
-                        <RefreshCw className="w-4 h-4" />
-                        Retry
-                      </Button>
-                    )}
+            {status === "error" && lastError?.message !== "RATE_LIMITED" && !lastError?.message?.includes("FREE_CALLS_EXHAUSTED") && !lastError?.message?.includes("Free calls exhausted") && (
+              <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
+                <div className="flex flex-col items-center gap-4 p-6 bg-red-950/50 border border-red-800/50 rounded-lg text-center">
+                  <div className="flex items-center justify-center w-12 h-12 bg-red-900/50 rounded-full">
+                    <AlertCircle className="w-6 h-6 text-red-400" />
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
-                  <div className="flex flex-col items-center gap-4 p-6 bg-red-950/50 border border-red-800/50 rounded-lg text-center">
-                    <div className="flex items-center justify-center w-12 h-12 bg-red-900/50 rounded-full">
-                      <AlertCircle className="w-6 h-6 text-red-400" />
-                    </div>
-                    <div className="space-y-2">
-                      <h3 className="text-lg font-semibold text-red-200">Something went wrong</h3>
-                      <p className="text-sm text-red-300">
-                        {lastError?.message || "An unexpected error occurred. Please try again."}
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
-                      <RefreshCw className="w-4 h-4" />
-                      Try again
-                    </Button>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-semibold text-red-200">Something went wrong</h3>
+                    <p className="text-sm text-red-300">
+                      {lastError?.message || "An unexpected error occurred. Please try again."}
+                    </p>
                   </div>
+                  <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+                    <RefreshCw className="w-4 h-4" />
+                    Try again
+                  </Button>
                 </div>
-              )
+              </div>
             )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
+
+        <CreditStatusBanner
+          state={bannerState}
+          onConnectWallet={handleConnectAndRetry}
+          onTopUp={() => setTopUpOpen(true)}
+          onDismiss={() => setBannerDismissed(true)}
+        />
 
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">
           <PromptInputTextarea
