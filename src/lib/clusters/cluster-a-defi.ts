@@ -70,7 +70,9 @@ export function createClusterATools(deps: ClusterADeps) {
                 paid: result.cost > 0,
               });
             } catch (err) {
-              errors.push(`${svc.name}: ${err instanceof Error ? err.message : "unavailable"}`);
+              const msg = err instanceof Error ? err.message : "unavailable";
+              console.error(`[CLUSTER_A] ${svc.name} failed:`, msg);
+              errors.push(`${svc.name}: ${msg}`);
             }
           }
 
