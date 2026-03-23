@@ -14,12 +14,12 @@ import { useWallet } from "@/components/wallet-provider";
 
 const AMOUNT_PRESETS = [1, 5, 10, 20];
 
-// Rough value hints per dollar (at 30% markup, ~$0.13/DeFi scan, ~$0.013/whale query)
+// Value hints: DeFi safety analysis ~$0.13, whale query ~$0.01
 const VALUE_HINT: Record<number, string> = {
-  1: "~7 DeFi scans",
-  5: "~38 DeFi scans",
-  10: "~76 DeFi scans",
-  20: "~153 DeFi scans",
+  1:  "~7 DeFi safety analyses or ~100 whale queries",
+  5:  "~38 DeFi safety analyses or ~500 whale queries",
+  10: "~76 DeFi safety analyses or ~1,000 whale queries",
+  20: "~150 DeFi safety analyses or ~2,000 whale queries",
 };
 
 type TopUpStatus = "loading" | "idle" | "sending" | "confirming" | "done" | "error";
@@ -156,7 +156,7 @@ export function TopUpSheet() {
 
   return (
     <Sheet open={topUpOpen} onOpenChange={handleOpenChange}>
-      <SheetContent>
+      <SheetContent className="px-6 pb-6">
         <SheetHeader>
           <SheetTitle>Top Up Credits</SheetTitle>
           <SheetDescription>
@@ -228,7 +228,7 @@ export function TopUpSheet() {
               {/* Amount selection */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Amount (USDC)</label>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {AMOUNT_PRESETS.map((amt) => (
                     <button
                       key={amt}
@@ -243,7 +243,7 @@ export function TopUpSheet() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">{VALUE_HINT[topUpAmount]}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{VALUE_HINT[topUpAmount]}</p>
               </div>
 
               {/* Send button */}
@@ -259,7 +259,7 @@ export function TopUpSheet() {
               <div className="pt-3 border-t border-border space-y-2">
                 <p className="text-xs text-muted-foreground">Or send manually to:</p>
                 <div className="flex items-center gap-2">
-                  <code className="text-xs font-mono text-muted-foreground break-all flex-1">
+                  <code className="text-xs font-mono text-foreground/80 break-all flex-1">
                     {depositInfo.depositAddress}
                   </code>
                   <button
