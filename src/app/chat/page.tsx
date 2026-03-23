@@ -94,6 +94,7 @@ export function ChatPage() {
   const { walletAddress, balance, freeCallsRemaining, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef } = useWallet();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingRetryRef = useRef<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const { messages, sendMessage, setMessages, status } = useChat({
@@ -172,7 +173,7 @@ export function ChatPage() {
   }, [walletAddress]);
 
   const bannerState: BannerState = useMemo(() => {
-    if (pendingRetryRef.current) return "retrying";
+    if (isRetrying) return "retrying";
     if (lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted")) {
       return walletAddress ? "exhausted-wallet" : "exhausted-anon";
     }
@@ -181,14 +182,15 @@ export function ChatPage() {
     if (walletAddress && balance !== null && balance <= 0) return "exhausted-wallet";
     if (walletAddress && balance !== null && balance < 50000 && balance > 0) return "low-wallet";
     return "hidden";
-  }, [lastError, walletAddress, freeCallsRemaining, balance, bannerDismissed]);
+  }, [lastError, walletAddress, freeCallsRemaining, balance, bannerDismissed, isRetrying]);
 
-  // Clear pendingRetryRef when streaming starts
+  // Clear retry state when streaming starts
   useEffect(() => {
-    if (status === "streaming" && pendingRetryRef.current) {
-      pendingRetryRef.current = null;
+    if (status === "streaming") {
+      if (pendingRetryRef.current) pendingRetryRef.current = null;
+      if (isRetrying) setIsRetrying(false);
     }
-  }, [status]);
+  }, [status, isRetrying]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -214,6 +216,7 @@ export function ChatPage() {
   const retryPendingMessage = useCallback((overrideAddress?: string) => {
     const text = pendingRetryRef.current;
     if (!text) return;
+    setIsRetrying(true);
     const lastUserMessage = messages.filter(m => m.role === "user").pop();
     if (lastUserMessage) {
       setMessages(prev => prev.filter(m => m.id !== lastUserMessage.id));
@@ -404,7 +407,7 @@ export function ChatPage() {
                 })()}
               </Message>
             ))}
-            {status === "submitted" && !pendingRetryRef.current && <Loader />}
+            {status === "submitted" && !isRetrying && <Loader />}
             {status === "error" && lastError?.message === "RATE_LIMITED" && (
               <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
                 <div className="flex flex-col items-center gap-4 p-6 bg-amber-950/50 border border-amber-800/50 rounded-lg text-center">
