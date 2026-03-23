@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { getService } from "../services";
 import { CreditStore } from "../credits/credit-store";
+import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
 import type { ClusterResult, ServiceCallResult } from "./types";
@@ -38,6 +39,7 @@ export function createClusterFTools(deps: ClusterFDeps) {
         const errors: string[] = [];
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
+        const clusterStart = Date.now();
         try {
           const baseConfigs = [
             { name: "genvox" as const, input: { topic: query } },
@@ -48,23 +50,28 @@ export function createClusterFTools(deps: ClusterFDeps) {
             : baseConfigs;
 
           for (const svc of serviceConfigs) {
+            const svcStart = Date.now();
             try {
               const adapter = await getService(svc.name);
               const result = await adapter.call(svc.input, ctx);
+              const latencyMs = Date.now() - svcStart;
               calls.push({
                 serviceName: adapter.name,
                 data: result.data,
                 costMicroUsdc: result.cost,
                 paid: result.cost > 0,
               });
+              telemetry.serviceCall({ cluster: "F", service: svc.name, latencyMs, success: true, costMicroUsdc: result.cost });
             } catch (err) {
               const msg = err instanceof Error ? err.message : "unavailable";
-              console.error(`[CLUSTER_F] ${svc.name} failed:`, msg);
+              telemetry.serviceCall({ cluster: "F", service: svc.name, latencyMs: Date.now() - svcStart, success: false, error: msg });
               errors.push(`${svc.name}: ${msg}`);
             }
           }
 
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
+          telemetry.clusterComplete({ cluster: "F", tool: "analyze_market_trends", totalLatencyMs: Date.now() - clusterStart, servicesOk: calls.length, servicesFailed: errors.length, totalCostMicroUsdc: totalCost });
+
           const failedNames = errors.map(e => e.split(":")[0]);
           const successNames = calls.map(c => c.serviceName);
           const summary = successNames.length > 0
