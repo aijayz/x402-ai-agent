@@ -7,29 +7,29 @@ const clusters = [
     icon: Shield, title: "DeFi Safety Analysis",
     description: "Rug pull detection, honeypot checks, and smart contract auditing from 3 independent sources",
     cost: "from $0.05",
-    accent: "from-blue-500/[0.12] to-transparent",
     border: "border-blue-500/20 hover:border-blue-500/50",
+    glow: "hover:shadow-[inset_0_0_80px_rgba(59,130,246,0.10)]",
   },
   {
     icon: Fish, title: "Whale Tracking",
     description: "Smart money movements, wallet risk scoring, and large holder concentration analysis",
     cost: "from $0.01",
-    accent: "from-purple-500/[0.12] to-transparent",
     border: "border-purple-500/20 hover:border-purple-500/50",
+    glow: "hover:shadow-[inset_0_0_80px_rgba(168,85,247,0.10)]",
   },
   {
     icon: MessageCircle, title: "Social & Market Intelligence",
     description: "Sentiment analysis, contract risk scoring, and wallet reputation cross-referenced across services",
     cost: "from $0.13",
-    accent: "from-amber-500/[0.12] to-transparent",
     border: "border-amber-500/20 hover:border-amber-500/50",
+    glow: "hover:shadow-[inset_0_0_80px_rgba(245,158,11,0.10)]",
   },
   {
     icon: TrendingUp, title: "Market Trends",
     description: "Liquidity analysis, DEX pair safety metrics, and emerging narrative discovery",
     cost: "from $0.03",
-    accent: "from-emerald-500/[0.12] to-transparent",
     border: "border-emerald-500/20 hover:border-emerald-500/50",
+    glow: "hover:shadow-[inset_0_0_80px_rgba(16,185,129,0.10)]",
   },
 ];
 
@@ -130,11 +130,9 @@ export default function LandingPage() {
             {clusters.map((f, i) => (
               <div
                 key={f.title}
-                className={`group relative overflow-hidden rounded-xl border ${f.border} bg-zinc-900/80 p-5 space-y-3 transition-all duration-300 hover:translate-y-[-2px] animate-in fade-in slide-in-from-bottom-3 fill-mode-both`}
+                className={`group relative rounded-xl border ${f.border} ${f.glow} bg-zinc-900/80 p-5 space-y-3 transition-all duration-300 hover:translate-y-[-2px] animate-in fade-in slide-in-from-bottom-3 fill-mode-both`}
                 style={{ animationDelay: `${150 + i * 100}ms`, animationDuration: "500ms" }}
               >
-                {/* Card hover glow — clipped by overflow-hidden so it never bleeds past the border */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
                 <div className="relative">
                   <div className="flex items-center gap-2.5">
                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/50 border border-border/50">
