@@ -1,26 +1,158 @@
-# x402 AI Agent
+# Obol AI
 
-An autonomous AI agent that discovers, evaluates, budgets, and pays for external API services using USDC on Base via the [x402](https://x402.org) protocol.
+An AI agent that pays for intelligence. Obol orchestrates multiple paid research services using USDC on Base via the [x402](https://x402.org) protocol — autonomous micropayments for every tool call.
 
-Built with Next.js 15, AI SDK v6, and Coinbase CDP wallets.
+Live at [obolai.vercel.app](https://obolai.vercel.app)
 
-## Features
+Built with Next.js, AI SDK v6, and Coinbase CDP wallets.
 
-- **ToolLoopAgent orchestrator** -- multi-step reasoning with budget awareness (max 10 steps)
-- **Autonomous x402 payments** -- handles 402 Payment Required responses automatically via `withPayment()`
-- **Per-session budget** -- $0.50 USDC advisory limit with payment audit trail and structured telemetry
-- **Service discovery** -- in-memory registry + agent tools to search, probe, and list x402 services
-- **AI Gateway support** -- Vercel OIDC for production, direct DeepSeek fallback for local dev
-- **MCP server** -- remote MCP server with free and paid tools
-- **Streaming chat UI** -- AI SDK v6 `useChat` + ai-elements components
+## What it does
+
+Ask Obol anything crypto-related and it autonomously calls the right combination of paid x402 services, pays for them with USDC, and synthesizes a cross-referenced answer:
+
+- **DeFi safety analysis** — rug pull detection, honeypot checks, smart contract audits, token unlock schedules
+- **Whale tracking** — smart money intelligence, top holder profiles, accumulation patterns
+- **Social narrative** — sentiment analysis, on-chain reputation, contract risk scoring
+- **Market trends** — liquidity analysis, sentiment signals, contract auditing
+- **Live crypto prices** — real-time price feeds
+- **Wallet profiling** — on-chain balances and activity
+- **Webpage summaries** — fetch and summarize any URL
+- **Smart contract analysis** — analyze verified contracts
+- **Image generation** — AI-generated images
+
+## Credit model
+
+| Tier | Access |
+|------|--------|
+| Anonymous | 2 free tool calls (session cookie) |
+| Wallet connected, < 7 days old | $0.10 free credits |
+| Wallet connected, 7–30 days old | $0.25 free credits |
+| Wallet connected, > 30 days old | $0.50 free credits |
+| Depleted | Top up with USDC |
+
+Free credits are claimed once on wallet connect. Wallet age is verified via Basescan as a Sybil guard.
+
+## x402 Services
+
+Obol orchestrates six independent x402 services grouped into research clusters:
+
+| Service | Provider | Cost | Used for |
+|---------|----------|------|---------|
+| RugMunch | cryptorugmunch.app | $0.02–$2.00 | Rug pull detection |
+| Augur | augurrisk.com | $0.10 | Contract risk scoring |
+| SLAMai | api.slamai.dev | $0.001 | Smart money intelligence, whale profiling |
+| GenVox | api.genvox.io | $0.03 | Sentiment analysis |
+| QuantumShield | quantumshield-api.vercel.app | $0.001–$0.003 | Token security, wallet risk, whale activity |
+| Messari | api.messari.io | free | Token unlock schedules, institutional classification |
+
+### Research Clusters
+
+| Cluster | Tool | Services | Cost |
+|---------|------|----------|------|
+| A — DeFi Safety | `analyze_defi_safety` | RugMunch + Augur + QuantumShield + Messari | $0.05–$0.15 |
+| B — Whale Tracker | `track_whale_activity` | SLAMai + QuantumShield | ~$0.01 |
+| D — Social Narrative | `analyze_social_narrative` | GenVox + Augur + QuantumShield | ~$0.13 |
+| F — Market Trends | `analyze_market_trends` | GenVox + QuantumShield | ~$0.03 |
+
+Each cluster calls its services in parallel, gracefully handles unavailable ones, and returns cross-referenced results.
+
+## Architecture
+
+```mermaid
+flowchart TD
+    User([User]) --> ChatUI["Chat UI\n/chat"]
+    ChatUI --> ChatAPI["POST /api/chat"]
+    ChatAPI --> Orchestrator["ToolLoopAgent\nmax 12 steps"]
+
+    Orchestrator --> MCPTools["MCP Tools\nget_crypto_price · get_wallet_profile\nsummarize_url · analyze_contract\ngenerate_image"]
+    Orchestrator --> AgentTools["Agent Tools\ncheck_budget · search_x402_services\nprobe_x402_service"]
+    Orchestrator --> ClusterA["Cluster A\nanalyze_defi_safety\n$0.05–$0.15"]
+    Orchestrator --> ClusterB["Cluster B\ntrack_whale_activity\n~$0.01"]
+    Orchestrator --> ClusterD["Cluster D\nanalyze_social_narrative\n~$0.13"]
+    Orchestrator --> ClusterF["Cluster F\nanalyze_market_trends\n~$0.03"]
+
+    ClusterA --> RugMunch["RugMunch\nrug pull detection"]
+    ClusterA --> Augur["Augur\ncontract risk"]
+    ClusterA --> QS1["QuantumShield\ntoken security"]
+    ClusterA --> Messari["Messari\ntoken unlocks (free)"]
+
+    ClusterB --> SLAMai["SLAMai\nsmart money intelligence"]
+    ClusterB --> QS2["QuantumShield\nwhale activity"]
+
+    ClusterD --> GenVox1["GenVox\nsentiment"]
+    ClusterD --> Augur2["Augur\ncontract risk"]
+    ClusterD --> QS3["QuantumShield\nwallet risk"]
+
+    ClusterF --> GenVox2["GenVox\nsentiment"]
+    ClusterF --> QS4["QuantumShield\ncontract audit"]
+
+    RugMunch & Augur & QS1 & SLAMai & QS2 & GenVox1 & Augur2 & QS3 & GenVox2 & QS4 --> Payment["x402 Payment\n402 → EIP-3009 sign → retry"]
+    Payment --> CDP["CDP House Wallet"]
+    CDP --> Facilitator["Coinbase Facilitator"]
+    Facilitator --> Base[("Base Network\nUSDC")]
+
+    ChatAPI --> Credits["Credit System\nNeon Postgres"]
+    Credits --> Anon["Anonymous\n2 free calls"]
+    Credits --> Wallet["Wallet users\nfree tier + top-up"]
+```
+
+### Pages
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page — hero, research clusters, MCP tools, pricing |
+| `/chat` | AI chat interface with suggestion categories |
+
+### API Routes
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/chat` | Chat endpoint — ToolLoopAgent with streaming and payment tracking |
+| `GET/POST /mcp` | MCP server — free and paid tools |
+| `GET /api/credits/balance` | Get wallet credit balance |
+| `POST /api/credits/topup` | Initiate USDC deposit |
+| `POST /api/credits/topup/confirm` | Confirm deposit transaction |
+| `POST /api/credits/claim` | Claim free credits on wallet connect |
+| `GET /api/credits/check-topups` | Cron — check pending top-ups (daily) |
+| `POST /api/credits/webhook` | Alchemy webhook for deposit confirmation |
+| `GET/POST /api/registry` | x402 service registry |
+
+### Key Modules
+
+| Module | Location | Purpose |
+|--------|----------|---------|
+| Chat API | `src/app/api/chat/route.ts` | Request handler, agent setup, credit deduction |
+| Orchestrator | `src/lib/agents/orchestrator.ts` | ToolLoopAgent with system prompt and tools |
+| AI Provider | `src/lib/ai-provider.ts` | Probe-based model fallback chain (5-min TTL) |
+| Credit Store | `src/lib/credits/credit-store.ts` | USDC credit balances in Neon Postgres |
+| Session Store | `src/lib/credits/session-store.ts` | Anonymous free-call tracking |
+| Wallet Age | `src/lib/credits/wallet-age.ts` | Basescan Sybil guard for free credit tiers |
+| Service Registry | `src/lib/services/registry.ts` | Real/stub adapter resolution by network |
+| Research Clusters | `src/lib/clusters/` | Multi-service orchestration |
+| x402 Client | `src/lib/x402-client.ts` | v1/v2 compatible payment header creation |
+| MCP Server | `src/app/mcp/route.ts` | Paid and free MCP tools |
+
+## Payment Flow
+
+1. Agent calls a cluster tool (e.g. `analyze_defi_safety`)
+2. Cluster calls each x402 service in sequence
+3. Service returns **402 Payment Required** with payment requirements
+4. `callWithPayment()` reads the 402 body, normalizes v1/v2 schema
+5. House wallet signs an **EIP-3009 authorization** (gasless, off-chain)
+6. Request retries with `X-Payment` header
+7. Coinbase facilitator verifies and settles USDC on Base
+8. Tool returns result + cost
+9. Credit system deducts cost (+ 30% markup) from user's balance
 
 ## Quick Start
 
 ### Prerequisites
 
 - **Node.js 18+** and **pnpm** (`corepack enable`)
-- **Coinbase CDP credentials** -- [portal.cdp.coinbase.com](https://portal.cdp.coinbase.com/)
-- **DeepSeek API key** -- [platform.deepseek.com](https://platform.deepseek.com/)
+- **Coinbase CDP credentials** — [portal.cdp.coinbase.com](https://portal.cdp.coinbase.com/)
+- **DeepSeek API key** — [platform.deepseek.com](https://platform.deepseek.com/) (local dev)
+- **Neon Postgres** — for the credit system
+- **Google Gemini API key** — fallback model
 
 ### 1. Clone and install
 
@@ -36,7 +168,7 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Edit `.env.local` with your credentials:
+Key variables:
 
 ```bash
 # CDP Credentials (required -- wallets won't work without these)
@@ -44,31 +176,22 @@ CDP_API_KEY_ID=your_key_id
 CDP_API_KEY_SECRET=your_secret
 CDP_WALLET_SECRET=your_wallet_secret
 
-# DeepSeek API (required for local dev without AI Gateway)
+# AI models
 DEEPSEEK_API_KEY=your_deepseek_key
+GOOGLE_GENERATIVE_AI_API_KEY=your_google_key
+
+# Database (Neon Postgres)
+DATABASE_URL=postgresql://...
 
 # Network (base-sepolia for testnet, base for mainnet)
 NETWORK=base-sepolia
+NEXT_PUBLIC_NETWORK=base-sepolia
 URL=http://localhost:3000
 ```
 
-**Getting CDP credentials:**
+See `.env.example` for the full list including x402 service URLs, rate limiting, and Alchemy webhook config.
 
-1. Go to [portal.cdp.coinbase.com](https://portal.cdp.coinbase.com/)
-2. Create a new project
-3. Generate API keys -- save the key ID and secret
-4. Create a wallet secret (used to encrypt wallet data)
-
-### 3. Fund your testnet wallet
-
-On first run, the app auto-creates CDP-managed wallets and requests faucet funds on `base-sepolia`. If the faucet is slow, fund manually:
-
-- **USDC**: [faucet.circle.com](https://faucet.circle.com/)
-- **ETH** (for gas): [alchemy.com/faucets/base-sepolia](https://www.alchemy.com/faucets/base-sepolia)
-
-Your wallet addresses are logged to the console on first startup.
-
-### 4. Run
+### 3. Run
 
 ```bash
 pnpm dev
@@ -76,121 +199,20 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### 5. Try it
+On `base-sepolia`, all x402 service calls use stub adapters with deterministic mock data — no real payments or external API calls.
 
-| Prompt | What happens |
-|--------|-------------|
-| "What is 5 + 3?" | Free tool (`add`) |
-| "Get a random number between 1 and 10" | Free tool (`get_random_number`) |
-| "Get a premium random number" | Paid tool ($0.01 USDC) |
-| "Run a premium analysis on 42" | Paid tool ($0.02 USDC) |
-| "Check your budget" | Agent calls `check_budget` |
-| "What services are available?" | Agent searches the registry |
+### 4. Switch to mainnet
 
-## Architecture
-
-```
-User --> Chat UI (Next.js) --> /api/chat
-                                  |
-                      createOrchestrator(getModel())
-                                  |
-                          ToolLoopAgent (max 10 steps)
-                         /      |       |        \
-                 MCP Tools  Budget   Discovery  Local Tools
-                    |        Tools    Tools     (hello-local)
-                    v
-              /mcp (MCP Server singleton)
-             /          \
-       Free Tools    Paid Tools
-                        |
-                   402 + withPayment()
-                        |
-                 Coinbase Facilitator
-                        |
-                  Base Network (USDC)
-```
-
-### API Routes
-
-| Route | Purpose |
-|-------|---------|
-| `POST /api/chat` | Chat endpoint -- ToolLoopAgent + streaming + payment tracking |
-| `GET/POST /mcp` | MCP server -- free and paid tools |
-| `POST /api/registry` | Register an x402 service |
-| `GET /api/registry` | List registered services |
-
-### Key Modules
-
-| Module | Location | Purpose |
-|--------|----------|---------|
-| Chat API | `src/app/api/chat/route.ts` | Request handler, agent setup, payment tracking via `onStepFinish` |
-| Orchestrator | `src/lib/agents/orchestrator.ts` | `ToolLoopAgent` with budget, discovery, and MCP tools |
-| BudgetController | `src/lib/budget-controller.ts` | Per-session $0.50 limit, spend history, telemetry |
-| AI Provider | `src/lib/ai-provider.ts` | `getModel()` -- AI Gateway with DeepSeek fallback |
-| Registry | `src/lib/registry/` | In-memory service registry + discovery tools |
-| Telemetry | `src/lib/telemetry.ts` | Structured JSON payment events |
-| Accounts | `src/lib/accounts.ts` | CDP wallet creation, async faucet |
-| MCP Server | `src/app/mcp/route.ts` | Paid/free tools with Coinbase facilitator |
-
-### Available Tools
-
-**Free Tools:**
-- `add` -- Add two numbers
-- `get_random_number` -- Generate a random number
-- `hello-remote` -- Receive a greeting (MCP)
-- `hello-local` -- Receive a greeting (local)
-
-**Paid Tools:**
-- `premium_random` -- Premium random number ($0.01 USDC)
-- `premium_analysis` -- AI-powered number analysis ($0.02 USDC)
-
-**Agent Tools:**
-- `check_budget` -- Check remaining session budget
-- `search_x402_services` -- Search the service registry
-- `probe_x402_service` -- Connect to an MCP server and list its tools
-- `list_registered_services` -- List all registered services
-
-## Payment Flow
-
-1. Agent calls a paid tool (e.g. `premium_random`)
-2. MCP server returns **402 Payment Required** with payment requirements
-3. `withPayment()` intercepts the 402
-4. Purchaser wallet signs **EIP-3009 authorization** (off-chain, no gas needed)
-5. Request retries with `Payment` header
-6. Coinbase facilitator verifies signature and submits on-chain USDC transfer
-7. Tool executes and returns result + tx hash in `_meta["x402.payment-response"]`
-8. `onStepFinish` extracts the tx hash and amount
-9. `BudgetController.recordSpend()` logs the payment and emits telemetry
-
-## Deploying to Vercel
-
-### With AI Gateway (recommended)
+Set `NETWORK=base` and `NEXT_PUBLIC_NETWORK=base` (requires a redeploy on Vercel due to build-time env inlining), and configure the x402 service URLs:
 
 ```bash
-# 1. Install Vercel CLI
-npm i -g vercel
-
-# 2. Link project and enable AI Gateway
-vercel link
-# Then enable AI Gateway in the Vercel Dashboard for your project
-
-# 3. Pull OIDC credentials locally
-vercel env pull
-# This provisions VERCEL_OIDC_TOKEN -- no DEEPSEEK_API_KEY needed on Vercel
-
-# 4. Set CDP credentials in Vercel Dashboard
-# Settings > Environment Variables:
-#   CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET
-#   NETWORK=base-sepolia (or base for mainnet)
-# URL is auto-derived from VERCEL_PROJECT_PRODUCTION_URL -- do not set manually
-
-# 5. Deploy
-vercel --prod
+RUGMUNCH_URL=https://cryptorugmunch.app
+AUGUR_URL=https://augurrisk.com
+DIAMONDCLAWS_URL=https://diamondclaws.io
+WALLETIQ_URL=https://walletiq-zeta.vercel.app
+GENVOX_URL=https://api.genvox.io
+QUANTUM_SHIELD_URL=https://quantumshield-api.vercel.app
 ```
-
-### Without AI Gateway
-
-Set `DEEPSEEK_API_KEY` in the Vercel Dashboard alongside the CDP credentials. `getModel()` falls back to the direct DeepSeek provider when no OIDC token is present.
 
 ## Development
 
@@ -201,66 +223,74 @@ pnpm typecheck    # TypeScript check
 pnpm test         # Run test suite (Vitest)
 ```
 
-### Build in CI without credentials
+### Testnet faucets
 
-`next.config.ts` validates environment variables at build time. To build without CDP credentials:
+- **USDC**: [faucet.circle.com](https://faucet.circle.com/)
+- **ETH** (gas): [alchemy.com/faucets/base-sepolia](https://www.alchemy.com/faucets/base-sepolia)
 
-```bash
-CI=true pnpm build                # Skips env require()
-SKIP_ENV_VALIDATION=1 pnpm build  # Alternative
-```
-
-### Testing
-
-Tests use **Vitest** with Node.js environment. Coverage scoped to `src/lib/**`.
+### Wallet sweep script
 
 ```bash
-pnpm test                    # Run all tests
-pnpm test -- --coverage      # With V8 coverage report
+# Preview balances
+npx tsx scripts/sweep.ts --to 0xYourColdWallet --dry-run
+
+# Sweep both wallets
+npx tsx scripts/sweep.ts --to 0xYourColdWallet
 ```
+
+## Deploying to Vercel
+
+```bash
+# 1. Link project
+vercel link
+
+# 2. Set environment variables in Vercel Dashboard
+#    (or via: vercel env add)
+
+# 3. Deploy
+vercel --prod
+```
+
+> **Note:** `@t3-oss/env-nextjs` inlines environment variables at build time. Changing env vars on Vercel requires a redeploy.
 
 ## Configuration Reference
 
 ### Environment Variables
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `CDP_API_KEY_ID` | Yes | -- | Coinbase CDP API key ID |
-| `CDP_API_KEY_SECRET` | Yes | -- | Coinbase CDP API secret |
-| `CDP_WALLET_SECRET` | Yes | -- | Wallet encryption key |
-| `DEEPSEEK_API_KEY` | Local dev only | -- | Direct DeepSeek API key |
-| `AI_MODEL` | No | `deepseek/deepseek-chat` | Gateway model ID for chat |
-| `AI_REASONING_MODEL` | No | `deepseek/deepseek-reasoner` | Gateway model ID for reasoning |
-| `NETWORK` | No | `base-sepolia` | `base-sepolia` or `base` |
-| `URL` | No | `http://localhost:3000` | Auto-derived on Vercel |
-| `VERCEL_OIDC_TOKEN` | Vercel only | -- | Auto-provisioned by `vercel env pull` |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CDP_API_KEY_ID` | Yes | Coinbase CDP API key ID |
+| `CDP_API_KEY_SECRET` | Yes | Coinbase CDP API secret |
+| `CDP_WALLET_SECRET` | Yes | Wallet encryption key |
+| `DATABASE_URL` | Yes | Neon Postgres connection string |
+| `DEEPSEEK_API_KEY` | Local dev | Direct DeepSeek API key |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Yes | Gemini fallback model |
+| `AI_MODEL` | No | Primary model (default: `deepseek/deepseek-chat`) |
+| `NETWORK` | No | `base-sepolia` or `base` (default: `base-sepolia`) |
+| `NEXT_PUBLIC_NETWORK` | No | Same as `NETWORK`, exposed to client |
+| `URL` | No | App URL (auto-derived on Vercel) |
+| `UPSTASH_REDIS_REST_URL` | No | Rate limiting (graceful degradation without) |
+| `UPSTASH_REDIS_REST_TOKEN` | No | Rate limiting |
+| `ALCHEMY_WEBHOOK_SECRET` | No | Webhook signature verification |
 
 ### Networks
 
 | Network | `NETWORK` value | Chain ID | Use case |
 |---------|----------------|----------|----------|
-| Base Sepolia | `base-sepolia` | 84532 | Development/testing (auto-faucet) |
-| Base Mainnet | `base` | 8453 | Production (real USDC) |
-
-### Testnet Faucets
-
-- **USDC**: [faucet.circle.com](https://faucet.circle.com/)
-- **ETH**: [alchemy.com/faucets/base-sepolia](https://www.alchemy.com/faucets/base-sepolia)
-- **CDP Console**: [portal.cdp.coinbase.com](https://portal.cdp.coinbase.com/)
+| Base Sepolia | `base-sepolia` | 84532 | Development (stub services, no real payments) |
+| Base Mainnet | `base` | 8453 | Production (real x402 services, real USDC) |
 
 ## Known Limitations
 
-- **In-memory registry** -- resets on every serverless cold start; production needs Neon Postgres
-- **Advisory budget** -- $0.50 session limit is advisory; `withPayment()` signs regardless (worst case: $1.00 over 10 steps)
-- **No registry auth** -- `POST /api/registry` has no authentication (open for demo)
-- **No SSRF protection** -- `probe_x402_service` connects to arbitrary URLs without IP filtering
-- **Optional env vars** -- CDP credentials are `.optional()` in Zod schema; missing vars crash at runtime, not startup
+- **Build-time env**: `@t3-oss/env-nextjs` inlines env vars at build time — env changes on Vercel require a redeploy
+- **Mid-stream model failure**: If a model dies during streaming, the current request fails; the next request auto-recovers via probe cache invalidation
+- **Google Gemini free tier**: Limited to ~20 req/day — not suitable as primary model for production traffic
+- **x402 v1/v2**: Our client normalizes both schemas, but assumes Base network (eip155:8453 / eip155:84532)
 
-## Documentation
+## References
 
-- [Architecture Design Document](./reports/architecture-design.md) -- detailed system design with mermaid diagrams
 - [x402 Protocol](https://x402.org)
-- [AI SDK v6](https://ai-sdk.dev)
+- [AI SDK v6](https://sdk.vercel.ai/docs)
 - [Coinbase CDP](https://docs.cdp.coinbase.com/)
 - [MCP Specification](https://modelcontextprotocol.io)
 
