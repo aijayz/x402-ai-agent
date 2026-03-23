@@ -6,6 +6,7 @@ import { createPublicClient, http, formatEther, formatUnits } from "viem";
 import { getChain } from "@/lib/accounts";
 import { generateText } from "ai";
 import { getModel } from "@/lib/ai-provider";
+import { generateJwt } from "@coinbase/cdp-sdk/auth";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -324,10 +325,32 @@ async function getHandler() {
       {
         recipient: sellerAccount.address,
         network: env.NETWORK,
-        // Use default Coinbase facilitator
-        facilitator: {
-          url: "https://x402.org/facilitator",
-        },
+        facilitator: env.NETWORK === "base"
+          ? {
+              url: "https://api.cdp.coinbase.com/platform/v2/x402",
+              createAuthHeaders: async () => {
+                if (!env.CDP_API_KEY_ID || !env.CDP_API_KEY_SECRET) {
+                  throw new Error("CDP_API_KEY_ID and CDP_API_KEY_SECRET required for mainnet");
+                }
+                const makeHeader = async (method: string, path: string) => {
+                  const jwt = await generateJwt({
+                    apiKeyId: env.CDP_API_KEY_ID!,
+                    apiKeySecret: env.CDP_API_KEY_SECRET!,
+                    requestMethod: method,
+                    requestHost: "api.cdp.coinbase.com",
+                    requestPath: path,
+                  });
+                  return { Authorization: `Bearer ${jwt}` };
+                };
+                return {
+                  verify: await makeHeader("POST", "/platform/v2/x402/verify"),
+                  settle: await makeHeader("POST", "/platform/v2/x402/settle"),
+                };
+              },
+            }
+          : {
+              url: "https://x402.org/facilitator",
+            },
       }
     );
   }
