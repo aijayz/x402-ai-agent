@@ -26,6 +26,15 @@ const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
     real: () => import("./adapters/augur").then(m => m.augurAdapter),
     stub: () => import("./adapters/stubs/augur.stub").then(m => m.augurStub),
   },
+  // SLAMai endpoints (api.slamai.dev) — smart money intelligence, $0.001/call
+  "slamai-wallet": {
+    real: () => import("./adapters/slamai").then(m => m.slaMaiWalletAdapter),
+    stub: () => import("./adapters/stubs/slamai.stub").then(m => m.slaMaiWalletStub),
+  },
+  "slamai-token-holders": {
+    real: () => import("./adapters/slamai").then(m => m.slaMaiTokenHoldersAdapter),
+    stub: () => import("./adapters/stubs/slamai.stub").then(m => m.slaMaiTokenHoldersStub),
+  },
   // QuantumShield endpoints (quantumshield-api.vercel.app)
   "qs-token-security": {
     real: () => import("./adapters/quantum-shield").then(m => m.qsTokenSecurity),

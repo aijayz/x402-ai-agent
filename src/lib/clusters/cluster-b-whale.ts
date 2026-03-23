@@ -41,8 +41,8 @@ export function createClusterBTools(deps: ClusterBDeps) {
 
         try {
           const serviceConfigs = [
-            { name: "wallet-iq", input: { address } },
-            { name: "diamond-claws", input: { target: address } },
+            { name: "slamai-wallet", input: { address } },
+            { name: "slamai-token-holders", input: { address } },
             { name: "qs-whale-activity", input: { address } },
           ] as const;
 
