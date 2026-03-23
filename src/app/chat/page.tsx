@@ -16,7 +16,7 @@ import {
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
@@ -91,7 +91,7 @@ function parseActions(text: string): { cleanText: string; actions: string[]; sug
 export function ChatPage() {
   const [input, setInput] = useState("");
   const [lastError, setLastError] = useState<Error | null>(null);
-  const { walletAddress, balance, freeCallsRemaining, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef } = useWallet();
+  const { walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef } = useWallet();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingRetryRef = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -173,6 +173,10 @@ export function ChatPage() {
   }, [walletAddress]);
 
   const bannerState: BannerState = useMemo(() => {
+    // Credit claim feedback takes highest priority
+    if (lastCreditEvent?.type === "claimed" && lastCreditEvent.amountMicroUsdc > 0) {
+      return { type: "credited" as const, amountUsdc: (lastCreditEvent.amountMicroUsdc / 1_000_000).toFixed(2) };
+    }
     if (isRetrying) return "retrying";
     if (lastError?.message?.includes("FREE_CALLS_EXHAUSTED") || lastError?.message?.includes("Free calls exhausted")) {
       return walletAddress ? "exhausted-wallet" : "exhausted-anon";
@@ -182,7 +186,14 @@ export function ChatPage() {
     if (walletAddress && balance !== null && balance <= 0) return "exhausted-wallet";
     if (walletAddress && balance !== null && balance < 50000 && balance > 0) return "low-wallet";
     return "hidden";
-  }, [lastError, walletAddress, freeCallsRemaining, balance, bannerDismissed, isRetrying]);
+  }, [lastCreditEvent, lastError, walletAddress, freeCallsRemaining, balance, bannerDismissed, isRetrying]);
+
+  // Auto-dismiss credit claim banner after 5 seconds
+  useEffect(() => {
+    if (!lastCreditEvent) return;
+    const timer = setTimeout(() => clearCreditEvent(), 5000);
+    return () => clearTimeout(timer);
+  }, [lastCreditEvent, clearCreditEvent]);
 
   // Clear retry state when streaming starts
   useEffect(() => {
@@ -443,11 +454,21 @@ export function ChatPage() {
           <ConversationScrollButton />
         </Conversation>
 
+        {!walletAddress && messages.length > 0 && bannerState === "hidden" && (
+          <button
+            onClick={() => connectWallet()}
+            className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+          >
+            <History className="size-3" />
+            <span>Connect wallet to save chat history</span>
+          </button>
+        )}
+
         <CreditStatusBanner
           state={bannerState}
           onConnectWallet={handleConnectAndRetry}
           onTopUp={() => setTopUpOpen(true)}
-          onDismiss={() => setBannerDismissed(true)}
+          onDismiss={() => { setBannerDismissed(true); clearCreditEvent(); }}
         />
 
         <PromptInput onSubmit={handleSubmit} className="mt-4 shrink-0">

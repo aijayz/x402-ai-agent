@@ -35,10 +35,17 @@ function getTargetNetwork(): NetworkId {
   return "base-sepolia";
 }
 
+export interface CreditEvent {
+  type: "claimed" | "topped-up";
+  amountMicroUsdc: number;
+}
+
 interface WalletContextValue {
   walletAddress: string | null;
   balance: number | null; // micro-USDC
   freeCallsRemaining: number | null;
+  lastCreditEvent: CreditEvent | null;
+  clearCreditEvent: () => void;
   network: NetworkId;
   topUpOpen: boolean;
   setTopUpOpen: (open: boolean) => void;
@@ -57,7 +64,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<number | null>(null);
   const [freeCallsRemaining, setFreeCallsRemaining] = useState<number | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const [lastCreditEvent, setLastCreditEvent] = useState<CreditEvent | null>(null);
   const onTopUpCompleteRef = useRef<(() => void) | null>(null);
+  const clearCreditEvent = useCallback(() => setLastCreditEvent(null), []);
   const network = getTargetNetwork();
 
   const refreshBalance = useCallback(async () => {
@@ -135,8 +144,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ walletAddress: address }),
         });
         const data = await res.json();
-        if (res.ok || res.status === 409) {
-          setBalance(data.balance ?? data.granted ?? 0);
+        if (res.ok) {
+          const amount = data.granted ?? data.balance ?? 0;
+          setBalance(amount);
+          if (amount > 0) setLastCreditEvent({ type: "claimed", amountMicroUsdc: amount });
+        } else if (res.status === 409) {
+          // Already claimed — just set balance, no event
+          setBalance(data.balance ?? 0);
         } else {
           console.error("[WALLET] Failed to claim free credits", { status: res.status, data });
           await refreshBalance();
@@ -200,7 +214,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata, onTopUpCompleteRef }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata, onTopUpCompleteRef }}>
       {children}
     </WalletContext.Provider>
   );

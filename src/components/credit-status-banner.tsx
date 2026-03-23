@@ -1,7 +1,7 @@
 // src/components/credit-status-banner.tsx
 "use client";
 
-import { Wallet, Coins, Loader2, X, ArrowUpRight } from "lucide-react";
+import { Wallet, Coins, Loader2, X, ArrowUpRight, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type BannerState =
@@ -10,7 +10,8 @@ export type BannerState =
   | "low-wallet"
   | "exhausted-anon"
   | "exhausted-wallet"
-  | "retrying";
+  | "retrying"
+  | { type: "credited"; amountUsdc: string };
 
 interface CreditStatusBannerProps {
   state: BannerState;
@@ -21,6 +22,26 @@ interface CreditStatusBannerProps {
 
 export function CreditStatusBanner({ state, onConnectWallet, onTopUp, onDismiss }: CreditStatusBannerProps) {
   if (state === "hidden") return null;
+
+  // Handle "credited" state (object variant)
+  if (typeof state === "object" && state.type === "credited") {
+    return (
+      <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg border text-sm animate-in fade-in slide-in-from-bottom-1 duration-200 border-green-500/30 bg-green-500/[0.06]">
+        <Check className="size-4 shrink-0 text-green-400" />
+        <span className="text-foreground/90 text-xs sm:text-sm truncate">
+          Claimed <span className="font-medium text-green-400">${state.amountUsdc}</span> in free credits
+        </span>
+        {onDismiss && (
+          <button
+            onClick={onDismiss}
+            className="ml-auto p-1 rounded hover:bg-muted text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+          >
+            <X className="size-3.5" />
+          </button>
+        )}
+      </div>
+    );
+  }
 
   const config = {
     "low-anon": {
@@ -75,7 +96,7 @@ export function CreditStatusBanner({ state, onConnectWallet, onTopUp, onDismiss 
     },
   } as const;
 
-  const c = config[state];
+  const c = config[state as keyof typeof config];
   const Icon = c.icon;
 
   return (
