@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 
 const USDC_ADDRESS: Record<string, string> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -47,6 +47,7 @@ interface WalletContextValue {
   refreshBalance: () => Promise<void>;
   sendUsdc: (to: string, amountUsdc: number) => Promise<string>;
   updateFromMetadata: (meta: { budgetRemaining?: number; freeCallsRemaining?: number }) => void;
+  onTopUpCompleteRef: React.RefObject<(() => void) | null>;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -56,6 +57,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<number | null>(null);
   const [freeCallsRemaining, setFreeCallsRemaining] = useState<number | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const onTopUpCompleteRef = useRef<(() => void) | null>(null);
   const network = getTargetNetwork();
 
   const refreshBalance = useCallback(async () => {
@@ -198,7 +200,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata, onTopUpCompleteRef }}>
       {children}
     </WalletContext.Provider>
   );

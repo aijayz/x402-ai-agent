@@ -74,7 +74,7 @@ function StepIndicator({ status }: { status: TopUpStatus }) {
 }
 
 export function TopUpSheet() {
-  const { walletAddress, network, topUpOpen, setTopUpOpen, connectWallet, sendUsdc, refreshBalance } = useWallet();
+  const { walletAddress, network, topUpOpen, setTopUpOpen, connectWallet, sendUsdc, refreshBalance, onTopUpCompleteRef } = useWallet();
 
   const [depositInfo, setDepositInfo] = useState<{ depositAddress: string; network: string } | null>(null);
   const [topUpAmount, setTopUpAmount] = useState<number>(5);
@@ -143,6 +143,7 @@ export function TopUpSheet() {
       if (res.ok) {
         setTopUpStatus("done");
         await refreshBalance();
+        onTopUpCompleteRef.current?.();
       } else {
         const data = await res.json();
         setTopUpError(data.error || "Failed to confirm transaction");
