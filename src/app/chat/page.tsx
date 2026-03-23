@@ -16,7 +16,7 @@ import {
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, History } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
@@ -325,6 +325,19 @@ export function ChatPage() {
                     </div>
                   ))}
                 </div>
+                {!walletAddress && (
+                  <button
+                    onClick={() => connectWallet()}
+                    className="group flex items-center gap-3 mt-8 w-full max-w-sm mx-auto animate-in fade-in duration-700"
+                  >
+                    <span className="flex-1 h-px border-t border-dashed border-muted-foreground/15 group-hover:border-muted-foreground/30 transition-colors" />
+                    <span className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted-foreground/40 group-hover:text-blue-400/70 transition-colors">
+                      <Wallet className="size-3" />
+                      connect wallet to save history
+                    </span>
+                    <span className="flex-1 h-px border-t border-dashed border-muted-foreground/15 group-hover:border-muted-foreground/30 transition-colors" />
+                  </button>
+                )}
               </div>
             )}
             {messages.map((message) => (
@@ -457,10 +470,14 @@ export function ChatPage() {
         {!walletAddress && messages.length > 0 && bannerState === "hidden" && (
           <button
             onClick={() => connectWallet()}
-            className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            className="group flex items-center gap-3 py-1.5 w-full max-w-xs mx-auto"
           >
-            <History className="size-3" />
-            <span>Connect wallet to save chat history</span>
+            <span className="flex-1 h-px border-t border-dashed border-muted-foreground/15 group-hover:border-muted-foreground/30 transition-colors" />
+            <span className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted-foreground/40 group-hover:text-blue-400/70 transition-colors">
+              <Wallet className="size-3" />
+              connect wallet to save history
+            </span>
+            <span className="flex-1 h-px border-t border-dashed border-muted-foreground/15 group-hover:border-muted-foreground/30 transition-colors" />
           </button>
         )}
 
