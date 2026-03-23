@@ -271,7 +271,6 @@ export const POST = async (request: Request) => {
       try {
         await probeModel(modelId);
         selectedModel = modelId;
-        console.log(`Using model: ${modelId}`);
         break;
       } catch (err) {
         console.warn(`Model ${modelId} probe failed, trying next...`, err);

@@ -14,10 +14,6 @@ const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
     real: () => import("./adapters/diamond-claws").then(m => m.diamondClawsAdapter),
     stub: () => import("./adapters/stubs/diamond-claws.stub").then(m => m.diamondClawsStub),
   },
-  "wallet-iq": {
-    real: () => import("./adapters/wallet-iq").then(m => m.walletIQAdapter),
-    stub: () => import("./adapters/stubs/wallet-iq.stub").then(m => m.walletIQStub),
-  },
   "genvox": {
     real: () => import("./adapters/genvox").then(m => m.genvoxAdapter),
     stub: () => import("./adapters/stubs/genvox.stub").then(m => m.genVoxStub),
