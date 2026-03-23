@@ -7,7 +7,9 @@ import { getRegistry } from "@/lib/registry/store";
 import { seedRegistry } from "@/lib/registry/seed";
 import { createClusterATools } from "@/lib/clusters/cluster-a-defi";
 import { createClusterBTools } from "@/lib/clusters/cluster-b-whale";
+import { createClusterCTools } from "@/lib/clusters/cluster-c-portfolio";
 import { createClusterDTools } from "@/lib/clusters/cluster-d-social";
+import { createClusterETools } from "@/lib/clusters/cluster-e-alpha";
 import { createClusterFTools } from "@/lib/clusters/cluster-f-market";
 import type { WalletClient } from "viem";
 
@@ -50,7 +52,9 @@ export function createOrchestrator({
   const clusterTools = clusterDeps ? {
     ...createClusterATools(clusterDeps),
     ...createClusterBTools(clusterDeps),
+    ...createClusterCTools(clusterDeps),
     ...createClusterDTools(clusterDeps),
+    ...createClusterETools(clusterDeps),
     ...createClusterFTools(clusterDeps),
   } : {};
 
@@ -90,7 +94,9 @@ You also have research cluster tools that orchestrate multiple x402 services (Ru
   - cbBTC: 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf
   - AERO: 0x940181a94A35A4569E4529A3CDfB74e38FD98631
   For other tokens, use get_crypto_price to find the contract address.
+- analyze_wallet_portfolio (~$0.01) — deep wallet analysis: trade history, smart money tier (Whale/Dolphin/Fish), IQ score, risk score, and on-chain reputation via SLAMai + QuantumShield. Requires a wallet address.
 - analyze_social_narrative (~$0.13) — sentiment analysis, contract risk, wallet reputation via GenVox + Augur + QuantumShield. Requires a topic or coin name.
+- screen_token_alpha (~$0.01) — token alpha screening: security score, top holder quality (smart money vs bots), and upcoming unlock schedule via QuantumShield + SLAMai + Messari. Accepts a token name/symbol or contract address. For full security + holder analysis, a contract address is needed.
 - analyze_market_trends (~$0.03) — sentiment and liquidity analysis via GenVox + DiamondClaws. Accepts a topic or coin name. Optionally pass a contractAddress for contract audit.
 
 These tools orchestrate multiple real x402 services for cross-referenced intelligence. Each cluster combines 2-3 independent services.

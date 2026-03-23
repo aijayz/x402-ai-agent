@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
@@ -30,6 +30,20 @@ const clusters = [
     cost: "from $0.03",
     border: "border-emerald-500/20 hover:border-emerald-500/50",
     glow: "hover:shadow-[inset_0_0_80px_rgba(16,185,129,0.10)]",
+  },
+  {
+    icon: Wallet, title: "Wallet Portfolio Intelligence",
+    description: "Trade history, smart money tier (Whale/Dolphin/Fish), IQ score, and on-chain risk profile",
+    cost: "from $0.01",
+    border: "border-cyan-500/20 hover:border-cyan-500/50",
+    glow: "hover:shadow-[inset_0_0_80px_rgba(6,182,212,0.10)]",
+  },
+  {
+    icon: Zap, title: "Token Alpha Screening",
+    description: "Security score, top holder quality, and upcoming unlock schedules to surface early alpha",
+    cost: "from $0.01",
+    border: "border-rose-500/20 hover:border-rose-500/50",
+    glow: "hover:shadow-[inset_0_0_80px_rgba(244,63,94,0.10)]",
   },
 ];
 
@@ -123,7 +137,7 @@ export default function LandingPage() {
               Research clusters
             </h2>
             <p className="text-sm text-muted-foreground">
-              Each cluster orchestrates 3 independent services for cross-referenced intelligence
+              Each cluster orchestrates multiple independent services for cross-referenced intelligence
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

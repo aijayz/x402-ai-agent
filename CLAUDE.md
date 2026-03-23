@@ -74,14 +74,19 @@ npx tsx scripts/sweep.ts --to 0xYourColdWallet --wallet seller     # Seller only
 - Environment-based real/stub resolution via `getService(name)`
 - On `base-sepolia`: returns stub adapters with deterministic mock data
 - On `base`: returns real x402 HTTP adapters using service URLs from env
-- 9 service adapters: rug-munch, diamond-claws, wallet-iq, genvox, augur, qs-token-security, qs-contract-audit, qs-wallet-risk, qs-whale-activity
+- 11 service adapters: rug-munch, diamond-claws, genvox, augur, messari-token-unlocks, slamai-wallet, slamai-token-holders, qs-token-security, qs-contract-audit, qs-wallet-risk, qs-whale-activity
+- wallet-iq removed (replaced by SLAMai in Cluster B)
+- Contract addresses resolved to symbols via CoinGecko before Messari lookup (`src/lib/services/coingecko.ts`)
 
 **Research Cluster Tools** (`src/lib/clusters/`)
-Each cluster orchestrates 3 independent x402 services for cross-referenced intelligence:
-- `cluster-a-defi.ts` — `analyze_defi_safety` ($0.12–$2.10) — RugMunch + Augur + QS Token Security
-- `cluster-b-whale.ts` — `track_whale_activity` (~$0.01) — WalletIQ + DiamondClaws + QS Whale Activity
+Each cluster orchestrates multiple x402 services for cross-referenced intelligence:
+- `cluster-a-defi.ts` — `analyze_defi_safety` ($0.05–$0.15) — RugMunch + Augur + QS Token Security + Messari (free)
+- `cluster-b-whale.ts` — `track_whale_activity` (~$0.01) — SLAMai Wallet + SLAMai Token Holders + QS Whale Activity
+- `cluster-c-portfolio.ts` — `analyze_wallet_portfolio` (~$0.01) — SLAMai Wallet + QS Wallet Risk + QS Whale Activity
 - `cluster-d-social.ts` — `analyze_social_narrative` (~$0.13) — GenVox + Augur + QS Wallet Risk
-- `cluster-f-solana.ts` — `analyze_market_trends` (~$0.03) — GenVox + DiamondClaws + QS Contract Audit
+- `cluster-e-alpha.ts` — `screen_token_alpha` (~$0.01) — QS Token Security + SLAMai Token Holders + Messari (free). Accepts name/symbol or address; security + holder analysis requires a contract address.
+- `cluster-f-market.ts` — `analyze_market_trends` (~$0.03) — GenVox + DiamondClaws + QS Contract Audit
+- All clusters emit structured `service_call` + `cluster_complete` JSON telemetry events
 
 **Credit System**
 - Anonymous: 2 free calls tracked via session cookie + Neon Postgres (`src/lib/credits/session-store.ts`)
@@ -109,6 +114,9 @@ Each cluster orchestrates 3 independent x402 services for cross-referenced intel
 
 **Rate Limiting** (`src/lib/rate-limit.ts`, `src/middleware.ts`)
 - Upstash Redis sliding window (5 req/min anon, 20 req/min auth for `/api/chat`)
+- IP-based free call counter: `checkAndIncrementIpFreeCalls(ip)` — Redis INCR with 24h TTL, max 2 calls per IP
+- Both session AND IP checks must pass for anonymous users (closes cookie-clear bypass)
+- `decrementIpFreeCalls(ip)` called if one check passes but the other fails (prevents double-counting)
 - Gracefully returns `{ allowed: true }` when no Redis configured
 
 **Tool UI** (`src/components/ai-elements/tool.tsx`)
@@ -151,7 +159,9 @@ See `.env.example` for all keys. Key groups:
 - **Database**: `DATABASE_URL` (Neon Postgres)
 - **Network**: `NETWORK` (base-sepolia|base), `NEXT_PUBLIC_NETWORK`, `URL`
 - **Rate limiting**: `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
-- **Services**: `RUGMUNCH_URL`, `AUGUR_URL`, `DIAMONDCLAWS_URL`, `WALLETIQ_URL`, `GENVOX_URL`, `QUANTUM_SHIELD_URL`
+- **Services**: `RUGMUNCH_URL`, `AUGUR_URL`, `DIAMONDCLAWS_URL`, `GENVOX_URL`, `QUANTUM_SHIELD_URL`
+- `WALLETIQ_URL` is still in env.ts as optional but unused (WalletIQ removed in favour of SLAMai)
+- SLAMai (`api.slamai.dev`) and Messari (`api.messari.io`) use hardcoded base URLs — no env var needed
 
 ## x402 Service Directory
 
@@ -160,8 +170,9 @@ See `.env.example` for all keys. Key groups:
 | RugMunch | `cryptorugmunch.app` | `/api/agent/v1/scan?target=...` | $0.02–$2.00 | Cluster A (DeFi) |
 | Augur | `augurrisk.com` | `/analyze?address=...` | $0.10 | Cluster A, D |
 | DiamondClaws | `diamondclaws.io` | `/score?target=...` | $0.001 | Cluster B, F |
-| WalletIQ | `walletiq-zeta.vercel.app` | `/v1/x402/profile/:address` | $0.005 | Cluster B |
+| SLAMai | `api.slamai.dev` | `/wallet/trades`, `/token/holder/reputation` | $0.001/call | Cluster B |
 | GenVox | `api.genvox.io` | `/v1/sentiment/{coin}` | $0.03 | Cluster D, F |
+| Messari | `api.messari.io` | `/token-unlocks/v1/assets` | free (API key) | Cluster A |
 | QuantumShield | `quantumshield-api.vercel.app` | `/api/token/security`, `/api/contract/audit`, `/api/wallet/risk`, `/api/whale/activity` | $0.001–$0.003 | All clusters |
 
 ## Payment Flow
