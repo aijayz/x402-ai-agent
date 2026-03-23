@@ -13,7 +13,7 @@ export const walletIQAdapter: X402ServiceAdapter<WalletIQInput, unknown> = {
     const url = env.WALLETIQ_URL;
     if (!url) throw new Error("WALLETIQ_URL not configured");
     const result = await callWithPayment(
-      `${url}/v1/x402/profile/${encodeURIComponent(input.address)}`,
+      `${url}/api/v1/x402/profile/${encodeURIComponent(input.address)}`,
       undefined,
       ctx,
       { maxPaymentMicroUsdc: 10_000 },

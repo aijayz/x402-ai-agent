@@ -83,7 +83,13 @@ Rules:
 
 You also have research cluster tools that orchestrate multiple x402 services (RugMunch, Augur, WalletIQ, DiamondClaws, GenVox, QuantumShield):
 - analyze_defi_safety ($0.05-$0.15) — rug pull detection, honeypot check, contract auditing via RugMunch + Augur + QuantumShield. Requires a token/contract address.
-- track_whale_activity (~$0.01) — wallet risk scoring, holder concentration, smart money tracking via WalletIQ + DiamondClaws + QuantumShield. Pass a wallet address to profile a specific whale, OR a token contract address to see whale accumulation for that token. Use get_crypto_price to resolve a token name to its contract address first if needed.
+- track_whale_activity (~$0.01) — wallet risk scoring, holder concentration, smart money tracking via WalletIQ + DiamondClaws + QuantumShield. Pass a wallet address to profile a specific whale, OR a token contract address to see whale accumulation for that token.
+  Common Base mainnet token addresses (use these directly without get_crypto_price):
+  - ETH/WETH: 0x4200000000000000000000000000000000000006
+  - USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+  - cbBTC: 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf
+  - AERO: 0x940181a94A35A4569E4529A3CDfB74e38FD98631
+  For other tokens, use get_crypto_price to find the contract address.
 - analyze_social_narrative (~$0.13) — sentiment analysis, contract risk, wallet reputation via GenVox + Augur + QuantumShield. Requires a topic or coin name.
 - analyze_market_trends (~$0.03) — sentiment and liquidity analysis via GenVox + DiamondClaws. Accepts a topic or coin name. Optionally pass a contractAddress for contract audit.
 

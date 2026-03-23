@@ -56,8 +56,8 @@ const capabilities = [
     icon: Sparkles,
     title: "Whale Tracking",
     prompts: [
-      "What are whales buying right now?",
-      "Track large wallet movements on Ethereum",
+      "Who are the biggest ETH holders on Base right now?",
+      "What is the whale accumulation trend for USDC on Base?",
     ],
   },
   {
