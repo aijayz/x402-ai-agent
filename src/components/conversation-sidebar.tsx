@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback } from "react";
 import { MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeft, Clock, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,6 +15,7 @@ interface ConversationSidebarProps {
   onSelect: (id: string) => void;
   onNew: () => void;
   onDelete: (id: string) => void;
+  onSearch: (query: string) => void;
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -39,15 +40,15 @@ function SidebarContent({
   onSelect,
   onNew,
   onDelete,
+  onSearch,
   onClose,
 }: ConversationSidebarProps & { onClose?: () => void }) {
   const [query, setQuery] = useState("");
 
-  const filtered = useMemo(() => {
-    if (!query.trim()) return conversations;
-    const q = query.toLowerCase();
-    return conversations.filter((c) => c.title.toLowerCase().includes(q));
-  }, [conversations, query]);
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    onSearch(value);
+  }, [onSearch]);
 
   return (
     <div className="flex flex-col h-full">
@@ -96,7 +97,7 @@ function SidebarContent({
             <input
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleQueryChange(e.target.value)}
               placeholder="Search conversations..."
               className="w-full pl-8 pr-7 py-1.5 rounded-md text-xs bg-muted/40 border border-border
                 placeholder:text-muted-foreground/40 text-foreground
@@ -104,7 +105,7 @@ function SidebarContent({
             />
             {query && (
               <button
-                onClick={() => setQuery("")}
+                onClick={() => handleQueryChange("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted text-muted-foreground/50 hover:text-muted-foreground"
               >
                 <X className="size-3" />
@@ -134,13 +135,13 @@ function SidebarContent({
             </p>
           </div>
         )}
-        {query && filtered.length === 0 && (
+        {query && !loading && conversations.length === 0 && (
           <div className="px-4 py-6 text-center">
             <p className="text-xs text-muted-foreground/60">No matches found</p>
           </div>
         )}
         <div className="p-2 space-y-0.5">
-          {filtered.map((conv) => {
+          {conversations.map((conv) => {
             const isActive = activeId === conv.id;
             return (
               <div

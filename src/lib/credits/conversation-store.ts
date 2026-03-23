@@ -17,15 +17,24 @@ export interface ConversationSummary {
 }
 
 export const ConversationStore = {
-  /** List conversations for a wallet, newest first. */
-  async list(walletAddress: string, limit = 50): Promise<ConversationSummary[]> {
-    const rows = await sql`
-      SELECT id, title, created_at, updated_at
-      FROM conversations
-      WHERE wallet_address = ${walletAddress}
-      ORDER BY updated_at DESC
-      LIMIT ${limit}
-    `;
+  /** List conversations for a wallet, newest first. Optionally filter by title. */
+  async list(walletAddress: string, limit = 50, query?: string): Promise<ConversationSummary[]> {
+    const rows = query
+      ? await sql`
+          SELECT id, title, created_at, updated_at
+          FROM conversations
+          WHERE wallet_address = ${walletAddress}
+            AND title ILIKE ${"%" + query + "%"}
+          ORDER BY updated_at DESC
+          LIMIT ${limit}
+        `
+      : await sql`
+          SELECT id, title, created_at, updated_at
+          FROM conversations
+          WHERE wallet_address = ${walletAddress}
+          ORDER BY updated_at DESC
+          LIMIT ${limit}
+        `;
     return rows.map((r) => ({
       id: r.id as string,
       title: r.title as string,

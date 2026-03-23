@@ -8,7 +8,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
   }
 
-  const conversations = await ConversationStore.list(walletAddress);
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q")?.trim() || undefined;
+
+  const conversations = await ConversationStore.list(walletAddress, 50, query);
   return NextResponse.json({ conversations });
 }
 

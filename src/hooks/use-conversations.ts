@@ -19,6 +19,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSaveTimeRef = useRef<number>(Date.now());
 
   const headers = useMemo(
@@ -107,6 +108,28 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
     setActiveId(null);
   }, []);
 
+  /** Search conversations (debounced server-side). Empty query reloads full list. */
+  const search = useCallback((query: string) => {
+    if (!walletAddress) return;
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
+        const res = await fetch(`/api/conversations${params}`, { headers });
+        if (res.ok) {
+          const data = await res.json();
+          setConversations(data.conversations);
+        }
+      } catch (err) {
+        console.error("[conversations] Failed to search", err);
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+  }, [walletAddress, headers]);
+
   /** Delete a conversation */
   const remove = useCallback(async (id: string) => {
     if (!walletAddress) return;
@@ -127,10 +150,11 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
     refresh();
   }, [walletAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Cleanup debounce timer
+  // Cleanup debounce timers
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, []);
 
@@ -141,6 +165,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
     refresh,
     load,
     save,
+    search,
     startNew,
     remove,
   };
