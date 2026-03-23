@@ -50,6 +50,49 @@ function getLimiter(routeKey: string, tier: "anon" | "auth"): Ratelimit | null {
   return limiter;
 }
 
+const IP_FREE_CALLS_MAX = 2;
+const IP_FREE_CALLS_TTL = 86_400; // 24 hours
+
+/**
+ * Check and increment IP-based free call counter.
+ * Returns { allowed: false } once an IP has used all free calls, regardless
+ * of session cookie (closes the cookie-clear bypass).
+ * Fails open when Redis is not configured.
+ */
+export async function checkAndIncrementIpFreeCalls(
+  ip: string,
+): Promise<{ allowed: boolean }> {
+  const r = getRedis();
+  if (!r) return { allowed: true };
+
+  const key = `free:ip:${ip}`;
+  try {
+    const count = await r.incr(key);
+    if (count === 1) {
+      await r.expire(key, IP_FREE_CALLS_TTL);
+    }
+    return { allowed: count <= IP_FREE_CALLS_MAX };
+  } catch (err) {
+    console.error("[RATE_LIMIT] Redis error during IP free-call check, allowing:", err);
+    return { allowed: true };
+  }
+}
+
+/**
+ * Decrement IP free call counter (called on error to avoid charging a failed call).
+ * Silently ignores errors.
+ */
+export async function decrementIpFreeCalls(ip: string): Promise<void> {
+  const r = getRedis();
+  if (!r) return;
+  try {
+    const key = `free:ip:${ip}`;
+    await r.decr(key);
+  } catch {
+    // Ignore
+  }
+}
+
 export async function checkRateLimit(
   pathname: string,
   ip: string,

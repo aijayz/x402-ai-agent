@@ -12,6 +12,7 @@ import { getModel, probeModel, invalidateProbe } from "@/lib/ai-provider";
 import { SessionStore } from "@/lib/credits/session-store";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
+import { checkAndIncrementIpFreeCalls, decrementIpFreeCalls } from "@/lib/rate-limit";
 
 const SESSION_COOKIE_MAX_AGE = 1800; // 30 minutes
 
@@ -46,9 +47,19 @@ export const POST = async (request: Request) => {
         balanceMicroUsdc: account.balanceMicroUsdc,
       });
     } else {
-      // Anonymous — session-based, 2 free calls
-      const session = await SessionStore.getOrCreate(sessionId);
-      if (SessionStore.isFreeCallsExhausted(session.freeCallsUsed)) {
+      // Anonymous — session-based + IP-based, 2 free calls
+      const ip = (request as Request & { headers: Headers }).headers.get("x-forwarded-for")?.split(",")[0]?.trim()
+        ?? (request as Request & { headers: Headers }).headers.get("x-real-ip")
+        ?? "unknown";
+
+      const [session, ipCheck] = await Promise.all([
+        SessionStore.getOrCreate(sessionId),
+        checkAndIncrementIpFreeCalls(ip),
+      ]);
+
+      if (SessionStore.isFreeCallsExhausted(session.freeCallsUsed) || !ipCheck.allowed) {
+        // If IP was incremented but session was exhausted (or vice versa), undo IP increment
+        if (ipCheck.allowed) await decrementIpFreeCalls(ip);
         return new Response(
           JSON.stringify({
             error: "Free calls exhausted. Connect a wallet to continue.",
@@ -57,7 +68,7 @@ export const POST = async (request: Request) => {
           { status: 402, headers: { "Content-Type": "application/json" } }
         );
       }
-      // Increment in DB BEFORE constructing BudgetController.
+      // Increment session BEFORE constructing BudgetController.
       // Do NOT call budget.recordCall() later — the DB is the source of truth.
       await SessionStore.incrementCallCount(sessionId);
       freeCallsRemaining = SessionStore.MAX_FREE_CALLS - (session.freeCallsUsed + 1);
