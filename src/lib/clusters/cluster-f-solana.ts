@@ -67,7 +67,7 @@ export function createClusterFTools(deps: ClusterFDeps) {
           const summary = successNames.length > 0
             ? `Analyzed market trends using ${successNames.join(", ")}.` +
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
-            : `Market Trend Analysis unavailable — all services failed to respond.`;
+            : `Market Trend Analysis unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
           return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {

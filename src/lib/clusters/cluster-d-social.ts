@@ -67,7 +67,7 @@ export function createClusterDTools(deps: ClusterDDeps) {
           const summary = successNames.length > 0
             ? `Analyzed social narrative for "${topic}" using ${successNames.join(", ")}.` +
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
-            : `Social Narrative Analysis unavailable — all services failed to respond.`;
+            : `Social Narrative Analysis unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
           return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {

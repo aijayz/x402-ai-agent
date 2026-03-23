@@ -67,7 +67,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
           const summary = successNames.length > 0
             ? `Tracked whale activity using ${successNames.join(", ")}.` +
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
-            : `Whale Intelligence unavailable — all services failed to respond.`;
+            : `Whale Intelligence unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
           return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {

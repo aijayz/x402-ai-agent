@@ -82,7 +82,7 @@ export function createClusterATools(deps: ClusterADeps) {
           const summary = successNames.length > 0
             ? `Analyzed ${target} using ${successNames.join(", ")}.` +
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
-            : `DeFi Safety Analysis unavailable — all services failed to respond.`;
+            : `DeFi Safety Analysis unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
           return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
         } finally {
