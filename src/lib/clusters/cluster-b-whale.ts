@@ -15,13 +15,14 @@ export function createClusterBTools(deps: ClusterBDeps) {
   return {
     track_whale_activity: tool({
       description:
-        "Track whale and smart money activity — wallet risk scoring, holder analysis, and large transaction monitoring. " +
+        "Track whale and smart money activity for a specific wallet address — risk scoring, holder analysis, and large transaction monitoring. " +
+        "Requires a wallet address (0x format). " +
         "Calls external x402 services (WalletIQ, DiamondClaws, QuantumShield). " +
         "Costs ~$0.01.",
       inputSchema: z.object({
-        query: z.string().describe("What to track, e.g. 'what are whales buying', 'smart money flows ETH'"),
+        address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid Ethereum address (0x + 40 hex chars)").describe("Wallet address to analyze (0x format, e.g. 0xabc123...)"),
       }),
-      execute: async ({ query }): Promise<ClusterResult> => {
+      execute: async ({ address }): Promise<ClusterResult> => {
         const maxReservationMicro = 20_000;
         let reserved = false;
 
@@ -39,9 +40,9 @@ export function createClusterBTools(deps: ClusterBDeps) {
 
         try {
           const serviceConfigs = [
-            { name: "wallet-iq", input: { address: query } },
-            { name: "diamond-claws", input: { target: query } },
-            { name: "qs-whale-activity", input: { address: query } },
+            { name: "wallet-iq", input: { address } },
+            { name: "diamond-claws", input: { target: address } },
+            { name: "qs-whale-activity", input: { address } },
           ] as const;
 
           for (const svc of serviceConfigs) {

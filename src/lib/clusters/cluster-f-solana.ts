@@ -19,9 +19,10 @@ export function createClusterFTools(deps: ClusterFDeps) {
         "Calls external x402 services (GenVox, DiamondClaws, QuantumShield). " +
         "Costs ~$0.03.",
       inputSchema: z.object({
-        query: z.string().describe("Market trend query, e.g. 'trending narratives', 'emerging tokens this week'"),
+        query: z.string().describe("Market trend query, e.g. 'trending narratives', 'ETH sentiment this week'"),
+        contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional().describe("Optional: contract address (0x format) for contract audit"),
       }),
-      execute: async ({ query }): Promise<ClusterResult> => {
+      execute: async ({ query, contractAddress }): Promise<ClusterResult> => {
         const maxReservationMicro = 100_000;
         let reserved = false;
 
@@ -38,11 +39,13 @@ export function createClusterFTools(deps: ClusterFDeps) {
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
         try {
-          const serviceConfigs = [
-            { name: "genvox", input: { topic: query } },
-            { name: "diamond-claws", input: { target: query } },
-            { name: "qs-contract-audit", input: { address: query } },
-          ] as const;
+          const baseConfigs = [
+            { name: "genvox" as const, input: { topic: query } },
+            { name: "diamond-claws" as const, input: { target: query } },
+          ];
+          const serviceConfigs = contractAddress
+            ? [...baseConfigs, { name: "qs-contract-audit" as const, input: { address: contractAddress } }]
+            : baseConfigs;
 
           for (const svc of serviceConfigs) {
             try {
