@@ -2,6 +2,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import { getService } from "../services";
 import { CreditStore } from "../credits/credit-store";
+import { resolveTargetForMessari } from "../services/coingecko";
+import { env } from "../env";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
 import type { ClusterResult, ServiceCallResult } from "./types";
@@ -43,8 +45,11 @@ export function createClusterATools(deps: ClusterADeps) {
         const errors: string[] = [];
         const ctx: PaymentContext = { walletClient: deps.walletClient, userWallet: deps.userWallet };
 
+        // Resolve contract address → symbol for Messari (which matches on name/symbol only)
+        const messariTarget = await resolveTargetForMessari(target, env.NETWORK);
+
         try {
-          // Quick: RugMunch + Augur + QS Token Security
+          // Quick: RugMunch + Augur + QS Token Security + Messari
           // Full: adds QS Contract Audit
           const serviceConfigs = depth === "full"
             ? [
@@ -52,13 +57,13 @@ export function createClusterATools(deps: ClusterADeps) {
                 { name: "augur", input: { address: target } },
                 { name: "qs-token-security", input: { address: target } },
                 { name: "qs-contract-audit", input: { address: target } },
-                { name: "messari-token-unlocks", input: { target } },
+                { name: "messari-token-unlocks", input: { target: messariTarget } },
               ] as const
             : [
                 { name: "rug-munch", input: { target } },
                 { name: "augur", input: { address: target } },
                 { name: "qs-token-security", input: { address: target } },
-                { name: "messari-token-unlocks", input: { target } },
+                { name: "messari-token-unlocks", input: { target: messariTarget } },
               ] as const;
 
           for (const svc of serviceConfigs) {
