@@ -26,25 +26,55 @@ async function getHandler() {
 
     handler = createPaidMcpHandler(
       (server: PaymentMcpServer) => {
+        // Resolve a token name/symbol to a CoinGecko ID via search API
+        async function resolveTokenId(input: string): Promise<string | null> {
+          try {
+            const res = await fetch(
+              `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(input)}`
+            );
+            if (!res.ok) return null;
+            const data = await res.json();
+            const coins = data.coins as Array<{ id: string; symbol: string; name: string }> | undefined;
+            if (!coins?.length) return null;
+            // Exact symbol match (case-insensitive) takes priority
+            const bySymbol = coins.find(c => c.symbol.toLowerCase() === input.toLowerCase());
+            if (bySymbol) return bySymbol.id;
+            // Otherwise return the top search result
+            return coins[0].id;
+          } catch {
+            return null;
+          }
+        }
+
         // Paid tools (require USDC payment)
         server.paidTool(
           "get_crypto_price",
-          "Get live cryptocurrency price, 24h change, and market cap for any token",
+          "Get live cryptocurrency price, 24h change, and market cap for any token. Accepts token symbols (BTC, ETH, CRO), names (bitcoin, cronos), or CoinGecko IDs.",
           { price: 0.01 },
           {
-            token: z.string().describe("Token ID, e.g. 'bitcoin', 'ethereum', 'solana'"),
+            token: z.string().describe("Token symbol (e.g. 'BTC', 'ETH', 'CRO') or name (e.g. 'bitcoin', 'ethereum', 'cronos')"),
           },
           {},
           async (args) => {
             try {
-              const res = await fetch(
-                `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(args.token)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
+              // First try the input directly as a CoinGecko ID
+              let tokenId = args.token.toLowerCase();
+              let res = await fetch(
+                `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(tokenId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
               );
+              // If not found, resolve via search API
               if (res.status === 404) {
-                return {
-                  content: [{ type: "text", text: `I couldn't find a token called "${args.token}". Try the full name like "bitcoin", "ethereum", or "solana".` }],
-                  isError: true,
-                };
+                const resolved = await resolveTokenId(args.token);
+                if (!resolved) {
+                  return {
+                    content: [{ type: "text", text: `I couldn't find a token matching "${args.token}".` }],
+                    isError: true,
+                  };
+                }
+                tokenId = resolved;
+                res = await fetch(
+                  `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(tokenId)}?localization=false&tickers=false&community_data=false&developer_data=false&sparkline=false`
+                );
               }
               if (!res.ok) {
                 return {
@@ -64,7 +94,9 @@ async function getHandler() {
                 content: [{
                   type: "text",
                   text: JSON.stringify({
-                    token: args.token,
+                    token: tokenId,
+                    symbol: data.symbol?.toUpperCase(),
+                    name: data.name,
                     priceUsd: md.current_price?.usd,
                     change24h: md.price_change_percentage_24h,
                     marketCap: md.market_cap?.usd,
