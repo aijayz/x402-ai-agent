@@ -51,7 +51,9 @@ Obol orchestrates six independent x402 services grouped into research clusters:
 |---------|------|----------|------|
 | A — DeFi Safety | `analyze_defi_safety` | RugMunch + Augur + QuantumShield + Messari | $0.05–$0.15 |
 | B — Whale Tracker | `track_whale_activity` | SLAMai + QuantumShield | ~$0.01 |
+| C — Wallet Portfolio | `analyze_wallet_portfolio` | SLAMai + QuantumShield | ~$0.01 |
 | D — Social Narrative | `analyze_social_narrative` | GenVox + Augur + QuantumShield | ~$0.13 |
+| E — Token Alpha | `screen_token_alpha` | QuantumShield + SLAMai + Messari | ~$0.01 |
 | F — Market Trends | `analyze_market_trends` | GenVox + QuantumShield | ~$0.03 |
 
 Each cluster calls its services in parallel, gracefully handles unavailable ones, and returns cross-referenced results.
@@ -68,7 +70,9 @@ flowchart TD
     Orchestrator --> AgentTools["Agent Tools\ncheck_budget · search_x402_services\nprobe_x402_service"]
     Orchestrator --> ClusterA["Cluster A\nanalyze_defi_safety\n$0.05–$0.15"]
     Orchestrator --> ClusterB["Cluster B\ntrack_whale_activity\n~$0.01"]
+    Orchestrator --> ClusterC["Cluster C\nanalyze_wallet_portfolio\n~$0.01"]
     Orchestrator --> ClusterD["Cluster D\nanalyze_social_narrative\n~$0.13"]
+    Orchestrator --> ClusterE["Cluster E\nscreen_token_alpha\n~$0.01"]
     Orchestrator --> ClusterF["Cluster F\nanalyze_market_trends\n~$0.03"]
 
     ClusterA --> RugMunch["RugMunch\nrug pull detection"]
@@ -79,14 +83,21 @@ flowchart TD
     ClusterB --> SLAMai["SLAMai\nsmart money intelligence"]
     ClusterB --> QS2["QuantumShield\nwhale activity"]
 
+    ClusterC --> SLAMai2["SLAMai\ntrade history + tier"]
+    ClusterC --> QS5["QuantumShield\nwallet risk + whale activity"]
+
     ClusterD --> GenVox1["GenVox\nsentiment"]
     ClusterD --> Augur2["Augur\ncontract risk"]
     ClusterD --> QS3["QuantumShield\nwallet risk"]
 
+    ClusterE --> QS6["QuantumShield\ntoken security"]
+    ClusterE --> SLAMai3["SLAMai\nholder reputation"]
+    ClusterE --> Messari2["Messari\ntoken unlocks (free)"]
+
     ClusterF --> GenVox2["GenVox\nsentiment"]
     ClusterF --> QS4["QuantumShield\ncontract audit"]
 
-    RugMunch & Augur & QS1 & SLAMai & QS2 & GenVox1 & Augur2 & QS3 & GenVox2 & QS4 --> Payment["x402 Payment\n402 → EIP-3009 sign → retry"]
+    RugMunch & Augur & QS1 & SLAMai & QS2 & SLAMai2 & QS5 & GenVox1 & Augur2 & QS3 & QS6 & SLAMai3 & GenVox2 & QS4 --> Payment["x402 Payment\n402 → EIP-3009 sign → retry"]
     Payment --> CDP["CDP House Wallet"]
     CDP --> Facilitator["Coinbase Facilitator"]
     Facilitator --> Base[("Base Network\nUSDC")]
