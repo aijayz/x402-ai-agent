@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import type { ConversationSummary } from "@/hooks/use-conversations";
 import { cn } from "@/lib/utils";
 
@@ -30,45 +31,18 @@ function formatRelativeTime(dateStr: string): string {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-export function ConversationSidebar({
+/** Shared sidebar content used in both inline and sheet modes */
+function SidebarContent({
   conversations,
   activeId,
   loading,
   onSelect,
   onNew,
   onDelete,
-}: ConversationSidebarProps) {
-  const [open, setOpen] = useState(true);
-
-  if (!open) {
-    return (
-      <div className="flex flex-col items-center pt-3 px-1.5 gap-1.5 border-r border-border bg-muted/20">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setOpen(true)}
-          className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted/80"
-          title="Open sidebar"
-        >
-          <PanelLeft className="size-4" />
-        </Button>
-        <button
-          onClick={onNew}
-          className="flex items-center justify-center size-9 rounded-lg
-            bg-gradient-to-b from-blue-500/25 to-blue-600/20
-            border border-blue-500/40 hover:border-blue-400/60
-            text-blue-300 hover:text-blue-200
-            transition-all duration-200 hover:shadow-md hover:shadow-blue-500/10"
-          title="New chat"
-        >
-          <Plus className="size-4" />
-        </button>
-      </div>
-    );
-  }
-
+  onClose,
+}: ConversationSidebarProps & { onClose?: () => void }) {
   return (
-    <div className="w-72 shrink-0 flex flex-col border-r border-border bg-gradient-to-b from-muted/40 via-background to-background">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2">
@@ -77,21 +51,23 @@ export function ConversationSidebar({
             History
           </span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setOpen(false)}
-          className="size-7 text-muted-foreground hover:text-foreground"
-          title="Close sidebar"
-        >
-          <PanelLeftClose className="size-3.5" />
-        </Button>
+        {onClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="size-7 text-muted-foreground hover:text-foreground"
+            title="Close sidebar"
+          >
+            <PanelLeftClose className="size-3.5" />
+          </Button>
+        )}
       </div>
 
       {/* New Chat button */}
       <div className="px-3 pb-3">
         <button
-          onClick={onNew}
+          onClick={() => { onNew(); onClose?.(); }}
           className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium
             bg-gradient-to-r from-blue-500/20 via-cyan-400/15 to-blue-500/20
             border border-blue-500/30 hover:border-blue-400/50
@@ -136,9 +112,8 @@ export function ConversationSidebar({
                     ? "bg-blue-500/10 text-foreground"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
-                onClick={() => onSelect(conv.id)}
+                onClick={() => { onSelect(conv.id); onClose?.(); }}
               >
-                {/* Active indicator bar */}
                 {isActive && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-gradient-to-b from-blue-400 to-cyan-400" />
                 )}
@@ -173,5 +148,94 @@ export function ConversationSidebar({
         </div>
       </ScrollArea>
     </div>
+  );
+}
+
+export function ConversationSidebar(props: ConversationSidebarProps) {
+  const [desktopOpen, setDesktopOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleMobileSelect = useCallback((id: string) => {
+    props.onSelect(id);
+    setMobileOpen(false);
+  }, [props.onSelect]);
+
+  const handleMobileNew = useCallback(() => {
+    props.onNew();
+    setMobileOpen(false);
+  }, [props.onNew]);
+
+  return (
+    <>
+      {/* Mobile: toggle button in top-left + Sheet overlay */}
+      <div className="md:hidden flex flex-col items-center pt-3 px-1.5 gap-1.5 border-r border-border bg-muted/20">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileOpen(true)}
+          className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted/80"
+          title="Open history"
+        >
+          <PanelLeft className="size-4" />
+        </Button>
+        <button
+          onClick={props.onNew}
+          className="flex items-center justify-center size-9 rounded-lg
+            bg-gradient-to-b from-blue-500/25 to-blue-600/20
+            border border-blue-500/40 hover:border-blue-400/60
+            text-blue-300 hover:text-blue-200
+            transition-all duration-200 hover:shadow-md hover:shadow-blue-500/10"
+          title="New chat"
+        >
+          <Plus className="size-4" />
+        </button>
+      </div>
+
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" showCloseButton={false} className="w-80 p-0">
+          <SidebarContent
+            {...props}
+            onSelect={handleMobileSelect}
+            onNew={handleMobileNew}
+            onClose={() => setMobileOpen(false)}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop: inline sidebar */}
+      <div className="hidden md:flex">
+        {!desktopOpen ? (
+          <div className="flex flex-col items-center pt-3 px-1.5 gap-1.5 border-r border-border bg-muted/20">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDesktopOpen(true)}
+              className="size-9 text-muted-foreground hover:text-foreground hover:bg-muted/80"
+              title="Open sidebar"
+            >
+              <PanelLeft className="size-4" />
+            </Button>
+            <button
+              onClick={props.onNew}
+              className="flex items-center justify-center size-9 rounded-lg
+                bg-gradient-to-b from-blue-500/25 to-blue-600/20
+                border border-blue-500/40 hover:border-blue-400/60
+                text-blue-300 hover:text-blue-200
+                transition-all duration-200 hover:shadow-md hover:shadow-blue-500/10"
+              title="New chat"
+            >
+              <Plus className="size-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="w-72 shrink-0 flex flex-col border-r border-border bg-gradient-to-b from-muted/40 via-background to-background">
+            <SidebarContent
+              {...props}
+              onClose={() => setDesktopOpen(false)}
+            />
+          </div>
+        )}
+      </div>
+    </>
   );
 }
