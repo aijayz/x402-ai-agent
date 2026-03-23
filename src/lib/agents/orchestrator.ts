@@ -8,7 +8,7 @@ import { seedRegistry } from "@/lib/registry/seed";
 import { createClusterATools } from "@/lib/clusters/cluster-a-defi";
 import { createClusterBTools } from "@/lib/clusters/cluster-b-whale";
 import { createClusterDTools } from "@/lib/clusters/cluster-d-social";
-import { createClusterFTools } from "@/lib/clusters/cluster-f-solana";
+import { createClusterFTools } from "@/lib/clusters/cluster-f-market";
 import type { WalletClient } from "viem";
 
 // Lazy-init: seed the registry on first orchestrator creation
@@ -83,7 +83,7 @@ Rules:
 
 You also have research cluster tools that orchestrate multiple x402 services (RugMunch, Augur, WalletIQ, DiamondClaws, GenVox, QuantumShield):
 - analyze_defi_safety ($0.05-$0.15) — rug pull detection, honeypot check, contract auditing via RugMunch + Augur + QuantumShield. Requires a token/contract address.
-- track_whale_activity (~$0.01) — wallet risk scoring, transaction history, smart money tracking via WalletIQ + DiamondClaws + QuantumShield. Requires a specific wallet address (0x format). Do NOT call this for general questions like "what are whales buying" — only when the user provides or asks about a specific wallet address.
+- track_whale_activity (~$0.01) — wallet risk scoring, holder concentration, smart money tracking via WalletIQ + DiamondClaws + QuantumShield. Pass a wallet address to profile a specific whale, OR a token contract address to see whale accumulation for that token. Use get_crypto_price to resolve a token name to its contract address first if needed.
 - analyze_social_narrative (~$0.13) — sentiment analysis, contract risk, wallet reputation via GenVox + Augur + QuantumShield. Requires a topic or coin name.
 - analyze_market_trends (~$0.03) — sentiment and liquidity analysis via GenVox + DiamondClaws. Accepts a topic or coin name. Optionally pass a contractAddress for contract audit.
 
