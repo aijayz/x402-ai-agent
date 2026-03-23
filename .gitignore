@@ -50,4 +50,13 @@ xmcp-env.d.ts
 test-results/
 playwright-report/
 playwright/.cache/
-e2e-results/.worktrees/
+e2e-results/
+.playwright-mcp/
+
+# Superpowers plugin
+.superpowers/
+
+# Screenshots
+*.png
+!public/**/*.png
+!src/**/*.png
