@@ -130,11 +130,11 @@ export default function LandingPage() {
             {clusters.map((f, i) => (
               <div
                 key={f.title}
-                className={`group relative rounded-xl border ${f.border} bg-zinc-900/60 p-5 space-y-3 transition-all duration-300 hover:translate-y-[-2px] animate-in fade-in slide-in-from-bottom-3 fill-mode-both`}
+                className={`group relative overflow-hidden rounded-xl border ${f.border} bg-zinc-900/80 p-5 space-y-3 transition-all duration-300 hover:translate-y-[-2px] animate-in fade-in slide-in-from-bottom-3 fill-mode-both`}
                 style={{ animationDelay: `${150 + i * 100}ms`, animationDuration: "500ms" }}
               >
-                {/* Card hover glow — fades from accent colour in top-left corner to transparent */}
-                <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                {/* Card hover glow — clipped by overflow-hidden so it never bleeds past the border */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${f.accent} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
                 <div className="relative">
                   <div className="flex items-center gap-2.5">
                     <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted/50 border border-border/50">
