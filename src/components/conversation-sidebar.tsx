@@ -76,7 +76,7 @@ function SidebarContent({
       {/* New Chat button */}
       <div className="px-3 pb-3">
         <button
-          onClick={() => { onNew(); onClose?.(); }}
+          onClick={onNew}
           className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium
             bg-gradient-to-r from-blue-500/20 via-cyan-400/15 to-blue-500/20
             border border-blue-500/30 hover:border-blue-400/50
@@ -150,7 +150,7 @@ function SidebarContent({
                     ? "bg-blue-500/10 text-foreground"
                     : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                 )}
-                onClick={() => { onSelect(conv.id); onClose?.(); }}
+                onClick={() => onSelect(conv.id)}
               >
                 {isActive && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-gradient-to-b from-blue-400 to-cyan-400" />
@@ -229,16 +229,19 @@ export function ConversationSidebar(props: ConversationSidebarProps) {
         </button>
       </div>
 
-      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" showCloseButton={false} className="w-80 p-0">
-          <SidebarContent
-            {...props}
-            onSelect={handleMobileSelect}
-            onNew={handleMobileNew}
-            onClose={() => setMobileOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+      {/* Mobile sheet - only mount on mobile to avoid Radix focus interference on desktop */}
+      <div className="md:hidden">
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetContent side="left" showCloseButton={false} className="w-80 p-0">
+            <SidebarContent
+              {...props}
+              onSelect={handleMobileSelect}
+              onNew={handleMobileNew}
+              onClose={() => setMobileOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+      </div>
 
       {/* Desktop: inline sidebar */}
       <div className="hidden md:flex">
