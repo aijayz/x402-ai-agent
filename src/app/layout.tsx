@@ -12,7 +12,6 @@ export const metadata: Metadata = {
     template: "%s | Obol AI",
   },
   description: "AI agent that pays for intelligence via x402 micropayments on Base",
-  icons: { icon: "/icon.svg" },
   openGraph: {
     siteName: "Obol AI",
     locale: "en_US",

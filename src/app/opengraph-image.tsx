@@ -116,7 +116,7 @@ export default function OgImage() {
                   textTransform: "uppercase" as const,
                 }}
               >
-                x402 micropayments on Base
+                x402 micropayments on Base and more
               </div>
             </div>
           </div>
