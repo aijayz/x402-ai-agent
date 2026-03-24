@@ -1,7 +1,8 @@
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const COOKIE_NAME = "wallet_auth";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+const MAX_AGE_MS = MAX_AGE * 1000;
 
 function getSecret(): string {
   // Use DATABASE_URL as HMAC key — it's always present and secret.
@@ -16,27 +17,35 @@ function hmac(data: string): string {
   return createHmac("sha256", getSecret()).update(data).digest("hex");
 }
 
-/** Create a signed wallet auth cookie value */
+/** Create a signed wallet auth cookie value (includes issued-at timestamp) */
 export function signWalletCookie(walletAddress: string): string {
   const addr = walletAddress.toLowerCase();
-  const sig = hmac(addr);
-  return `${addr}:${sig}`;
+  const iat = Date.now().toString(36);
+  const sig = hmac(`${addr}:${iat}`);
+  return `${addr}:${iat}:${sig}`;
 }
 
-/** Verify a wallet auth cookie and return the address, or null if invalid */
+/** Verify a wallet auth cookie and return the address, or null if invalid/expired */
 export function verifyWalletCookie(cookieValue: string): string | null {
   const parts = cookieValue.split(":");
-  if (parts.length !== 2) return null;
-  const [addr, sig] = parts;
-  if (!addr || !sig) return null;
-  const expected = hmac(addr);
+  if (parts.length !== 3) return null;
+  const [addr, iat, sig] = parts;
+  if (!addr || !iat || !sig) return null;
+
+  // Check expiry
+  const issuedAt = parseInt(iat, 36);
+  if (isNaN(issuedAt) || Date.now() - issuedAt > MAX_AGE_MS) return null;
+
+  const expected = hmac(`${addr}:${iat}`);
   // Constant-time comparison to prevent timing attacks
   if (sig.length !== expected.length) return null;
-  let mismatch = 0;
-  for (let i = 0; i < sig.length; i++) {
-    mismatch |= sig.charCodeAt(i) ^ expected.charCodeAt(i);
+  try {
+    const sigBuf = Buffer.from(sig, "utf8");
+    const expBuf = Buffer.from(expected, "utf8");
+    if (!timingSafeEqual(sigBuf, expBuf)) return null;
+  } catch {
+    return null;
   }
-  if (mismatch !== 0) return null;
   return addr;
 }
 

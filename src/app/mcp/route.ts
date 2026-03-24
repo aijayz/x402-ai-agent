@@ -8,6 +8,7 @@ import { generateText } from "ai";
 import { getModel } from "@/lib/ai-provider";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { TOOL_PRICES } from "@/lib/tool-prices";
+import { validateUrl } from "@/lib/url-guard";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -174,6 +175,15 @@ async function getHandler() {
           {},
           async (args) => {
             try {
+              // SSRF protection: block private/reserved IPs
+              const urlError = await validateUrl(args.url);
+              if (urlError) {
+                return {
+                  content: [{ type: "text", text: `Blocked: ${urlError}` }],
+                  isError: true,
+                };
+              }
+
               const controller = new AbortController();
               const timeout = setTimeout(() => controller.abort(), 10000);
               const res = await fetch(args.url, { signal: controller.signal });

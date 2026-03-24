@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, parseEventLogs, erc20Abi } from "viem";
 import { baseSepolia, base } from "viem/chains";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
@@ -8,6 +8,7 @@ import { getOrCreatePurchaserAccount } from "@/lib/accounts";
 import { env } from "@/lib/env";
 import { sql } from "@/lib/db";
 import { sendTelegramAlert } from "@/lib/telegram";
+import { getVerifiedWallet } from "@/lib/wallet-auth";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -20,13 +21,21 @@ const ConfirmSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  // Require authenticated wallet cookie
+  const verifiedWallet = getVerifiedWallet(req);
+  if (!verifiedWallet) {
+    return NextResponse.json({ error: "Wallet authentication required" }, { status: 401 });
+  }
+
   const body = await req.json();
   const parsed = ConfirmSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const { walletAddress, txHash } = parsed.data;
+  const { txHash } = parsed.data;
+  // Use the verified wallet from cookie — ignore body's walletAddress
+  const walletAddress = verifiedWallet;
 
   // Check idempotency — don't double-credit
   const alreadyProcessed = await SpendEventStore.existsByTxHash(txHash);
@@ -58,23 +67,21 @@ export async function POST(req: Request) {
   let transferAmount = BigInt(0);
   let senderMatch = false;
 
-  for (const log of receipt.logs) {
-    if (log.address.toLowerCase() !== usdcAddress.toLowerCase()) continue;
+  const transfers = parseEventLogs({
+    abi: erc20Abi,
+    eventName: "Transfer",
+    logs: receipt.logs.filter(
+      (l) => l.address.toLowerCase() === usdcAddress.toLowerCase()
+    ),
+  });
 
-    try {
-      // Manual decode: Transfer topic + indexed from/to + value
-      const from = ("0x" + log.topics[1]?.slice(26)) as string;
-      const to = ("0x" + log.topics[2]?.slice(26)) as string;
-
-      if (
-        from.toLowerCase() === walletAddress.toLowerCase() &&
-        to.toLowerCase() === purchaserAddress
-      ) {
-        senderMatch = true;
-        transferAmount = BigInt(log.data);
-      }
-    } catch {
-      continue;
+  for (const t of transfers) {
+    if (
+      t.args.from.toLowerCase() === walletAddress.toLowerCase() &&
+      t.args.to.toLowerCase() === purchaserAddress
+    ) {
+      senderMatch = true;
+      transferAmount = t.args.value;
     }
   }
 
