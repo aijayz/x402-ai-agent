@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.URL || "https://obolai.vercel.app"
+    process.env.URL || "https://obolai.xyz"
   ),
   title: {
     default: "Obol AI",

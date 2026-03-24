@@ -196,7 +196,7 @@ Both `NETWORK` and `NEXT_PUBLIC_NETWORK` must match. `NETWORK` is server-side, `
 ## Deployment
 
 - **Product**: Obol AI
-- **Vercel**: https://obolai.vercel.app
+- **Vercel**: https://obolai.xyz
 - **Project**: `prj_EmIK8e1f3Rxp4bLcabzRWds6Df3h`
 - **Cron**: `/api/credits/check-topups` runs daily (`0 0 * * *`)
 - **Deploy**: `vercel --prod --yes` from repo root

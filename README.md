@@ -2,7 +2,7 @@
 
 An AI agent that pays for intelligence. Obol orchestrates multiple paid research services using USDC on Base via the [x402](https://x402.org) protocol — autonomous micropayments for every tool call.
 
-Live at [obolai.vercel.app](https://obolai.vercel.app)
+Live at [obolai.xyz](https://obolai.xyz)
 
 Built with Next.js, AI SDK v6, and Coinbase CDP wallets.
 
