@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ClientProviders } from "@/components/client-providers";
 import { WalletPill, CreditBadge } from "@/components/wallet-pill";
 import { TopUpSheet } from "@/components/topup-sheet";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function ChatLayout({
   children,
@@ -81,7 +82,9 @@ export default function ChatLayout({
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="flex-1">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
         <TopUpSheet />
       </div>
     </ClientProviders>

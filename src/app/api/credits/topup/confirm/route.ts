@@ -88,6 +88,15 @@ export async function POST(req: Request) {
   // USDC has 6 decimals — transferAmount is already in micro-USDC
   const amountMicro = Number(transferAmount);
 
+  // Minimum deposit: $0.01 (10,000 micro-USDC)
+  const MIN_DEPOSIT_MICRO = 10_000;
+  if (amountMicro < MIN_DEPOSIT_MICRO) {
+    return NextResponse.json(
+      { error: `Minimum deposit is $0.01 USDC. Received $${(amountMicro / 1_000_000).toFixed(6)}` },
+      { status: 400 }
+    );
+  }
+
   // Atomic: insert idempotency record + credit balance in one transaction.
   // If the idempotency INSERT conflicts (concurrent request), the whole tx is rolled back
   // and the second caller gets a clean "already_processed" on retry.
