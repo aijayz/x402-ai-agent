@@ -104,7 +104,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     setIsConnecting(true);
     try {
-      // Request accounts
+      // Force MetaMask to show the account picker (not just return the cached account)
+      // wallet_requestPermissions re-prompts the user to select an account
+      try {
+        await window.ethereum.request({
+          method: "wallet_requestPermissions",
+          params: [{ eth_accounts: {} }],
+        });
+      } catch {
+        // Some wallets don't support wallet_requestPermissions — fall through
+      }
       const accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       }) as string[];
@@ -217,6 +226,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setWalletAddress(null);
     setBalance(null);
     setFreeCallsRemaining(null);
+    // Clear wallet auth cookie
+    document.cookie = "wallet_auth=; path=/; max-age=0";
   }, []);
 
   const updateFromMetadata = useCallback((meta: { budgetRemaining?: number; freeCallsRemaining?: number }) => {

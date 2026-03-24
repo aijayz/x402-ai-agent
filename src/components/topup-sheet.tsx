@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Check, Loader2, ExternalLink, Copy, CheckCheck, Coins, Zap } from "lucide-react";
+import { Check, Loader2, ExternalLink, Copy, CheckCheck, Coins, Zap, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -21,6 +21,66 @@ const VALUE_HINT: Record<number, string> = {
   5:  "~38 DeFi analyses or ~500 whale queries",
   10: "~76 DeFi analyses or ~1,000 whale queries",
   20: "~150 DeFi analyses or ~2,000 whale queries",
+};
+
+/** Per-chain brand colors and SVG icons */
+const CHAIN_BRAND: Record<string, { color: string; bg: string; border: string; glow: string; icon: React.ReactNode }> = {
+  base: {
+    color: "text-blue-400",
+    bg: "bg-blue-500/15",
+    border: "border-blue-500/50",
+    glow: "shadow-blue-500/20",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M12 6.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11Zm-3.5 5.5a3.5 3.5 0 0 1 3.5-3.5v7a3.5 3.5 0 0 1-3.5-3.5Z" />
+      </svg>
+    ),
+  },
+  ethereum: {
+    color: "text-indigo-400",
+    bg: "bg-indigo-500/15",
+    border: "border-indigo-500/50",
+    glow: "shadow-indigo-500/20",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
+        <path d="M12 1.5 4.5 12.2 12 16l7.5-3.8L12 1.5Z" opacity="0.6" />
+        <path d="M12 16 4.5 12.2 12 22.5l7.5-10.3L12 16Z" />
+      </svg>
+    ),
+  },
+  arbitrum: {
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/15",
+    border: "border-cyan-500/50",
+    glow: "shadow-cyan-500/20",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
+        <path d="m12 2 9 5v10l-9 5-9-5V7l9-5Z" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <path d="m10 8 2 4 2-4M10 16l2-4 2 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  optimism: {
+    color: "text-red-400",
+    bg: "bg-red-500/15",
+    border: "border-red-500/50",
+    glow: "shadow-red-500/20",
+    icon: (
+      <svg viewBox="0 0 24 24" className="size-5" fill="currentColor">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        <text x="12" y="16" textAnchor="middle" fontSize="12" fontWeight="bold" fill="currentColor">O</text>
+      </svg>
+    ),
+  },
+};
+
+/** CTA button gradient per chain */
+const CHAIN_CTA: Record<string, string> = {
+  base: "from-blue-500 to-blue-400 shadow-blue-500/25 hover:shadow-blue-500/40",
+  ethereum: "from-indigo-500 to-indigo-400 shadow-indigo-500/25 hover:shadow-indigo-500/40",
+  arbitrum: "from-cyan-500 to-cyan-400 shadow-cyan-500/25 hover:shadow-cyan-500/40",
+  optimism: "from-red-500 to-red-400 shadow-red-500/25 hover:shadow-red-500/40",
 };
 
 type TopUpStatus = "loading" | "idle" | "sending" | "confirming" | "done" | "error";
@@ -196,25 +256,48 @@ export function TopUpSheet() {
   const explorerBase = chainConfigs?.[selectedChain]?.explorerBaseUrl ?? (network === "base-sepolia" ? "https://sepolia.basescan.org" : "https://basescan.org");
   const isInProgress = topUpStatus === "sending" || topUpStatus === "confirming";
   const networkLabel = network === "base-sepolia" ? "Base Sepolia" : "Base";
+  const multiChain = chainConfigs && Object.keys(chainConfigs).length > 1;
+  const brand = CHAIN_BRAND[selectedChain] ?? CHAIN_BRAND.base;
+  const ctaGradient = CHAIN_CTA[selectedChain] ?? CHAIN_CTA.base;
 
   return (
     <Sheet open={topUpOpen} onOpenChange={handleOpenChange}>
       <SheetContent className="px-0 pb-0 overflow-hidden">
-        {/* Visual header with gradient */}
+        {/* Header with chain-reactive gradient */}
         <div className="relative px-6 pt-2 pb-5 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-cyan-400/5 to-transparent" />
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/8 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+          <div className={cn(
+            "absolute inset-0 transition-colors duration-500",
+            selectedChain === "ethereum" ? "bg-gradient-to-br from-indigo-500/10 via-indigo-400/5 to-transparent"
+              : selectedChain === "arbitrum" ? "bg-gradient-to-br from-cyan-500/10 via-cyan-400/5 to-transparent"
+              : selectedChain === "optimism" ? "bg-gradient-to-br from-red-500/10 via-red-400/5 to-transparent"
+              : "bg-gradient-to-br from-blue-500/10 via-cyan-400/5 to-transparent"
+          )} />
+          <div className={cn(
+            "absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 transition-colors duration-500",
+            selectedChain === "ethereum" ? "bg-indigo-500/10"
+              : selectedChain === "arbitrum" ? "bg-cyan-500/10"
+              : selectedChain === "optimism" ? "bg-red-500/10"
+              : "bg-blue-500/10"
+          )} />
           <SheetHeader className="relative p-0">
             <div className="flex items-center gap-3 mb-1">
-              <div className="flex items-center justify-center size-10 rounded-xl
-                bg-gradient-to-br from-blue-500/20 to-cyan-400/20
-                border border-blue-500/30 shadow-sm shadow-blue-500/10">
-                <Coins className="size-5 text-blue-400" />
+              <div className={cn(
+                "flex items-center justify-center size-10 rounded-xl border shadow-sm transition-all duration-300",
+                brand.bg, brand.border, brand.glow
+              )}>
+                <Coins className={cn("size-5", brand.color)} />
               </div>
               <div>
                 <SheetTitle className="text-lg">Top Up Credits</SheetTitle>
                 <SheetDescription className="text-xs mt-0.5">
-                  Add USDC{chainConfigs && Object.keys(chainConfigs).length > 1 ? "" : ` on ${networkLabel}`}
+                  {multiChain ? (
+                    <span className="flex items-center gap-1.5">
+                      <ArrowRightLeft className="size-3" />
+                      Deposit USDC from any supported chain
+                    </span>
+                  ) : (
+                    `Add USDC on ${networkLabel}`
+                  )}
                 </SheetDescription>
               </div>
             </div>
@@ -286,35 +369,69 @@ export function TopUpSheet() {
           {/* Idle / error state */}
           {(topUpStatus === "idle" || topUpStatus === "error") && depositInfo && (
             <>
-              {/* Chain picker — only shown when multiple chains available */}
-              {chainConfigs && Object.keys(chainConfigs).length > 1 && (
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-foreground">Select chain</label>
-                  <div className="grid grid-cols-4 gap-2">
+              {/* Multi-chain selector — prominent, branded pills */}
+              {multiChain && (
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground">Deposit from</label>
+                    <span className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+                      {Object.keys(chainConfigs).length} chains
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
                     {Object.entries(chainConfigs).map(([key, chain]) => {
                       const selected = selectedChain === key;
+                      const b = CHAIN_BRAND[key] ?? CHAIN_BRAND.base;
                       return (
                         <button
                           key={key}
                           onClick={() => handleChainSelect(key)}
                           disabled={chainSwitching}
                           className={cn(
-                            "flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-medium border-2 transition-all duration-200",
+                            "relative flex items-center gap-2.5 px-3 py-3 rounded-xl border-2 transition-all duration-200 text-left group",
                             selected
-                              ? "bg-blue-500/15 border-blue-500/50 text-blue-200"
-                              : "bg-muted/30 border-transparent text-muted-foreground hover:border-muted-foreground/20"
+                              ? cn(b.bg, b.border, "shadow-sm", b.glow)
+                              : "bg-muted/20 border-transparent hover:bg-muted/40 hover:border-muted-foreground/15"
                           )}
                         >
-                          <span className="text-sm font-semibold">{chain.name}</span>
+                          <div className={cn(
+                            "flex items-center justify-center size-8 rounded-lg transition-colors duration-200",
+                            selected ? cn(b.bg, b.color) : "bg-muted/50 text-muted-foreground group-hover:text-foreground/70"
+                          )}>
+                            {b.icon}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className={cn(
+                              "text-sm font-semibold transition-colors",
+                              selected ? "text-foreground" : "text-muted-foreground group-hover:text-foreground/80"
+                            )}>
+                              {chain.name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground/50 font-mono">
+                              USDC
+                            </span>
+                          </div>
+                          {selected && (
+                            <div className={cn(
+                              "absolute top-2 right-2 size-5 rounded-full flex items-center justify-center",
+                              b.bg, b.border, "border"
+                            )}>
+                              <Check className={cn("size-3", b.color)} />
+                            </div>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                   {chainSwitching && (
-                    <p className="text-xs text-muted-foreground text-center">Switching chain in wallet...</p>
+                    <div className="flex items-center justify-center gap-2 py-1">
+                      <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground">Switching chain in wallet...</p>
+                    </div>
                   )}
                 </div>
               )}
+
               {/* Amount selection */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Select amount</label>
@@ -328,14 +445,20 @@ export function TopUpSheet() {
                         className={cn(
                           "relative flex flex-col items-center gap-0.5 py-3 rounded-xl text-sm font-semibold border-2 transition-all duration-200",
                           selected
-                            ? "bg-blue-500/15 border-blue-500/50 text-blue-200 shadow-sm shadow-blue-500/10"
+                            ? cn(brand.bg, brand.border, "shadow-sm", brand.glow, "text-foreground")
                             : "bg-muted/30 border-transparent text-muted-foreground hover:border-muted-foreground/20 hover:text-foreground"
                         )}
                       >
                         <span className="text-lg font-bold">${amt}</span>
                         <span className="text-[10px] font-normal text-muted-foreground">USDC</span>
                         {selected && (
-                          <div className="absolute -top-px -right-px size-4 rounded-full bg-blue-500 flex items-center justify-center">
+                          <div className={cn(
+                            "absolute -top-px -right-px size-4 rounded-full flex items-center justify-center",
+                            selectedChain === "ethereum" ? "bg-indigo-500"
+                              : selectedChain === "arbitrum" ? "bg-cyan-500"
+                              : selectedChain === "optimism" ? "bg-red-500"
+                              : "bg-blue-500"
+                          )}>
                             <Check className="size-2.5 text-white" />
                           </div>
                         )}
@@ -351,16 +474,22 @@ export function TopUpSheet() {
                 </div>
               </div>
 
-              {/* Send button */}
+              {/* Send button — color matches selected chain */}
               <button
                 onClick={handleSendTopUp}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold
-                  bg-gradient-to-r from-blue-500 to-cyan-500
-                  text-white shadow-lg shadow-blue-500/25
-                  hover:from-blue-400 hover:to-cyan-400 hover:shadow-blue-500/40
-                  active:scale-[0.98] transition-all duration-200"
+                className={cn(
+                  "flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold",
+                  "bg-gradient-to-r text-white shadow-lg",
+                  "active:scale-[0.98] transition-all duration-200",
+                  ctaGradient
+                )}
               >
                 Send ${topUpAmount.toFixed(2)} USDC
+                {multiChain && chainConfigs?.[selectedChain] && (
+                  <span className="text-white/60 font-normal">
+                    via {chainConfigs[selectedChain].name}
+                  </span>
+                )}
               </button>
 
               {topUpError && (
