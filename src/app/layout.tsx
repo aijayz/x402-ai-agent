@@ -4,9 +4,23 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Obol AI",
+  metadataBase: new URL(
+    process.env.URL || "https://obolai.vercel.app"
+  ),
+  title: {
+    default: "Obol AI",
+    template: "%s | Obol AI",
+  },
   description: "AI agent that pays for intelligence via x402 micropayments on Base",
   icons: { icon: "/icon.svg" },
+  openGraph: {
+    siteName: "Obol AI",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
 };
 
 export default function RootLayout({
