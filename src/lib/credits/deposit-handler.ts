@@ -11,6 +11,12 @@ interface AlchemyActivity {
   value: number;
   asset: string;
   hash: string;
+  category: string;
+  rawContract?: {
+    rawValue: string;
+    address: string;
+    decimals: number;
+  };
 }
 
 interface AlchemyWebhookPayload {
@@ -68,9 +74,13 @@ export async function handleDepositWebhook(
 
   const depositAddress = chainConfig.depositAddress.toLowerCase();
 
+  const usdcAddress = chainConfig.usdcAddress.toLowerCase();
+
   for (const activity of payload.event.activity) {
+    // Only process ERC20 token transfers of USDC to our deposit address
+    if (activity.category !== "token") continue;
     if (activity.asset !== "USDC") continue;
-    // Must be sent TO our deposit address (not outbound sweeps)
+    if (activity.rawContract?.address?.toLowerCase() !== usdcAddress) continue;
     if (activity.toAddress.toLowerCase() !== depositAddress) continue;
 
     const senderAddress = activity.fromAddress;
