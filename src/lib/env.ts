@@ -25,7 +25,12 @@ export const env = createEnv({
     // Cron authentication
     CRON_SECRET: z.string().optional(),
 
-    // Alchemy webhook signature verification
+    // Alchemy webhook signature verification (per-chain)
+    ALCHEMY_WEBHOOK_KEY_BASE: z.string().optional(),
+    ALCHEMY_WEBHOOK_KEY_ETHEREUM: z.string().optional(),
+    ALCHEMY_WEBHOOK_KEY_ARBITRUM: z.string().optional(),
+    ALCHEMY_WEBHOOK_KEY_OPTIMISM: z.string().optional(),
+    // Legacy fallback — used if ALCHEMY_WEBHOOK_KEY_BASE is not set
     ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
 
     // x402 service URLs (optional — real adapters use these on mainnet; stubs used on testnet)
@@ -67,6 +72,10 @@ export const env = createEnv({
     URL: process.env.URL,
     DATABASE_URL: process.env.DATABASE_URL,
     CRON_SECRET: process.env.CRON_SECRET,
+    ALCHEMY_WEBHOOK_KEY_BASE: process.env.ALCHEMY_WEBHOOK_KEY_BASE,
+    ALCHEMY_WEBHOOK_KEY_ETHEREUM: process.env.ALCHEMY_WEBHOOK_KEY_ETHEREUM,
+    ALCHEMY_WEBHOOK_KEY_ARBITRUM: process.env.ALCHEMY_WEBHOOK_KEY_ARBITRUM,
+    ALCHEMY_WEBHOOK_KEY_OPTIMISM: process.env.ALCHEMY_WEBHOOK_KEY_OPTIMISM,
     ALCHEMY_WEBHOOK_SIGNING_KEY: process.env.ALCHEMY_WEBHOOK_SIGNING_KEY,
     RUGMUNCH_URL: process.env.RUGMUNCH_URL,
     AUGUR_URL: process.env.AUGUR_URL,
