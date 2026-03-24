@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
@@ -108,10 +108,10 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="relative py-24 px-6">
         <div className="max-w-3xl mx-auto text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-          {/* Protocol badge */}
+          {/* Value badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border/60 bg-muted/30 backdrop-blur-sm text-xs text-muted-foreground animate-in fade-in duration-1000">
             <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 animate-pulse" />
-            Built on x402 protocol
+            No subscription — pay only for what you use
           </div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground">
             AI agent that{" "}
@@ -120,9 +120,9 @@ export default function LandingPage() {
             </span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Ask anything about crypto. Obol AI orchestrates multiple paid services,
-            handles USDC micropayments on Base automatically, and cross-references
-            results from independent sources.
+            Ask anything about crypto. Obol orchestrates multiple paid services,
+            handles USDC micropayments automatically, and cross-references
+            results from independent sources — no subscription required.
           </p>
           <div className="pt-6 flex flex-col items-center gap-4">
             <Link
@@ -141,6 +141,50 @@ export default function LandingPage() {
               <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform duration-300" />
             </Link>
             <span className="text-sm text-muted-foreground/70">2 free tool calls — no wallet needed</span>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="relative py-16 px-6 border-t border-border/50">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <h2 className="text-2xl font-semibold text-foreground mb-2">How it works</h2>
+            <p className="text-sm text-muted-foreground">Three steps from question to cross-referenced answer</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Search,
+                step: "1",
+                title: "Ask anything",
+                description: "Type a question about any token, wallet, or DeFi protocol. No setup needed.",
+              },
+              {
+                icon: GitBranch,
+                step: "2",
+                title: "AI orchestrates services",
+                description: "Obol picks the right combination of independent research services and pays them automatically.",
+              },
+              {
+                icon: Shield,
+                step: "3",
+                title: "Cross-referenced results",
+                description: "Get answers verified across multiple sources — not just one provider's opinion.",
+              },
+            ].map((item, i) => (
+              <div
+                key={item.step}
+                className="relative rounded-xl border border-border/50 bg-zinc-900/80 p-6 text-center space-y-3 animate-in fade-in slide-in-from-bottom-3 fill-mode-both"
+                style={{ animationDelay: `${100 + i * 100}ms`, animationDuration: "500ms" }}
+              >
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 mx-auto">
+                  <item.icon className="size-4 text-blue-400" />
+                </div>
+                <h3 className="font-medium text-foreground">{item.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -187,10 +231,10 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <h2 className="text-2xl font-semibold text-foreground mb-2">
-              Paid MCP tools
+              Quick tools
             </h2>
             <p className="text-sm text-muted-foreground">
-              Individual tools paid per-call via x402 micropayments
+              Individual tools paid per-call — from $0.01 per query
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
@@ -222,7 +266,7 @@ export default function LandingPage() {
             <div className="rounded-xl border border-border/50 bg-zinc-900/80 p-6 space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both" style={{ animationDelay: "100ms" }}>
               <h3 className="font-semibold text-foreground">Free</h3>
               <p className="text-sm text-muted-foreground">
-                2 free tool calls. Prices, summaries, images, and basic analysis.
+                2 free tool calls — no wallet needed. Connect a wallet to get up to $0.50 in free credits.
               </p>
               <p className="text-2xl font-bold text-foreground">$0</p>
             </div>
@@ -238,7 +282,7 @@ export default function LandingPage() {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Connect wallet, deposit USDC. Access all research clusters and premium tools.
+                  Deposit USDC from Base, Ethereum, Arbitrum, or Optimism. Access all research clusters and premium tools.
                 </p>
                 <p className="text-2xl font-bold text-foreground mt-3">Pay as you go</p>
               </div>
@@ -251,7 +295,9 @@ export default function LandingPage() {
       <footer className="relative border-t border-border/50 py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
-            <span>Built with the x402 protocol on</span>
+            <span>Powered by</span>
+            <a href="https://x402.org" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-blue-400 transition-colors">x402</a>
+            <span>on</span>
             <a href="https://base.org" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-blue-400 transition-colors">Base</a>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">

@@ -67,10 +67,10 @@ export default function ChatLayout({
                 <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-400" />
                 <span>USDC</span>
               </div>
-              <span className="text-gray-300 dark:text-gray-600">on</span>
+              <span className="text-gray-300 dark:text-gray-600">×</span>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-purple-500 to-blue-500" />
-                <span className="font-medium text-gray-700 dark:text-gray-300">Base</span>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Multi-chain</span>
               </div>
             </div>
 

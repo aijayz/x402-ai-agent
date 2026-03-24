@@ -16,7 +16,7 @@ import {
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
@@ -69,6 +69,22 @@ const capabilities = [
     prompts: [
       "What's the narrative around Solana on Twitter?",
       "Summarize crypto sentiment from Farcaster",
+    ],
+  },
+  {
+    icon: PieChart,
+    title: "Wallet Portfolio",
+    prompts: [
+      "Analyze wallet 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+      "What's the risk profile of my wallet?",
+    ],
+  },
+  {
+    icon: Zap,
+    title: "Token Alpha",
+    prompts: [
+      "Screen PEPE for alpha signals",
+      "What tokens have the best holder quality right now?",
     ],
   },
 ];
