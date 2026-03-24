@@ -1,0 +1,450 @@
+{
+  "timestamp": "2026-03-24T13:49:56.967Z",
+  "network": "base",
+  "wallet": "0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e",
+  "totalCostMicroUsdc": 13000,
+  "totalCases": 15,
+  "results": [
+    {
+      "service": "augur",
+      "description": "WETH risk score",
+      "input": {
+        "address": "0x4200000000000000000000000000000000000006"
+      },
+      "status": "error",
+      "responseTimeMs": 2757,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "x402: service https://augurrisk.com/analyze?address=0x4200000000000000000000000000000000000006 returned 402 after payment (100000 micro-USDC charged). Body: {}",
+      "timestamp": "2026-03-24T13:49:23.471Z"
+    },
+    {
+      "service": "augur",
+      "description": "AERO risk score",
+      "input": {
+        "address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631"
+      },
+      "status": "error",
+      "responseTimeMs": 1935,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "x402: service https://augurrisk.com/analyze?address=0x940181a94A35A4569E4529A3CDfB74e38FD98631 returned 402 after payment (100000 micro-USDC charged). Body: {}",
+      "timestamp": "2026-03-24T13:49:25.408Z"
+    },
+    {
+      "service": "slamai-wallet",
+      "description": "Vitalik wallet profile",
+      "input": {
+        "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+      },
+      "status": "error",
+      "responseTimeMs": 10037,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "Expected ',' or '}' after property value in JSON at position 2004 (line 1 column 2005)",
+      "timestamp": "2026-03-24T13:49:35.445Z"
+    },
+    {
+      "service": "slamai-wallet",
+      "description": "Binance wallet profile",
+      "input": {
+        "address": "0x28C6c06298d514Db089934071355E5743bf21d60"
+      },
+      "status": "error",
+      "responseTimeMs": 3975,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "Expected ':' after property name in JSON at position 2000 (line 1 column 2001)",
+      "timestamp": "2026-03-24T13:49:39.420Z"
+    },
+    {
+      "service": "slamai-token-holders",
+      "description": "WETH top holders",
+      "input": {
+        "address": "0x4200000000000000000000000000000000000006"
+      },
+      "status": "error",
+      "responseTimeMs": 2613,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "x402: service https://api.slamai.dev/token/holder/reputation?blockchain=base&address=0x4200000000000000000000000000000000000006 returned 402 after payment (1000 micro-USDC charged). Body: {\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://api.slamai.dev/token/holder/reputation\",\"description\":\"Returns reputation scores for one o",
+      "timestamp": "2026-03-24T13:49:42.033Z"
+    },
+    {
+      "service": "slamai-token-holders",
+      "description": "AERO top holders",
+      "input": {
+        "address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631"
+      },
+      "status": "error",
+      "responseTimeMs": 1797,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "x402: service https://api.slamai.dev/token/holder/reputation?blockchain=base&address=0x940181a94A35A4569E4529A3CDfB74e38FD98631 returned 402 after payment (1000 micro-USDC charged). Body: {\"x402Version\":1,\"accepts\":[{\"scheme\":\"exact\",\"network\":\"base\",\"maxAmountRequired\":\"1000\",\"resource\":\"https://api.slamai.dev/token/holder/reputation\",\"description\":\"Returns reputation scores for one o",
+      "timestamp": "2026-03-24T13:49:43.830Z"
+    },
+    {
+      "service": "genvox",
+      "description": "Bitcoin sentiment",
+      "input": {
+        "topic": "bitcoin"
+      },
+      "status": "error",
+      "responseTimeMs": 1587,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "x402: service https://api.genvox.io/v1/sentiment/bitcoin returned 402 after payment (30000 micro-USDC charged). Body: {}",
+      "timestamp": "2026-03-24T13:49:45.417Z"
+    },
+    {
+      "service": "genvox",
+      "description": "Ethereum sentiment",
+      "input": {
+        "topic": "ethereum"
+      },
+      "status": "error",
+      "responseTimeMs": 1745,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "x402: service https://api.genvox.io/v1/sentiment/ethereum returned 402 after payment (30000 micro-USDC charged). Body: {}",
+      "timestamp": "2026-03-24T13:49:47.162Z"
+    },
+    {
+      "service": "qs-token-security",
+      "description": "WETH token security",
+      "input": {
+        "address": "0x4200000000000000000000000000000000000006"
+      },
+      "status": "success",
+      "responseTimeMs": 2729,
+      "costMicroUsdc": 2000,
+      "dataPreview": {
+        "address": "0x4200000000000000000000000000000000000006",
+        "chain": "base",
+        "chainId": "8453",
+        "name": "Wrapped Ether",
+        "symbol": "WETH",
+        "riskScore": 0,
+        "riskLevel": "LOW",
+        "risks": [],
+        "warnings": [],
+        "metrics": {
+          "holders": 5026937,
+          "lpHolders": 79,
+          "buyTax": 0,
+          "sellTax": 0,
+          "isOpenSource": true,
+          "isProxy": false
+        },
+        "sources": {
+          "goplus": true,
+          "honeypot": true,
+          "cached": false
+        },
+        "timestamp": "2026-03-24T13:49:49.846Z"
+      },
+      "hasData": true,
+      "dataKeys": [
+        "address",
+        "chain",
+        "chainId",
+        "name",
+        "symbol",
+        "riskScore",
+        "riskLevel",
+        "risks",
+        "warnings",
+        "metrics",
+        "sources",
+        "timestamp"
+      ],
+      "timestamp": "2026-03-24T13:49:49.891Z"
+    },
+    {
+      "service": "qs-token-security",
+      "description": "AERO token security",
+      "input": {
+        "address": "0x940181a94A35A4569E4529A3CDfB74e38FD98631"
+      },
+      "status": "success",
+      "responseTimeMs": 1136,
+      "costMicroUsdc": 2000,
+      "dataPreview": {
+        "address": "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+        "chain": "base",
+        "chainId": "8453",
+        "name": "Aerodrome",
+        "symbol": "AERO",
+        "riskScore": 10,
+        "riskLevel": "LOW",
+        "risks": [],
+        "warnings": [
+          "mintable_supply"
+        ],
+        "metrics": {
+          "holders": 744898,
+          "lpHolders": 126,
+          "buyTax": 0,
+          "sellTax": 0,
+          "isOpenSource": true,
+          "isProxy": false
+        },
+        "sources": {
+          "goplus": true,
+          "honeypot": true,
+          "cached": false
+        },
+        "timestamp": "2026-03-24T13:49:50.974Z"
+      },
+      "hasData": true,
+      "dataKeys": [
+        "address",
+        "chain",
+        "chainId",
+        "name",
+        "symbol",
+        "riskScore",
+        "riskLevel",
+        "risks",
+        "warnings",
+        "metrics",
+        "sources",
+        "timestamp"
+      ],
+      "timestamp": "2026-03-24T13:49:51.027Z"
+    },
+    {
+      "service": "qs-contract-audit",
+      "description": "USDC contract audit",
+      "input": {
+        "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+      },
+      "status": "success",
+      "responseTimeMs": 1635,
+      "costMicroUsdc": 3000,
+      "dataPreview": {
+        "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+        "chain": "base",
+        "chainId": "8453",
+        "name": "USD Coin",
+        "symbol": "USDC",
+        "securityScore": 85,
+        "grade": "A",
+        "auditFlags": [
+          "upgradeable_proxy"
+        ],
+        "flagCount": 1,
+        "criticalIssues": [],
+        "warnings": [
+          "Contract is upgradeable - logic can change"
+        ],
+        "contractDetails": {
+          "isOpenSource": true,
+          "isProxy": true,
+          "hasSelfdestruct": false,
+          "hasExternalCalls": false,
+          "creator": "0x6aAFF8af0ae8017725312C388bA3745dfE91185B",
+          "owner": "0x4fc7850364958d97b4d3f5a08f79db2493f8ca44",
+          "totalSupply": "4349517741.980831",
+          "holderCount": 8024117
+        },
+        "ownershipRisks": {
+          "canReclaimOwnership": false,
+          "ownerCanChangeBalance": false,
+          "hiddenOwner": false,
+          "ownerAddress": "0x4fc7850364958d97b4d3f5a08f79db2493f8ca44"
+        },
+        "tradingRestrictions": {
+          "cannotBuy": false,
+          "cannotSellAll": false,
+          "hasTradingCooldown": false,
+          "hasBlacklist": false,
+          "hasWhitelist": false,
+          "hasAntiWhale": false
+        },
+        "tokenomics": {
+          "isMintable": false,
+          "buyTax": 0,
+          "sellTax": 0,
+          "totalTax": 0
+        },
+        "cached": false,
+        "source": "GoPlus Security API",
+        "timestamp": "2026-03-24T13:49:52.616Z"
+      },
+      "hasData": true,
+      "dataKeys": [
+        "address",
+        "chain",
+        "chainId",
+        "name",
+        "symbol",
+        "securityScore",
+        "grade",
+        "auditFlags",
+        "flagCount",
+        "criticalIssues",
+        "warnings",
+        "contractDetails",
+        "ownershipRisks",
+        "tradingRestrictions",
+        "tokenomics",
+        "cached",
+        "source",
+        "timestamp"
+      ],
+      "timestamp": "2026-03-24T13:49:52.662Z"
+    },
+    {
+      "service": "qs-wallet-risk",
+      "description": "Vitalik wallet risk",
+      "input": {
+        "address": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+      },
+      "status": "success",
+      "responseTimeMs": 1348,
+      "costMicroUsdc": 2000,
+      "dataPreview": {
+        "address": "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+        "chain": "ethereum",
+        "chainId": "1",
+        "riskScore": 0,
+        "riskLevel": "LOW",
+        "risks": [],
+        "riskCategories": [],
+        "addressType": "contract",
+        "details": {
+          "hasStealingAttack": false,
+          "hasCybercrime": false,
+          "hasPhishingActivity": false,
+          "hasMoneyLaundering": false,
+          "hasFinancialCrime": false,
+          "hasDarkwebTx": false,
+          "hasMaliciousMining": false,
+          "isBlacklisted": false,
+          "isHoneypotRelated": false,
+          "hasFakeKYC": false
+        },
+        "summary": "No known risks detected",
+        "cached": false,
+        "source": "GoPlus Security API",
+        "timestamp": "2026-03-24T13:49:53.967Z"
+      },
+      "hasData": true,
+      "dataKeys": [
+        "address",
+        "chain",
+        "chainId",
+        "riskScore",
+        "riskLevel",
+        "risks",
+        "riskCategories",
+        "addressType",
+        "details",
+        "summary",
+        "cached",
+        "source",
+        "timestamp"
+      ],
+      "timestamp": "2026-03-24T13:49:54.010Z"
+    },
+    {
+      "service": "qs-whale-activity",
+      "description": "WETH whale activity",
+      "input": {
+        "address": "0x4200000000000000000000000000000000000006"
+      },
+      "status": "error",
+      "responseTimeMs": 1018,
+      "costMicroUsdc": 0,
+      "dataPreview": null,
+      "hasData": false,
+      "error": "Expected ',' or '}' after property value in JSON at position 2000 (line 1 column 2001)",
+      "timestamp": "2026-03-24T13:49:55.029Z"
+    },
+    {
+      "service": "messari-token-unlocks",
+      "description": "ETH token unlocks",
+      "input": {
+        "target": "ethereum"
+      },
+      "status": "success",
+      "responseTimeMs": 1637,
+      "costMicroUsdc": 0,
+      "dataPreview": {
+        "found": true,
+        "token": {
+          "id": "21c795f5-1bfd-40c3-858e-e9d7e820c6d0",
+          "serialId": 6059,
+          "symbol": "ETH",
+          "name": "Ethereum",
+          "genesisDate": "2015-08-07T00:00:00Z",
+          "projectedEndDate": "2021-08-04T00:00:00Z",
+          "slug": "ethereum",
+          "category": "Networks",
+          "sector": "Smart Contract Platform",
+          "tags": [
+            "EVM",
+            "Proof-of-Stake",
+            "Stakeable"
+          ],
+          "otherInfo": null
+        },
+        "source": "Messari token-unlocks catalog"
+      },
+      "hasData": true,
+      "dataKeys": [
+        "found",
+        "token",
+        "source"
+      ],
+      "timestamp": "2026-03-24T13:49:56.667Z"
+    },
+    {
+      "service": "messari-token-unlocks",
+      "description": "ARB token unlocks",
+      "input": {
+        "target": "arbitrum"
+      },
+      "status": "success",
+      "responseTimeMs": 299,
+      "costMicroUsdc": 0,
+      "dataPreview": {
+        "found": true,
+        "token": {
+          "id": "a288b358-f3d3-4ecd-aa30-c45c84f666ee",
+          "serialId": 6257,
+          "symbol": "ARB",
+          "name": "Arbitrum",
+          "genesisDate": "2023-03-16T00:00:00Z",
+          "projectedEndDate": "2027-04-16T00:00:00Z",
+          "slug": "arbitrum",
+          "category": "Networks",
+          "sector": "Scaling Solutions",
+          "tags": [
+            "Ethereum Layer-2",
+            "EVM",
+            "Optimistic (Fraud Proofs)"
+          ],
+          "otherInfo": "The tokens allocated to the DAO Treasury due to inflation are not accounted for in the unlock data below. "
+        },
+        "source": "Messari token-unlocks catalog"
+      },
+      "hasData": true,
+      "dataKeys": [
+        "found",
+        "token",
+        "source"
+      ],
+      "timestamp": "2026-03-24T13:49:56.966Z"
+    }
+  ]
+}
