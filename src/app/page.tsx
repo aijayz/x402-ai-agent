@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
@@ -300,9 +300,15 @@ export default function LandingPage() {
             <span>on</span>
             <a href="https://base.org" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-blue-400 transition-colors">Base</a>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
-            <div className="w-1 h-1 rounded-full bg-green-500" />
-            All systems operational
+          <div className="flex items-center gap-4">
+            <a href="mailto:support@obolai.xyz" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
+              <Mail className="size-3" />
+              support@obolai.xyz
+            </a>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50">
+              <div className="w-1 h-1 rounded-full bg-green-500" />
+              All systems operational
+            </div>
           </div>
         </div>
       </footer>
