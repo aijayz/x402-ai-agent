@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { getOrCreatePurchaserAccount, getChain } from "@/lib/accounts";
 import { createPublicClient, http, parseAbi } from "viem";
+import { sendTelegramAlert } from "@/lib/telegram";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -10,23 +11,6 @@ const USDC_ADDRESS: Record<string, `0x${string}`> = {
 
 // Warn if house wallet USDC drops below this (in USDC, not micro)
 const LOW_BALANCE_THRESHOLD = 5;
-
-async function sendTelegramAlert(message: string) {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: env.TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: "Markdown",
-      }),
-    });
-  } catch (err) {
-    console.error("[TELEGRAM] Failed to send alert", err);
-  }
-}
 
 export async function GET(req: Request) {
   if (!env.CRON_SECRET) {

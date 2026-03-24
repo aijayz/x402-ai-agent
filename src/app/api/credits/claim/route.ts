@@ -4,6 +4,7 @@ import { CreditStore, MICRO_USDC } from "@/lib/credits/credit-store";
 import { getWalletAgeDays } from "@/lib/credits/wallet-age";
 import { env } from "@/lib/env";
 import { walletAuthSetCookie } from "@/lib/wallet-auth";
+import { sendTelegramAlert } from "@/lib/telegram";
 
 const ClaimSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -46,6 +47,11 @@ export async function POST(req: Request) {
   const grantMicroUsdc = grantAmountFromAge(ageDays);
 
   const newBalance = await CreditStore.grantFreeCredits(walletAddress, grantMicroUsdc);
+
+  const grantUsdc = (grantMicroUsdc / 1_000_000).toFixed(2);
+  await sendTelegramAlert(
+    `*New User*\n\nWallet: \`${walletAddress}\`\nGranted: *$${grantUsdc}* free credits\nWallet age: ${ageDays != null ? `${ageDays} days` : "unknown"}\nNetwork: ${env.NETWORK}`
+  );
 
   const res = NextResponse.json({
     granted: grantMicroUsdc,

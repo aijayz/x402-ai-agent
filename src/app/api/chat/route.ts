@@ -14,6 +14,8 @@ import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
 import { checkAndIncrementIpFreeCalls, decrementIpFreeCalls } from "@/lib/rate-limit";
 import { getVerifiedWallet } from "@/lib/wallet-auth";
+import { sendTelegramAlert } from "@/lib/telegram";
+import { TOOL_PRICES } from "@/lib/tool-prices";
 
 const SESSION_COOKIE_MAX_AGE = 1800; // 30 minutes
 
@@ -195,14 +197,6 @@ export const POST = async (request: Request) => {
           freeCallsRemaining: walletAddress ? undefined : freeCallsRemaining,
         }),
         onStepFinish: async ({ toolResults }) => {
-          // Known prices per tool (must match MCP server paidTool prices)
-          const TOOL_PRICES: Record<string, number> = {
-            get_crypto_price: 0.01,
-            get_wallet_profile: 0.02,
-            summarize_url: 0.03,
-            analyze_contract: 0.03,
-            generate_image: 0.05,
-          };
           for (const toolResult of toolResults ?? []) {
             const output = toolResult.output as Record<string, unknown> | undefined;
             const meta = output?._meta as Record<string, unknown> | undefined;
@@ -236,6 +230,9 @@ export const POST = async (request: Request) => {
                       txHash: paymentResponse.transaction,
                       chargedMicro,
                     });
+                    await sendTelegramAlert(
+                      `*Payment Failure*\n\nOn-chain payment succeeded but credit deduction failed.\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${paymentResponse.transaction}\`\nNetwork: ${env.NETWORK}`
+                    );
                   }
 
                   await SpendEventStore.record({

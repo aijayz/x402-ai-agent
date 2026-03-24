@@ -7,6 +7,7 @@ import { getChain } from "@/lib/accounts";
 import { generateText } from "ai";
 import { getModel } from "@/lib/ai-provider";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
+import { TOOL_PRICES } from "@/lib/tool-prices";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -52,7 +53,7 @@ async function getHandler() {
         server.paidTool(
           "get_crypto_price",
           "Get live cryptocurrency price, 24h change, and market cap for any token. Accepts token symbols (BTC, ETH, CRO), names (bitcoin, cronos), or CoinGecko IDs.",
-          { price: 0.01 },
+          { price: TOOL_PRICES.get_crypto_price },
           {
             token: z.string().describe("Token symbol (e.g. 'BTC', 'ETH', 'CRO') or name (e.g. 'bitcoin', 'ethereum', 'cronos')"),
           },
@@ -117,7 +118,7 @@ async function getHandler() {
         server.paidTool(
           "get_wallet_profile",
           "Get ETH balance, USDC balance, and transaction count for any EVM address on Base",
-          { price: 0.02 },
+          { price: TOOL_PRICES.get_wallet_profile },
           {
             address: z.string().describe("EVM wallet address (0x...)"),
           },
@@ -166,7 +167,7 @@ async function getHandler() {
         server.paidTool(
           "summarize_url",
           "Fetch a webpage and return an AI-generated summary of its content",
-          { price: 0.03 },
+          { price: TOOL_PRICES.summarize_url },
           {
             url: z.string().url().describe("URL to fetch and summarize"),
           },
@@ -223,7 +224,7 @@ async function getHandler() {
         server.paidTool(
           "analyze_contract",
           "Fetch a verified smart contract's source code from Basescan and provide AI analysis of its purpose, functions, and risks",
-          { price: 0.03 },
+          { price: TOOL_PRICES.analyze_contract },
           {
             address: z.string().describe("Contract address on Base (0x...)"),
           },
@@ -288,7 +289,7 @@ async function getHandler() {
         server.paidTool(
           "generate_image",
           "Generate an AI image from a text prompt using Pollinations.ai",
-          { price: 0.05 },
+          { price: TOOL_PRICES.generate_image },
           {
             prompt: z.string().describe("Text description of the image to generate"),
             width: z.number().int().min(256).max(1024).default(512).describe("Image width in pixels"),

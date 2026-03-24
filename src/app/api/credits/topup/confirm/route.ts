@@ -7,6 +7,7 @@ import { SpendEventStore } from "@/lib/credits/spend-store";
 import { getOrCreatePurchaserAccount } from "@/lib/accounts";
 import { env } from "@/lib/env";
 import { sql } from "@/lib/db";
+import { sendTelegramAlert } from "@/lib/telegram";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -121,6 +122,11 @@ export async function POST(req: Request) {
     }
 
     const newBalance = Number(creditRows[0].balance_micro_usdc);
+    const depositUsdc = (amountMicro / 1_000_000).toFixed(2);
+    await sendTelegramAlert(
+      `*Top-Up Received*\n\nWallet: \`${walletAddress}\`\nDeposit: *$${depositUsdc}* USDC\nNew balance: $${(newBalance / 1_000_000).toFixed(2)}\nTx: \`${txHash}\`\nNetwork: ${env.NETWORK}`
+    );
+
     return NextResponse.json({
       credited: true,
       amountUsdc: amountMicro / 1_000_000,
