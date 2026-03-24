@@ -1,5 +1,5 @@
 import { handleDepositWebhook } from "@/lib/credits/deposit-handler";
 
 export async function POST(req: Request) {
-  return handleDepositWebhook("base", req);
+  return handleDepositWebhook("optimism", req);
 }
