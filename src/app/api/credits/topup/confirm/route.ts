@@ -1,23 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPublicClient, http, parseEventLogs, erc20Abi } from "viem";
-import { baseSepolia, base } from "viem/chains";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
 import { getOrCreatePurchaserAccount } from "@/lib/accounts";
+import { getChainConfig } from "@/lib/chains";
 import { env } from "@/lib/env";
 import { sql } from "@/lib/db";
 import { sendTelegramAlert } from "@/lib/telegram";
 import { getVerifiedWallet } from "@/lib/wallet-auth";
 
-const USDC_ADDRESS: Record<string, `0x${string}`> = {
-  "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
-  base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-};
-
 const ConfirmSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
   txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  sourceChain: z.string().default("base"),
 });
 
 export async function POST(req: Request) {
@@ -33,14 +29,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const { txHash } = parsed.data;
+  const { txHash, sourceChain } = parsed.data;
   // Use the verified wallet from cookie — ignore body's walletAddress
   const walletAddress = verifiedWallet;
 
-  // Check idempotency — don't double-credit
-  const alreadyProcessed = await SpendEventStore.existsByTxHash(txHash);
+  // Resolve chain config
+  const chainConfig = getChainConfig(sourceChain, env.NETWORK);
+  if (!chainConfig) {
+    return NextResponse.json({ error: `Unsupported chain: ${sourceChain}` }, { status: 400 });
+  }
+
+  // Check idempotency — don't double-credit (scoped to chain)
+  const alreadyProcessed = await SpendEventStore.existsByTxHashAndChain(txHash, sourceChain);
   if (alreadyProcessed) {
-    // Already credited — just return current balance
     const account = await CreditStore.get(walletAddress);
     return NextResponse.json({
       credited: false,
@@ -49,9 +50,11 @@ export async function POST(req: Request) {
     });
   }
 
-  // Verify the tx on-chain
-  const chain = env.NETWORK === "base" ? base : baseSepolia;
-  const client = createPublicClient({ chain, transport: http() });
+  // Verify the tx on the selected chain
+  const client = createPublicClient({
+    chain: chainConfig.viemChain,
+    transport: http(chainConfig.rpcUrl),
+  });
 
   const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` });
   if (!receipt || receipt.status !== "success") {
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
   }
 
   // Parse USDC Transfer events from the receipt
-  const usdcAddress = USDC_ADDRESS[env.NETWORK];
+  const usdcAddress = chainConfig.usdcAddress;
 
   const purchaser = await getOrCreatePurchaserAccount();
   const purchaserAddress = purchaser.address.toLowerCase();
@@ -105,19 +108,17 @@ export async function POST(req: Request) {
   }
 
   // Atomic: insert idempotency record + credit balance in one transaction.
-  // If the idempotency INSERT conflicts (concurrent request), the whole tx is rolled back
-  // and the second caller gets a clean "already_processed" on retry.
   try {
     const results = await sql.transaction([
       sql`
         INSERT INTO spend_events (
           wallet_address, tool_name,
           service_cost_micro_usdc, charged_amount_micro_usdc,
-          markup_bps, tx_hash
+          markup_bps, tx_hash, source_chain
         ) VALUES (
           ${walletAddress}, ${"topup"},
           ${0}, ${-amountMicro},
-          ${0}, ${txHash}
+          ${0}, ${txHash}, ${sourceChain}
         )
       `,
       sql`
@@ -140,7 +141,7 @@ export async function POST(req: Request) {
     const newBalance = Number(creditRows[0].balance_micro_usdc);
     const depositUsdc = (amountMicro / 1_000_000).toFixed(2);
     await sendTelegramAlert(
-      `*Top-Up Received*\n\nWallet: \`${walletAddress}\`\nDeposit: *$${depositUsdc}* USDC\nNew balance: $${(newBalance / 1_000_000).toFixed(2)}\nTx: \`${txHash}\`\nNetwork: ${env.NETWORK}`
+      `*Top-Up Received (${chainConfig.name})*\n\nWallet: \`${walletAddress}\`\nDeposit: *$${depositUsdc}* USDC\nNew balance: $${(newBalance / 1_000_000).toFixed(2)}\nChain: ${chainConfig.name}\nTx: \`${txHash}\`\nNetwork: ${env.NETWORK}`
     );
 
     return NextResponse.json({
@@ -149,7 +150,6 @@ export async function POST(req: Request) {
       balanceMicroUsdc: newBalance,
     });
   } catch (err) {
-    // If the INSERT hit a unique constraint (concurrent duplicate), treat as already processed
     const pgErr = err as { code?: string };
     if (pgErr.code === "23505") {
       const account = await CreditStore.get(walletAddress);
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
         balanceMicroUsdc: account?.balanceMicroUsdc ?? 0,
       });
     }
-    console.error("[TOPUP_CONFIRM] Transaction failed", { walletAddress, txHash, error: err });
+    console.error("[TOPUP_CONFIRM] Transaction failed", { walletAddress, txHash, sourceChain, error: err });
     return NextResponse.json({ error: "Failed to credit account" }, { status: 500 });
   }
 }
