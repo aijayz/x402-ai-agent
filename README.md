@@ -32,6 +32,20 @@ Ask Obol anything crypto-related and it autonomously calls the right combination
 
 Free credits are claimed once on wallet connect. Wallet age is verified via Basescan as a Sybil guard.
 
+## Supported Deposit Chains
+
+Users can deposit USDC from any of these chains. All deposits are credited instantly to the user's Obol balance.
+
+| Chain    | Chain ID | USDC Contract                                | Deposit Address |
+|----------|----------|----------------------------------------------|-----------------|
+| Base     | 8453     | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | `0x58F3...` |
+| Ethereum | 1        | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `0x58F3...` |
+| Arbitrum | 42161    | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` | `0x58F3...` |
+| Optimism | 10       | `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85` | `0x58F3...` |
+
+All chains share the same deposit address: the CDP-managed Purchaser wallet.
+See `docs/ops/multi-chain.md` for full configuration details.
+
 ## x402 Services
 
 Obol orchestrates six independent x402 services grouped into research clusters:

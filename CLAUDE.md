@@ -21,6 +21,13 @@ npx tsx scripts/sweep.ts --to 0xYourColdWallet --wallet purchaser  # Purchaser o
 npx tsx scripts/sweep.ts --to 0xYourColdWallet --wallet seller     # Seller only
 ```
 
+### Operational Docs
+
+See `docs/ops/` for operational runbooks:
+- `sweep.md` — Single-chain and multi-chain wallet sweep instructions
+- `webhooks.md` — Alchemy webhook setup per chain
+- `multi-chain.md` — Chain config reference, deposit addresses, adding new chains
+
 ## Architecture Overview
 
 **Obol AI** is an AI chat agent that orchestrates paid research services via the x402 protocol (HTTP 402 micropayments with USDC on Base). Users get 2 free tool calls, then connect a wallet to claim tiered free credits based on wallet age (Sybil guard). When credits are depleted, users top up with USDC.
