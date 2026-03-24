@@ -30,8 +30,7 @@ the purchaser wallet for USDC transfers.
 Send a small USDC amount to the purchaser address on the target chain.
 Check Vercel function logs for `[WEBHOOK:ethereum]` entries.
 
-## Legacy Migration
+## Env Vars
 
-The old `ALCHEMY_WEBHOOK_SIGNING_KEY` env var is still supported as a
-fallback for the Base webhook. Once `ALCHEMY_WEBHOOK_KEY_BASE` is set,
-the old var can be removed.
+Set all four `ALCHEMY_WEBHOOK_KEY_*` vars on Vercel after creating each webhook.
+A redeploy is required since env vars are inlined at build time.

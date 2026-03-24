@@ -24,7 +24,7 @@ interface AlchemyWebhookPayload {
 /** Get the Alchemy webhook signing key for a given chain. */
 function getWebhookKey(chain: ChainKey): string | undefined {
   const keyMap: Record<ChainKey, string | undefined> = {
-    base: env.ALCHEMY_WEBHOOK_KEY_BASE ?? env.ALCHEMY_WEBHOOK_SIGNING_KEY,
+    base: env.ALCHEMY_WEBHOOK_KEY_BASE,
     ethereum: env.ALCHEMY_WEBHOOK_KEY_ETHEREUM,
     arbitrum: env.ALCHEMY_WEBHOOK_KEY_ARBITRUM,
     optimism: env.ALCHEMY_WEBHOOK_KEY_OPTIMISM,

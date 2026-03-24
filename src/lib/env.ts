@@ -30,8 +30,6 @@ export const env = createEnv({
     ALCHEMY_WEBHOOK_KEY_ETHEREUM: z.string().optional(),
     ALCHEMY_WEBHOOK_KEY_ARBITRUM: z.string().optional(),
     ALCHEMY_WEBHOOK_KEY_OPTIMISM: z.string().optional(),
-    // Legacy fallback — used if ALCHEMY_WEBHOOK_KEY_BASE is not set
-    ALCHEMY_WEBHOOK_SIGNING_KEY: z.string().optional(),
 
     // x402 service URLs (optional — real adapters use these on mainnet; stubs used on testnet)
     RUGMUNCH_URL: z.string().url().optional(),
@@ -76,7 +74,6 @@ export const env = createEnv({
     ALCHEMY_WEBHOOK_KEY_ETHEREUM: process.env.ALCHEMY_WEBHOOK_KEY_ETHEREUM,
     ALCHEMY_WEBHOOK_KEY_ARBITRUM: process.env.ALCHEMY_WEBHOOK_KEY_ARBITRUM,
     ALCHEMY_WEBHOOK_KEY_OPTIMISM: process.env.ALCHEMY_WEBHOOK_KEY_OPTIMISM,
-    ALCHEMY_WEBHOOK_SIGNING_KEY: process.env.ALCHEMY_WEBHOOK_SIGNING_KEY,
     RUGMUNCH_URL: process.env.RUGMUNCH_URL,
     AUGUR_URL: process.env.AUGUR_URL,
     DIAMONDCLAWS_URL: process.env.DIAMONDCLAWS_URL,
