@@ -13,6 +13,7 @@ import { SessionStore } from "@/lib/credits/session-store";
 import { CreditStore } from "@/lib/credits/credit-store";
 import { SpendEventStore } from "@/lib/credits/spend-store";
 import { checkAndIncrementIpFreeCalls, decrementIpFreeCalls } from "@/lib/rate-limit";
+import { getVerifiedWallet } from "@/lib/wallet-auth";
 
 const SESSION_COOKIE_MAX_AGE = 1800; // 30 minutes
 
@@ -32,7 +33,13 @@ export const POST = async (request: Request) => {
   const cookieHeader = request.headers.get("cookie") || "";
   const existingSessionId = cookieHeader.match(/session_id=([^;]+)/)?.[1];
   const sessionId = existingSessionId || crypto.randomUUID();
-  const walletAddress = request.headers.get("x-wallet-address");
+  // Prefer signed cookie; fall back to header for transition period (remove fallback once all clients have cookie)
+  const verifiedWallet = getVerifiedWallet(request);
+  const headerWallet = request.headers.get("x-wallet-address");
+  if (headerWallet && !verifiedWallet) {
+    console.warn("[CHAT] Wallet from header without auth cookie — will be rejected after transition", { headerWallet });
+  }
+  const walletAddress = verifiedWallet || headerWallet;
 
   let budget: BudgetController;
   let freeCallsRemaining: number | undefined;
@@ -286,7 +293,8 @@ export const POST = async (request: Request) => {
 
     // Add session cookie to response
     const headers = new Headers(response.headers);
-    headers.set("Set-Cookie", `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_COOKIE_MAX_AGE}`);
+    const secureSuffix = process.env.NODE_ENV === "production" ? "; Secure" : "";
+    headers.set("Set-Cookie", `session_id=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_COOKIE_MAX_AGE}${secureSuffix}`);
 
     return new Response(response.body, {
       status: response.status,

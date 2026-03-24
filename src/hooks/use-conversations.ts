@@ -22,11 +22,6 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const lastSaveTimeRef = useRef<number>(Date.now());
 
-  const headers = useMemo(
-    () => walletAddress ? { "x-wallet-address": walletAddress } : undefined,
-    [walletAddress],
-  );
-
   /** Fetch conversation list */
   const refresh = useCallback(async () => {
     if (!walletAddress) {
@@ -35,7 +30,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
     }
     setLoading(true);
     try {
-      const res = await fetch("/api/conversations", { headers });
+      const res = await fetch("/api/conversations");
       if (res.ok) {
         const data = await res.json();
         setConversations(data.conversations);
@@ -45,13 +40,13 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
     } finally {
       setLoading(false);
     }
-  }, [walletAddress, headers]);
+  }, [walletAddress]);
 
   /** Load a conversation's messages */
   const load = useCallback(async (id: string): Promise<UIMessage[] | null> => {
     if (!walletAddress) return null;
     try {
-      const res = await fetch(`/api/conversations/${id}`, { headers });
+      const res = await fetch(`/api/conversations/${id}`);
       if (!res.ok) return null;
       const data = await res.json();
       setActiveId(id);
@@ -61,7 +56,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
       console.error("[conversations] Failed to load", err);
       return null;
     }
-  }, [walletAddress, headers]);
+  }, [walletAddress]);
 
   /** Save messages (debounced). Creates new conversation if no activeId or after 30min gap. */
   const save = useCallback((messages: UIMessage[]) => {
@@ -83,7 +78,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
       try {
         const res = await fetch("/api/conversations", {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id: saveId,
             messages,
@@ -101,7 +96,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
         console.error("[conversations] Failed to save", err);
       }
     }, 1000); // 1s debounce
-  }, [walletAddress, activeId, headers, refresh]);
+  }, [walletAddress, activeId, refresh]);
 
   /** Start a new conversation (clear active) */
   const startNew = useCallback(() => {
@@ -117,7 +112,7 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
       setLoading(true);
       try {
         const params = query.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-        const res = await fetch(`/api/conversations${params}`, { headers });
+        const res = await fetch(`/api/conversations${params}`);
         if (res.ok) {
           const data = await res.json();
           setConversations(data.conversations);
@@ -128,22 +123,19 @@ export function useConversations({ walletAddress }: UseConversationsOptions) {
         setLoading(false);
       }
     }, 300);
-  }, [walletAddress, headers]);
+  }, [walletAddress]);
 
   /** Delete a conversation */
   const remove = useCallback(async (id: string) => {
     if (!walletAddress) return;
     try {
-      await fetch(`/api/conversations/${id}`, {
-        method: "DELETE",
-        headers,
-      });
+      await fetch(`/api/conversations/${id}`, { method: "DELETE" });
       if (activeId === id) setActiveId(null);
       refresh();
     } catch (err) {
       console.error("[conversations] Failed to delete", err);
     }
-  }, [walletAddress, activeId, headers, refresh]);
+  }, [walletAddress, activeId, refresh]);
 
   // Fetch conversations when wallet connects
   useEffect(() => {

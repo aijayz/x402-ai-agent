@@ -12,6 +12,9 @@ const USDC_ADDRESS: Record<string, `0x${string}`> = {
 const LOW_BALANCE_THRESHOLD = 5;
 
 export async function GET(req: Request) {
+  if (!env.CRON_SECRET) {
+    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+  }
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

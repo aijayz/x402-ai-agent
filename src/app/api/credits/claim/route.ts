@@ -3,6 +3,7 @@ import { z } from "zod";
 import { CreditStore, MICRO_USDC } from "@/lib/credits/credit-store";
 import { getWalletAgeDays } from "@/lib/credits/wallet-age";
 import { env } from "@/lib/env";
+import { walletAuthSetCookie } from "@/lib/wallet-auth";
 
 const ClaimSchema = z.object({
   walletAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
@@ -29,11 +30,15 @@ export async function POST(req: Request) {
   const { walletAddress } = parsed.data;
   const account = await CreditStore.getOrCreate(walletAddress);
 
+  const cookieHeader = walletAuthSetCookie(walletAddress);
+
   if (account.freeCreditsGranted) {
-    return NextResponse.json({
+    const res = NextResponse.json({
       error: "Free credits already claimed for this wallet",
       balance: account.balanceMicroUsdc,
     }, { status: 409 });
+    res.headers.set("Set-Cookie", cookieHeader);
+    return res;
   }
 
   // Check wallet age via Basescan (free, no API key needed)
@@ -42,9 +47,11 @@ export async function POST(req: Request) {
 
   const newBalance = await CreditStore.grantFreeCredits(walletAddress, grantMicroUsdc);
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     granted: grantMicroUsdc,
     balance: newBalance,
     walletAgeDays: ageDays,
   });
+  res.headers.set("Set-Cookie", cookieHeader);
+  return res;
 }

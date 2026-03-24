@@ -1,11 +1,15 @@
 import { ConversationStore } from "@/lib/credits/conversation-store";
 import { NextResponse } from "next/server";
+import { getVerifiedWallet } from "@/lib/wallet-auth";
+
+const MAX_MESSAGES = 200;
+const MAX_PAYLOAD_BYTES = 512_000; // 500KB
 
 /** GET /api/conversations — list conversations for authenticated wallet */
 export async function GET(request: Request) {
-  const walletAddress = request.headers.get("x-wallet-address");
+  const walletAddress = getVerifiedWallet(request);
   if (!walletAddress) {
-    return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
+    return NextResponse.json({ error: "Wallet authentication required" }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -17,9 +21,15 @@ export async function GET(request: Request) {
 
 /** POST /api/conversations — create or update a conversation */
 export async function POST(request: Request) {
-  const walletAddress = request.headers.get("x-wallet-address");
+  const walletAddress = getVerifiedWallet(request);
   if (!walletAddress) {
-    return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
+    return NextResponse.json({ error: "Wallet authentication required" }, { status: 401 });
+  }
+
+  // Guard against oversized payloads
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && parseInt(contentLength) > MAX_PAYLOAD_BYTES) {
+    return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
   const body = await request.json();
@@ -31,6 +41,10 @@ export async function POST(request: Request) {
 
   if (!messages || !Array.isArray(messages)) {
     return NextResponse.json({ error: "messages array required" }, { status: 400 });
+  }
+
+  if (messages.length > MAX_MESSAGES) {
+    return NextResponse.json({ error: `Too many messages (max ${MAX_MESSAGES})` }, { status: 400 });
   }
 
   // Update existing conversation

@@ -1,14 +1,15 @@
 import { ConversationStore } from "@/lib/credits/conversation-store";
 import { NextResponse } from "next/server";
+import { getVerifiedWallet } from "@/lib/wallet-auth";
 
 /** GET /api/conversations/[id] — load a single conversation */
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const walletAddress = request.headers.get("x-wallet-address");
+  const walletAddress = getVerifiedWallet(request);
   if (!walletAddress) {
-    return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
+    return NextResponse.json({ error: "Wallet authentication required" }, { status: 401 });
   }
 
   const { id } = await params;
@@ -25,9 +26,9 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const walletAddress = request.headers.get("x-wallet-address");
+  const walletAddress = getVerifiedWallet(request);
   if (!walletAddress) {
-    return NextResponse.json({ error: "Wallet address required" }, { status: 401 });
+    return NextResponse.json({ error: "Wallet authentication required" }, { status: 401 });
   }
 
   const { id } = await params;
