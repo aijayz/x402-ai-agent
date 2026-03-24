@@ -17,7 +17,7 @@ export function createClusterFTools(deps: ClusterFDeps) {
     analyze_market_trends: tool({
       description:
         "Analyze market trends — sentiment analysis, liquidity analysis, and smart contract intelligence. " +
-        "Calls external x402 services (GenVox, DiamondClaws, QuantumShield). " +
+        "Calls external x402 services (GenVox, QuantumShield). " +
         "Costs ~$0.03.",
       inputSchema: z.object({
         query: z.string().describe("Market trend query, e.g. 'trending narratives', 'ETH sentiment this week'"),
@@ -43,7 +43,6 @@ export function createClusterFTools(deps: ClusterFDeps) {
         try {
           const baseConfigs = [
             { name: "genvox" as const, input: { topic: query } },
-            { name: "diamond-claws" as const, input: { target: query } },
           ];
           const serviceConfigs = contractAddress
             ? [...baseConfigs, { name: "qs-contract-audit" as const, input: { address: contractAddress } }]

@@ -58,9 +58,7 @@ function normalizeRequirements(raw: Record<string, unknown>): PaymentRequirement
   };
 }
 
-export function parse402Response(body: unknown): { requirements: PaymentRequirements; version: number } | null {
-  if (typeof body !== "object" || body === null) return null;
-  const obj = body as Record<string, unknown>;
+function parsePaymentObject(obj: Record<string, unknown>): { requirements: PaymentRequirements; version: number } | null {
   if (typeof obj.x402Version !== "number") return null;
   if (!Array.isArray(obj.accepts) || obj.accepts.length === 0) return null;
   // Prefer Base mainnet entry; fall back to first
@@ -70,6 +68,24 @@ export function parse402Response(body: unknown): { requirements: PaymentRequirem
     return n === "base" || n === "eip155:8453";
   }) ?? accepts[0];
   return { requirements: normalizeRequirements(baseEntry), version: obj.x402Version as number };
+}
+
+export function parse402Response(body: unknown, headerValue?: string | null): { requirements: PaymentRequirements; version: number } | null {
+  // Try JSON body first (x402 v1 style)
+  if (typeof body === "object" && body !== null) {
+    const result = parsePaymentObject(body as Record<string, unknown>);
+    if (result) return result;
+  }
+  // Fall back to Payment-Required header (x402 v2 style — base64-encoded JSON)
+  if (headerValue) {
+    try {
+      const decoded = JSON.parse(Buffer.from(headerValue, "base64").toString("utf-8"));
+      if (typeof decoded === "object" && decoded !== null) {
+        return parsePaymentObject(decoded as Record<string, unknown>);
+      }
+    } catch { /* not valid base64 JSON */ }
+  }
+  return null;
 }
 
 export async function x402Fetch(
@@ -90,7 +106,8 @@ export async function x402Fetch(
   }
 
   const body402 = await res1.json();
-  const parsed = parse402Response(body402);
+  const paymentRequiredHeader = res1.headers.get("payment-required");
+  const parsed = parse402Response(body402, paymentRequiredHeader);
   if (!parsed) {
     throw new Error(`x402: 402 response missing valid payment requirements from ${url}`);
   }

@@ -6,14 +6,6 @@ import type { X402ServiceAdapter } from "./types";
 type AdapterLoader = () => Promise<X402ServiceAdapter<any, any>>;
 
 const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
-  "rug-munch": {
-    real: () => import("./adapters/rug-munch").then(m => m.rugMunchAdapter),
-    stub: () => import("./adapters/stubs/rug-munch.stub").then(m => m.rugMunchStub),
-  },
-  "diamond-claws": {
-    real: () => import("./adapters/diamond-claws").then(m => m.diamondClawsAdapter),
-    stub: () => import("./adapters/stubs/diamond-claws.stub").then(m => m.diamondClawsStub),
-  },
   "genvox": {
     real: () => import("./adapters/genvox").then(m => m.genvoxAdapter),
     stub: () => import("./adapters/stubs/genvox.stub").then(m => m.genVoxStub),

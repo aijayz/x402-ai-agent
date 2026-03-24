@@ -19,7 +19,7 @@ export function createClusterATools(deps: ClusterADeps) {
     analyze_defi_safety: tool({
       description:
         "Analyze a token or contract for rug pull risks, honeypot detection, and smart contract vulnerabilities. " +
-        "Calls external x402 services (RugMunch, Augur, QuantumShield). " +
+        "Calls external x402 services (Augur, QuantumShield, Messari). " +
         "Costs $0.05-$0.15 depending on depth.",
       inputSchema: z.object({
         target: z.string().describe("Token address, contract address, or token name to analyze"),
@@ -55,14 +55,12 @@ export function createClusterATools(deps: ClusterADeps) {
           // Full: adds QS Contract Audit
           const serviceConfigs = depth === "full"
             ? [
-                { name: "rug-munch", input: { target } },
                 { name: "augur", input: { address: target } },
                 { name: "qs-token-security", input: { address: target } },
                 { name: "qs-contract-audit", input: { address: target } },
                 { name: "messari-token-unlocks", input: { target: messariTarget } },
               ] as const
             : [
-                { name: "rug-munch", input: { target } },
                 { name: "augur", input: { address: target } },
                 { name: "qs-token-security", input: { address: target } },
                 { name: "messari-token-unlocks", input: { target: messariTarget } },
