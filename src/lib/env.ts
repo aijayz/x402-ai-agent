@@ -38,6 +38,10 @@ export const env = createEnv({
     MESSARI_URL: z.string().url().optional(),
     COINGECKO_URL: z.string().url().optional(),
 
+    // Telegram alerts
+    TELEGRAM_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_CHAT_ID: z.string().optional(),
+
     // Upstash Redis (Edge runtime compatible — used for rate limiting)
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
@@ -72,6 +76,8 @@ export const env = createEnv({
     SLAMAI_URL: process.env.SLAMAI_URL,
     MESSARI_URL: process.env.MESSARI_URL,
     COINGECKO_URL: process.env.COINGECKO_URL,
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
   },

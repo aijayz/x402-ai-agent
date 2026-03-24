@@ -11,6 +11,23 @@ const USDC_ADDRESS: Record<string, `0x${string}`> = {
 // Warn if house wallet USDC drops below this (in USDC, not micro)
 const LOW_BALANCE_THRESHOLD = 5;
 
+async function sendTelegramAlert(message: string) {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: env.TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: "Markdown",
+      }),
+    });
+  } catch (err) {
+    console.error("[TELEGRAM] Failed to send alert", err);
+  }
+}
+
 export async function GET(req: Request) {
   if (!env.CRON_SECRET) {
     return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
@@ -39,6 +56,9 @@ export async function GET(req: Request) {
 
     if (balanceUsdc < LOW_BALANCE_THRESHOLD) {
       console.warn(`[CRON] LOW BALANCE: House wallet ${purchaser.address} has $${balanceUsdc.toFixed(2)} USDC (threshold: $${LOW_BALANCE_THRESHOLD})`);
+      await sendTelegramAlert(
+        `⚠️ *Obol AI — Low Balance*\n\nHouse wallet \`${purchaser.address}\`\nBalance: *$${balanceUsdc.toFixed(2)}* USDC\nThreshold: $${LOW_BALANCE_THRESHOLD}\nNetwork: ${env.NETWORK}`
+      );
     } else {
       console.log(`[CRON] House wallet balance: $${balanceUsdc.toFixed(2)} USDC`);
     }
@@ -51,6 +71,9 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("[CRON] Failed to check house wallet balance", err);
+    await sendTelegramAlert(
+      `🔴 *Obol AI — Cron Error*\n\nFailed to check house wallet balance.\nError: ${err instanceof Error ? err.message : "Unknown"}\nNetwork: ${env.NETWORK}`
+    );
     return NextResponse.json({ ok: false, error: "Failed to check balance" }, { status: 500 });
   }
 }
