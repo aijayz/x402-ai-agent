@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { useWallet } from "@/components/wallet-provider";
 import { cn } from "@/lib/utils";
+import { type ChainKey } from "@/lib/chains";
 
 const AMOUNT_PRESETS = [1, 5, 10, 20];
 
@@ -74,7 +75,7 @@ function StepIndicator({ status }: { status: TopUpStatus }) {
 }
 
 export function TopUpSheet() {
-  const { walletAddress, network, topUpOpen, setTopUpOpen, connectWallet, sendUsdc, refreshBalance, onTopUpCompleteRef } = useWallet();
+  const { walletAddress, network, topUpOpen, setTopUpOpen, connectWallet, sendUsdc, switchChain, refreshBalance, onTopUpCompleteRef } = useWallet();
 
   const [depositInfo, setDepositInfo] = useState<{ depositAddress: string; network: string } | null>(null);
   const [topUpAmount, setTopUpAmount] = useState<number>(5);
@@ -82,6 +83,9 @@ export function TopUpSheet() {
   const [topUpTxHash, setTopUpTxHash] = useState<string | null>(null);
   const [topUpError, setTopUpError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [selectedChain, setSelectedChain] = useState<string>("base");
+  const [chainSwitching, setChainSwitching] = useState(false);
+  const [chainConfigs, setChainConfigs] = useState<Record<string, { chainId: number; usdcAddress: string; name: string; explorerBaseUrl: string }> | null>(null);
 
   const fetchingRef = useRef(false);
 
@@ -94,6 +98,7 @@ export function TopUpSheet() {
     setTopUpError(null);
     setTopUpAmount(5);
     setDepositInfo(null);
+    setSelectedChain("base");
 
     fetch("/api/credits/topup", {
       method: "POST",
@@ -103,6 +108,7 @@ export function TopUpSheet() {
       .then((res) => res.json())
       .then((data) => {
         setDepositInfo({ depositAddress: data.depositAddress, network: data.network });
+        if (data.chains) setChainConfigs(data.chains);
         setTopUpStatus("idle");
       })
       .catch(() => {
@@ -125,19 +131,39 @@ export function TopUpSheet() {
     setTopUpOpen(open);
   }, [walletAddress, connectWallet, setTopUpOpen]);
 
+  const handleChainSelect = useCallback(async (chainKey: string) => {
+    if (!chainConfigs || chainKey === selectedChain) return;
+    const chain = chainConfigs[chainKey];
+    if (!chain) return;
+
+    setChainSwitching(true);
+    try {
+      await switchChain(chain.chainId);
+      setSelectedChain(chainKey);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to switch chain";
+      if (!(msg.includes("User denied") || msg.includes("rejected"))) {
+        setTopUpError(`Chain switch failed: ${msg}`);
+      }
+    } finally {
+      setChainSwitching(false);
+    }
+  }, [chainConfigs, selectedChain, switchChain]);
+
   const handleSendTopUp = useCallback(async () => {
     if (!walletAddress || !depositInfo) return;
     setTopUpStatus("sending");
     setTopUpError(null);
     try {
-      const txHash = await sendUsdc(depositInfo.depositAddress, topUpAmount);
+      const selectedConfig = chainConfigs?.[selectedChain];
+      const txHash = await sendUsdc(depositInfo.depositAddress, topUpAmount, selectedConfig?.usdcAddress);
       setTopUpTxHash(txHash);
       setTopUpStatus("confirming");
 
       const res = await fetch("/api/credits/topup/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ walletAddress, txHash }),
+        body: JSON.stringify({ walletAddress, txHash, sourceChain: selectedChain }),
       });
 
       if (res.ok) {
@@ -167,7 +193,7 @@ export function TopUpSheet() {
     setTimeout(() => setCopied(false), 2000);
   }, [depositInfo]);
 
-  const explorerBase = network === "base-sepolia" ? "https://sepolia.basescan.org" : "https://basescan.org";
+  const explorerBase = chainConfigs?.[selectedChain]?.explorerBaseUrl ?? (network === "base-sepolia" ? "https://sepolia.basescan.org" : "https://basescan.org");
   const isInProgress = topUpStatus === "sending" || topUpStatus === "confirming";
   const networkLabel = network === "base-sepolia" ? "Base Sepolia" : "Base";
 
@@ -188,7 +214,7 @@ export function TopUpSheet() {
               <div>
                 <SheetTitle className="text-lg">Top Up Credits</SheetTitle>
                 <SheetDescription className="text-xs mt-0.5">
-                  Add USDC on {networkLabel}
+                  Add USDC{chainConfigs && Object.keys(chainConfigs).length > 1 ? "" : ` on ${networkLabel}`}
                 </SheetDescription>
               </div>
             </div>
@@ -224,7 +250,7 @@ export function TopUpSheet() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  View on BaseScan <ExternalLink className="size-3" />
+                  View transaction <ExternalLink className="size-3" />
                 </a>
               )}
               <Button variant="outline" size="sm" onClick={() => setTopUpOpen(false)} className="mt-2">
@@ -250,7 +276,7 @@ export function TopUpSheet() {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
                   >
-                    Track on BaseScan <ExternalLink className="size-3" />
+                    Track transaction <ExternalLink className="size-3" />
                   </a>
                 </div>
               )}
@@ -260,6 +286,35 @@ export function TopUpSheet() {
           {/* Idle / error state */}
           {(topUpStatus === "idle" || topUpStatus === "error") && depositInfo && (
             <>
+              {/* Chain picker — only shown when multiple chains available */}
+              {chainConfigs && Object.keys(chainConfigs).length > 1 && (
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-foreground">Select chain</label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {Object.entries(chainConfigs).map(([key, chain]) => {
+                      const selected = selectedChain === key;
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => handleChainSelect(key)}
+                          disabled={chainSwitching}
+                          className={cn(
+                            "flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-medium border-2 transition-all duration-200",
+                            selected
+                              ? "bg-blue-500/15 border-blue-500/50 text-blue-200"
+                              : "bg-muted/30 border-transparent text-muted-foreground hover:border-muted-foreground/20"
+                          )}
+                        >
+                          <span className="text-sm font-semibold">{chain.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {chainSwitching && (
+                    <p className="text-xs text-muted-foreground text-center">Switching chain in wallet...</p>
+                  )}
+                </div>
+              )}
               {/* Amount selection */}
               <div className="space-y-3">
                 <label className="text-sm font-medium text-foreground">Select amount</label>
@@ -316,7 +371,9 @@ export function TopUpSheet() {
 
               {/* Manual fallback */}
               <div className="pt-4 border-t border-border space-y-3">
-                <p className="text-xs font-medium text-muted-foreground">Or send manually to:</p>
+                <p className="text-xs font-medium text-muted-foreground">
+                  Or send USDC manually{chainConfigs?.[selectedChain] ? ` on ${chainConfigs[selectedChain].name}` : ""} to:
+                </p>
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border">
                   <code className="text-[11px] font-mono text-foreground/70 break-all flex-1 leading-relaxed">
                     {depositInfo.depositAddress}
