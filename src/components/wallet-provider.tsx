@@ -52,7 +52,8 @@ interface WalletContextValue {
   connectWallet: () => Promise<string | undefined>;
   disconnectWallet: () => void;
   refreshBalance: () => Promise<void>;
-  sendUsdc: (to: string, amountUsdc: number) => Promise<string>;
+  sendUsdc: (to: string, amountUsdc: number, usdcAddress?: string) => Promise<string>;
+  switchChain: (chainId: number) => Promise<void>;
   updateFromMetadata: (meta: { budgetRemaining?: number; freeCallsRemaining?: number }) => void;
   onTopUpCompleteRef: React.RefObject<(() => void) | null>;
 }
@@ -171,12 +172,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [network, isConnecting, refreshBalance]);
 
-  const sendUsdc = useCallback(async (to: string, amountUsdc: number): Promise<string> => {
+  const switchChain = useCallback(async (chainId: number) => {
+    if (typeof window.ethereum === "undefined") throw new Error("No wallet");
+    const hexChainId = `0x${chainId.toString(16)}`;
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: hexChainId }],
+      });
+    } catch (switchError: unknown) {
+      // 4902 = chain not added. For well-known networks (Ethereum, Arbitrum,
+      // Optimism) MetaMask already knows them, so 4902 is unlikely. Re-throw.
+      throw switchError;
+    }
+  }, []);
+
+  const sendUsdc = useCallback(async (to: string, amountUsdc: number, usdcAddress?: string): Promise<string> => {
     if (!walletAddress || typeof window.ethereum === "undefined") {
       throw new Error("Wallet not connected");
     }
 
-    const usdcContract = USDC_ADDRESS[network];
+    const usdcContract = usdcAddress ?? USDC_ADDRESS[network];
     // USDC has 6 decimals — amountUsdc is a float like 5.00
     const amountRaw = BigInt(Math.round(amountUsdc * 1_000_000));
 
@@ -214,7 +230,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, updateFromMetadata, onTopUpCompleteRef }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, switchChain, updateFromMetadata, onTopUpCompleteRef }}>
       {children}
     </WalletContext.Provider>
   );
