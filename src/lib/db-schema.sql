@@ -21,10 +21,6 @@ CREATE TABLE IF NOT EXISTS anonymous_sessions (
 CREATE INDEX IF NOT EXISTS idx_anonymous_sessions_created
   ON anonymous_sessions (created_at);
 
--- Migration: multi-chain deposits (run against existing databases)
--- ALTER TABLE spend_events ADD COLUMN IF NOT EXISTS source_chain TEXT NOT NULL DEFAULT 'base';
--- ALTER TABLE spend_events ADD CONSTRAINT spend_events_tx_chain_unique UNIQUE (tx_hash, source_chain);
-
 CREATE TABLE IF NOT EXISTS spend_events (
   id BIGSERIAL PRIMARY KEY,
   wallet_address TEXT NOT NULL REFERENCES credit_accounts(wallet_address),

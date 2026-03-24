@@ -1,0 +1,89 @@
+/**
+ * Database migration script.
+ * Reads DATABASE_URL from environment (or .env.production.local / .env.local).
+ * Runs all migrations idempotently (safe to re-run).
+ *
+ * Usage:
+ *   npx tsx scripts/migrate.ts                         # uses DATABASE_URL from env
+ *   npx tsx scripts/migrate.ts --dry-run               # print SQL without executing
+ *   DATABASE_URL=postgresql://... npx tsx scripts/migrate.ts
+ */
+
+import { neon } from "@neondatabase/serverless";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+// Load DATABASE_URL from env files if not already set
+function loadEnvFile(filename: string) {
+  try {
+    const content = readFileSync(resolve(process.cwd(), filename), "utf-8");
+    for (const line of content.split("\n")) {
+      const match = line.match(/^(DATABASE_URL)="?([^"]*)"?$/);
+      if (match && !process.env[match[1]]) {
+        process.env[match[1]] = match[2];
+      }
+    }
+  } catch {}
+}
+
+loadEnvFile(".env.production.local");
+loadEnvFile(".env.local");
+
+const dryRun = process.argv.includes("--dry-run");
+
+const databaseUrl = process.env.DATABASE_URL?.replace(/\\n$/, "");
+if (!databaseUrl) {
+  console.error("ERROR: DATABASE_URL not set. Pull it with: vercel env pull .env.production.local --environment production");
+  process.exit(1);
+}
+
+const sql = neon(databaseUrl);
+
+// Each migration is [name, sql_statement].
+// All must be idempotent (IF NOT EXISTS / IF EXISTS).
+const migrations: [string, string][] = [
+  [
+    "add source_chain to spend_events",
+    `ALTER TABLE spend_events ADD COLUMN IF NOT EXISTS source_chain TEXT NOT NULL DEFAULT 'base'`,
+  ],
+  [
+    "add spend_events_tx_chain_unique constraint",
+    `DO $$
+     BEGIN
+       IF NOT EXISTS (
+         SELECT 1 FROM pg_constraint WHERE conname = 'spend_events_tx_chain_unique'
+       ) THEN
+         ALTER TABLE spend_events ADD CONSTRAINT spend_events_tx_chain_unique UNIQUE (tx_hash, source_chain);
+       END IF;
+     END $$`,
+  ],
+  [
+    "drop old spend_events_tx_hash_key unique if exists",
+    `ALTER TABLE spend_events DROP CONSTRAINT IF EXISTS spend_events_tx_hash_key`,
+  ],
+];
+
+async function main() {
+  console.log(`Database: ${databaseUrl!.replace(/:[^@]+@/, ":***@")}`);
+  console.log(`Mode: ${dryRun ? "DRY RUN" : "LIVE"}\n`);
+
+  for (const [name, statement] of migrations) {
+    console.log(`-- ${name}`);
+    if (dryRun) {
+      console.log(`${statement.trim()};\n`);
+    } else {
+      try {
+        await sql.query(statement);
+        console.log(`   OK\n`);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`   FAILED: ${msg}\n`);
+        process.exit(1);
+      }
+    }
+  }
+
+  console.log(dryRun ? "Dry run complete." : "All migrations applied.");
+}
+
+main();
