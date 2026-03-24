@@ -23,6 +23,15 @@ import z from "zod";
 import { CopyToClipboardButton } from "../copy-to-clipboard";
 import Link from "next/link";
 import { getToolDisplay } from "@/lib/tool-display-config";
+import { TOOL_PRICES } from "@/lib/tool-prices";
+
+/** Format crypto price with appropriate precision: >= $1 → 2dp, >= $0.01 → 4dp, < $0.01 → up to 6 significant digits */
+function formatCryptoPrice(price: number): string {
+  if (price >= 1) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (price >= 0.01) return price.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  // Very small prices: show up to 6 significant digits
+  return price.toLocaleString(undefined, { minimumSignificantDigits: 4, maximumSignificantDigits: 6 });
+}
 
 // Paid tool names (could also be determined dynamically)
 const PAID_TOOLS = [
@@ -50,14 +59,6 @@ const ToolOutputSchema = z
     isError: z.boolean().optional(),
   })
   .optional();
-
-const TOOL_PRICES: Record<string, number> = {
-  get_crypto_price: 0.01,
-  get_wallet_profile: 0.02,
-  summarize_url: 0.03,
-  analyze_contract: 0.03,
-  generate_image: 0.05,
-};
 
 function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
   if (part.state !== "output-available") return null;
@@ -142,7 +143,7 @@ function extractResultSnippet(part: ToolUIPart | DynamicToolUIPart): string | nu
     const data = JSON.parse(text);
     if (data.priceUsd != null) {
       const symbol = (data.token as string)?.toUpperCase() ?? "";
-      return `${symbol} $${Number(data.priceUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+      return `${symbol} $${formatCryptoPrice(Number(data.priceUsd))}`;
     }
     if (data.address && data.ethBalance != null) {
       return `${(data.address as string).slice(0, 6)}…${(data.address as string).slice(-4)}`;
@@ -454,7 +455,7 @@ function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode
       return (
         <div className="p-3 space-y-2">
           <div className="text-xs text-muted-foreground uppercase tracking-wide">{data.token}</div>
-          <div className="text-2xl font-bold font-mono">${Number(data.priceUsd).toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}</div>
+          <div className="text-2xl font-bold font-mono">${formatCryptoPrice(Number(data.priceUsd))}</div>
           <div className="flex items-center gap-3 text-sm">
             <span className={changePositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
               {changePositive ? "+" : ""}{Number(data.change24h).toFixed(2)}% (24h)
