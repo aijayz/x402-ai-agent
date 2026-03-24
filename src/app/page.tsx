@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Github } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Github, Twitter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
@@ -301,6 +301,10 @@ export default function LandingPage() {
             <a href="https://base.org" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-blue-400 transition-colors">Base</a>
           </div>
           <div className="flex items-center gap-4">
+            <a href="https://twitter.com/intent/tweet?text=Just%20discovered%20Obol%20AI%20%E2%80%94%20an%20AI%20agent%20that%20pays%20for%20crypto%20intelligence%20using%20x402%20micropayments.%20No%20subscription%2C%20just%20pay-per-query.%20%F0%9F%94%8D&url=https%3A%2F%2Fobolai.xyz&hashtags=x402,AI,DeFi,Base" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
+              <Twitter className="size-3.5" />
+              Share
+            </a>
             <a href="https://github.com/aijayz/x402-ai-agent" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
               <Github className="size-3.5" />
               GitHub
