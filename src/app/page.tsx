@@ -91,11 +91,17 @@ export default function LandingPage() {
             </svg>
             <span className="text-sm font-bold text-foreground">Obol AI</span>
           </div>
-          <Button asChild size="sm" className="shadow-lg shadow-primary/20">
-            <Link href="/chat">
-              Launch App <ArrowRight className="ml-1 size-3.5" />
-            </Link>
-          </Button>
+          <Link
+            href="/chat"
+            className="group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white
+              bg-gradient-to-r from-blue-500 to-purple-500
+              shadow-lg shadow-blue-500/20
+              hover:shadow-blue-500/30 hover:brightness-110
+              transition-all duration-300"
+          >
+            Launch App
+            <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
         </div>
       </header>
 
@@ -118,13 +124,23 @@ export default function LandingPage() {
             handles USDC micropayments on Base automatically, and cross-references
             results from independent sources.
           </p>
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button asChild size="lg" className="shadow-lg shadow-primary/20 px-8">
-              <Link href="/chat">
-                Start chatting <ArrowRight className="ml-1.5 size-4" />
-              </Link>
-            </Button>
-            <span className="text-sm text-muted-foreground">2 free tool calls, no wallet needed</span>
+          <div className="pt-6 flex flex-col items-center gap-4">
+            <Link
+              href="/chat"
+              className="group relative inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-base font-semibold text-white
+                bg-gradient-to-r from-blue-500 via-blue-400 to-purple-500
+                shadow-[0_0_32px_rgba(59,130,246,0.3)]
+                hover:shadow-[0_0_48px_rgba(59,130,246,0.45)]
+                hover:brightness-110
+                transition-all duration-500
+                before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent
+                before:translate-x-[-200%] hover:before:translate-x-[200%] before:transition-transform before:duration-700
+                before:overflow-hidden overflow-hidden"
+            >
+              Start chatting
+              <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform duration-300" />
+            </Link>
+            <span className="text-sm text-muted-foreground/70">2 free tool calls — no wallet needed</span>
           </div>
         </div>
       </section>
