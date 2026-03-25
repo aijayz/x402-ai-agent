@@ -359,8 +359,8 @@ export function ChatPage() {
                           <button
                             key={prompt}
                             onClick={() => handlePromptClick(prompt)}
-                            className="block w-full text-left text-xs text-foreground/60 hover:text-foreground
-                              px-2.5 py-1.5 rounded-md hover:bg-muted/50 transition-colors duration-150 truncate cursor-pointer"
+                            className="block w-full text-left text-xs text-blue-300/70 hover:text-blue-200
+                              px-2.5 py-1.5 rounded-md hover:bg-muted/50 hover:underline transition-colors duration-150 truncate cursor-pointer"
                           >
                             {prompt}
                           </button>
