@@ -5,8 +5,8 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure } from "./types";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import { applyMarkup, handleReleaseFailure, toQSChain } from "./types";
+import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 
 interface ClusterFDeps {
   walletClient: WalletClient;
@@ -22,8 +22,10 @@ export function createClusterFTools(deps: ClusterFDeps) {
       inputSchema: z.object({
         query: z.string().describe("Market trend query, e.g. 'trending narratives', 'ETH sentiment this week'"),
         contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional().describe("Optional: contract address (0x format) for contract audit"),
+        chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base")
+          .describe("Chain for contract audit (default: base). Only matters if contractAddress is provided."),
       }),
-      execute: async ({ query, contractAddress }): Promise<ClusterResult> => {
+      execute: async ({ query, contractAddress, chain }): Promise<ClusterResult> => {
         const maxReservationMicro = 100_000;
         let reserved = false;
 
@@ -41,11 +43,12 @@ export function createClusterFTools(deps: ClusterFDeps) {
 
         const clusterStart = Date.now();
         try {
+          const qsChain = toQSChain(chain as ClusterChain);
           const serviceConfigs: { name: "genvox" | "qs-contract-audit"; input: Record<string, string> }[] = [
             { name: "genvox", input: { topic: query } },
           ];
           if (contractAddress) {
-            serviceConfigs.push({ name: "qs-contract-audit", input: { address: contractAddress } });
+            serviceConfigs.push({ name: "qs-contract-audit", input: { address: contractAddress, chain: qsChain } });
           }
 
           for (const svc of serviceConfigs) {

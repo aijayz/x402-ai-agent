@@ -5,8 +5,8 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure } from "./types";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import { applyMarkup, handleReleaseFailure, toQSChain, toSLAMaiChain } from "./types";
+import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 
 interface ClusterBDeps {
   walletClient: WalletClient;
@@ -23,8 +23,10 @@ export function createClusterBTools(deps: ClusterBDeps) {
         "Costs ~$0.02.",
       inputSchema: z.object({
         address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid Ethereum address (0x + 40 hex chars)").describe("Wallet address or token contract address to analyze (0x format)"),
+        chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base")
+          .describe("Chain to query (default: base). Use identify_address to determine the correct chain."),
       }),
-      execute: async ({ address }): Promise<ClusterResult> => {
+      execute: async ({ address, chain }): Promise<ClusterResult> => {
         const maxReservationMicro = 25_000;
         let reserved = false;
 
@@ -42,11 +44,12 @@ export function createClusterBTools(deps: ClusterBDeps) {
 
         const clusterStart = Date.now();
         try {
+          const qsChain = toQSChain(chain as ClusterChain);
           const serviceConfigs = [
-            { name: "qs-wallet-risk", input: { address } },
-            { name: "qs-whale-activity", input: { address } },
-            { name: "slamai-wallet", input: { address } },
-          ] as const;
+            { name: "qs-wallet-risk" as const, input: { address, chain: qsChain } },
+            { name: "qs-whale-activity" as const, input: { address, chain: qsChain } },
+            { name: "slamai-wallet" as const, input: { address, blockchain: toSLAMaiChain(chain as ClusterChain) } },
+          ];
 
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();

@@ -5,8 +5,8 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure } from "./types";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import { applyMarkup, handleReleaseFailure, augurSupportsChain, toQSChain } from "./types";
+import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 
 interface ClusterDDeps {
   walletClient: WalletClient;
@@ -22,8 +22,10 @@ export function createClusterDTools(deps: ClusterDDeps) {
         "Costs ~$0.17.",
       inputSchema: z.object({
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
+        chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base")
+          .describe("Chain context for on-chain services (default: base). Only matters if topic is an address."),
       }),
-      execute: async ({ topic }): Promise<ClusterResult> => {
+      execute: async ({ topic, chain }): Promise<ClusterResult> => {
         const maxReservationMicro = 200_000;
         let reserved = false;
 
@@ -44,14 +46,15 @@ export function createClusterDTools(deps: ClusterDDeps) {
           // GenVox takes free-text topics; Augur and QS Wallet Risk need EVM addresses.
           // Only call address-based services if the topic looks like an address.
           const isAddress = /^0x[0-9a-fA-F]{40}$/.test(topic);
+          const qsChain = toQSChain(chain as ClusterChain);
           const serviceConfigs: { name: "genvox" | "augur" | "qs-wallet-risk"; input: Record<string, string> }[] = [
             { name: "genvox", input: { topic } },
           ];
           if (isAddress) {
-            serviceConfigs.push(
-              { name: "augur", input: { address: topic } },
-              { name: "qs-wallet-risk", input: { address: topic } },
-            );
+            if (augurSupportsChain(chain as ClusterChain)) {
+              serviceConfigs.push({ name: "augur", input: { address: topic } });
+            }
+            serviceConfigs.push({ name: "qs-wallet-risk", input: { address: topic, chain: qsChain } });
           }
 
           for (const svc of serviceConfigs) {

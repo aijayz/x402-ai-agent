@@ -7,8 +7,8 @@ import { telemetry } from "../telemetry";
 import { env } from "../env";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure } from "./types";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import { applyMarkup, handleReleaseFailure, augurSupportsChain, toQSChain } from "./types";
+import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 
 interface ClusterADeps {
   walletClient: WalletClient;
@@ -26,8 +26,10 @@ export function createClusterATools(deps: ClusterADeps) {
         target: z.string().describe("Token address, contract address, or token name to analyze"),
         depth: z.enum(["quick", "full"]).default("quick")
           .describe("'quick' = core scan (~$0.05), 'full' = all services (~$0.15)"),
+        chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base")
+          .describe("Chain the token is on (default: base). Use identify_address to determine the correct chain."),
       }),
-      execute: async ({ target, depth }): Promise<ClusterResult> => {
+      execute: async ({ target, depth, chain }): Promise<ClusterResult> => {
         const maxReservationMicro = depth === "full" ? 300_000 : 150_000;
         let reserved = false;
 
@@ -52,20 +54,21 @@ export function createClusterATools(deps: ClusterADeps) {
         const clusterStart = Date.now();
 
         try {
-          // Quick: RugMunch + Augur + QS Token Security + Messari
+          // Quick: Augur (Base only) + QS Token Security + Messari
           // Full: adds QS Contract Audit
+          const qsChain = toQSChain(chain as ClusterChain);
+          const baseServices = [
+            ...(augurSupportsChain(chain as ClusterChain)
+              ? [{ name: "augur" as const, input: { address: target } }]
+              : []),
+            { name: "qs-token-security" as const, input: { address: target, chain: qsChain } },
+            { name: "messari-token-unlocks" as const, input: { target: messariTarget } },
+          ];
           const serviceConfigs = depth === "full"
-            ? [
-                { name: "augur", input: { address: target } },
-                { name: "qs-token-security", input: { address: target } },
-                { name: "qs-contract-audit", input: { address: target } },
-                { name: "messari-token-unlocks", input: { target: messariTarget } },
-              ] as const
-            : [
-                { name: "augur", input: { address: target } },
-                { name: "qs-token-security", input: { address: target } },
-                { name: "messari-token-unlocks", input: { target: messariTarget } },
-              ] as const;
+            ? [...baseServices.slice(0, -1),
+               { name: "qs-contract-audit" as const, input: { address: target, chain: qsChain } },
+               ...baseServices.slice(-1)]
+            : baseServices;
 
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();

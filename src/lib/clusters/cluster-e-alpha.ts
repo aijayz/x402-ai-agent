@@ -7,8 +7,8 @@ import { telemetry } from "../telemetry";
 import { env } from "../env";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure } from "./types";
-import type { ClusterResult, ServiceCallResult } from "./types";
+import { applyMarkup, handleReleaseFailure, toQSChain } from "./types";
+import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 
 interface ClusterEDeps {
   walletClient: WalletClient;
@@ -29,8 +29,10 @@ export function createClusterETools(deps: ClusterEDeps) {
           .describe(
             "Token name, symbol (e.g. 'ETH', 'AERO'), or contract address (0x format)",
           ),
+        chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base")
+          .describe("Chain the token is on (default: base). Use identify_address to determine the correct chain."),
       }),
-      execute: async ({ target }): Promise<ClusterResult> => {
+      execute: async ({ target, chain }): Promise<ClusterResult> => {
         const maxReservationMicro = 500_000;
         let reserved = false;
 
@@ -65,10 +67,11 @@ export function createClusterETools(deps: ClusterEDeps) {
 
         const clusterStart = Date.now();
         try {
+          const qsChain = toQSChain(chain as ClusterChain);
           const serviceConfigs = [
             ...(isAddress
               ? [
-                  { name: "qs-token-security" as const, input: { address: target } },
+                  { name: "qs-token-security" as const, input: { address: target, chain: qsChain } },
                 ]
               : []),
             { name: "messari-token-unlocks" as const, input: { target: messariTarget } },

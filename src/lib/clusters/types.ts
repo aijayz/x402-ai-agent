@@ -39,6 +39,27 @@ export function applyMarkup(costMicroUsdc: number, markupBps = 3000): number {
   return Math.max(withMarkup, MIN_CLUSTER_CHARGE_MICRO);
 }
 
+// ── Chain mapping for multi-chain service calls ─────────────────────
+
+/** Canonical chain names used in cluster tool schemas (matches MCP tools). */
+export type ClusterChain = "base" | "ethereum" | "arbitrum" | "optimism";
+
+/** Map our canonical chain names → QuantumShield chain param (eth, base, arbitrum, polygon, bsc). */
+export function toQSChain(chain: ClusterChain): string {
+  const map: Record<ClusterChain, string> = { base: "base", ethereum: "eth", arbitrum: "arbitrum", optimism: "base" };
+  return map[chain] ?? "base";
+}
+
+/** Map our canonical chain names → SLAMai blockchain param (ethereum, base). */
+export function toSLAMaiChain(chain: ClusterChain): "ethereum" | "base" {
+  return chain === "ethereum" ? "ethereum" : "base";
+}
+
+/** Whether Augur supports this chain (Base only). */
+export function augurSupportsChain(chain: ClusterChain): boolean {
+  return chain === "base";
+}
+
 /** Log and alert on credit release failure (user overcharged). */
 export async function handleReleaseFailure(
   clusterName: string,
