@@ -67,8 +67,8 @@ const capabilities = [
     icon: MessageCircle,
     title: "Social Sentiment",
     prompts: [
-      "What's the crypto buzz around ETH on X this week?",
-      "What's the community sentiment around the Bitcoin halving?",
+      "What's the buzz around ETH on X?",
+      "Community sentiment on Bitcoin halving?",
     ],
   },
   {
@@ -84,7 +84,7 @@ const capabilities = [
     title: "Token Alpha",
     prompts: [
       "Screen PEPE for alpha signals",
-      "Screen ARB for unlock schedule and allocations",
+      "Screen ARB for unlocks and allocations",
     ],
   },
 ];
