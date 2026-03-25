@@ -16,7 +16,7 @@ import {
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
@@ -42,6 +42,7 @@ const capabilities = [
   {
     icon: TrendingUp,
     title: "Market Intelligence",
+    featured: true,
     prompts: [
       "What's the current price of Ethereum?",
       "Give me a morning crypto market briefing",
@@ -51,7 +52,7 @@ const capabilities = [
     icon: Shield,
     title: "DeFi Research",
     prompts: [
-      "Is contract 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984 safe?",
+      "Is 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984 safe?",
       "How safe is the AAVE token contract?",
     ],
   },
@@ -59,8 +60,8 @@ const capabilities = [
     icon: Sparkles,
     title: "Whale Tracking",
     prompts: [
-      "Track whale activity for the USDC token",
       "Are whales accumulating ETH right now?",
+      "Track whale activity for the USDC token",
     ],
   },
   {
@@ -323,28 +324,46 @@ export function ChatPage() {
                 <h2 className="text-lg font-semibold text-foreground mb-1">
                   What can I help you with?
                 </h2>
-                <p className="text-sm text-muted-foreground mb-8 max-w-md text-center">
-                  Ask anything about crypto. I&apos;ll orchestrate the right tools and handle payments automatically.
+                <p className="text-sm text-muted-foreground mb-2 max-w-md text-center">
+                  Institutional-grade crypto intelligence powered by paid on-chain services.
                 </p>
+                {!walletAddress && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 mb-6 animate-in fade-in slide-in-from-bottom-1 duration-300">
+                    <Zap className="size-3" />
+                    2 free queries — no wallet needed
+                  </span>
+                )}
+                {walletAddress && (
+                  <div className="mb-6" />
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-                  {capabilities.map((cap) => (
+                  {capabilities.map((cap, idx) => (
                     <div
                       key={cap.title}
-                      className="rounded-lg border border-border bg-muted/30 p-4 space-y-2.5"
+                      className={`group rounded-lg border p-4 space-y-2.5 transition-all duration-200 hover:border-muted-foreground/30 hover:bg-muted/40 ${
+                        "featured" in cap && cap.featured
+                          ? "border-blue-500/30 bg-blue-500/[0.04]"
+                          : "border-border bg-muted/30"
+                      }`}
+                      style={{ animationDelay: `${idx * 50}ms` }}
                     >
                       <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                        <cap.icon className="size-4 text-muted-foreground" />
+                        <cap.icon className={`size-4 ${"featured" in cap && cap.featured ? "text-blue-400" : "text-muted-foreground"}`} />
                         {cap.title}
+                        {"featured" in cap && cap.featured && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400">Try first</span>
+                        )}
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-0.5">
                         {cap.prompts.map((prompt) => (
                           <button
                             key={prompt}
                             onClick={() => handlePromptClick(prompt)}
-                            className="block w-full text-left text-xs text-muted-foreground hover:text-foreground
-                              px-2.5 py-1.5 rounded-md hover:bg-muted/80 transition-colors truncate"
+                            className="group/item flex items-center w-full text-left text-xs text-muted-foreground hover:text-foreground
+                              px-2.5 py-2 rounded-md hover:bg-muted/80 transition-all duration-150 truncate"
                           >
-                            {prompt}
+                            <span className="truncate flex-1">{prompt}</span>
+                            <ChevronRight className="size-3 opacity-0 -translate-x-1 group-hover/item:opacity-50 group-hover/item:translate-x-0 transition-all duration-150 shrink-0 ml-1" />
                           </button>
                         ))}
                       </div>
@@ -513,7 +532,7 @@ export function ChatPage() {
         )}
 
         <CreditStatusBanner
-          state={bannerState}
+          state={messages.length === 0 && (bannerState === "low-wallet" || bannerState === "low-anon") ? "hidden" : bannerState}
           onConnectWallet={handleConnectAndRetry}
           onTopUp={() => setTopUpOpen(true)}
           onDismiss={() => { setBannerDismissed(true); clearCreditEvent(); }}
