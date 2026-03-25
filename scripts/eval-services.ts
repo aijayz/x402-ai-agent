@@ -348,7 +348,15 @@ async function main() {
 
     // Lazy import x402 client for payment
     const { parse402Response } = await import("../src/lib/x402-client");
-    const { createPaymentHeader } = await import("x402/client");
+    const { x402Client, wrapFetchWithPayment } = await import("@x402/fetch");
+    const { toClientEvmSigner } = await import("@x402/evm");
+    const { registerExactEvmScheme } = await import("@x402/evm/exact/client");
+
+    // Set up x402 v2 client for probe payments
+    const signer = toClientEvmSigner(account as any);
+    const x402 = new x402Client();
+    registerExactEvmScheme(x402, { signer });
+    const paidFetch = wrapFetchWithPayment(fetch, x402);
 
     for (const pc of probeCases) {
       const label = `[${pc.name}] ${pc.description}`;
@@ -429,19 +437,10 @@ async function main() {
 
         process.stdout.write(` → paying...`);
 
-        const paymentHeader = await createPaymentHeader(
-          walletClient as any,
-          parsed.version,
-          parsed.requirements as any,
-        );
-
-        const res2 = await fetch(pc.url, {
+        // Use x402 v2 wrapped fetch — handles both v1 and v2 payment protocols
+        const res2 = await paidFetch(pc.url, {
           method: pc.method,
-          headers: {
-            ...pc.headers,
-            "X-PAYMENT": paymentHeader,
-            "PAYMENT-SIGNATURE": paymentHeader,
-          },
+          headers: pc.headers,
           body: pc.method === "POST" ? pc.body : undefined,
           signal: AbortSignal.timeout(30_000),
         });

@@ -1,14 +1,102 @@
 // src/lib/x402-client.ts
-import { createPaymentHeader } from "x402/client";
+import { x402Client, wrapFetchWithPayment, decodePaymentResponseHeader } from "@x402/fetch";
+import { toClientEvmSigner } from "@x402/evm";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
 import type { WalletClient } from "viem";
 
 const DEFAULT_TIMEOUT_MS = 8000;
 
-// EIP-155 chain ID → x402 v1 network name
-const EIP155_NETWORK_MAP: Record<string, string> = {
-  "eip155:8453": "base",
-  "eip155:84532": "base-sepolia",
-};
+interface X402FetchOptions {
+  walletClient: WalletClient;
+  maxPaymentMicroUsdc?: number;
+  timeoutMs?: number;
+}
+
+interface X402Result {
+  data: unknown;
+  paid: boolean;
+  amountMicroUsdc: number;
+  txHash?: string;
+}
+
+// Cache wrapped fetch per wallet address to avoid re-creating on every call
+const wrappedFetchCache = new Map<string, typeof fetch>();
+
+function getWrappedFetch(walletClient: WalletClient): typeof fetch {
+  const address = walletClient.account?.address;
+  if (!address) throw new Error("x402: wallet client has no account");
+
+  const cached = wrappedFetchCache.get(address);
+  if (cached) return cached;
+
+  const signer = toClientEvmSigner(walletClient.account as any);
+  const client = new x402Client();
+  registerExactEvmScheme(client, { signer });
+
+  const wrapped = wrapFetchWithPayment(fetch, client);
+  wrappedFetchCache.set(address, wrapped as typeof fetch);
+  return wrapped as typeof fetch;
+}
+
+export async function x402Fetch(
+  url: string,
+  init: RequestInit | undefined,
+  options: X402FetchOptions,
+): Promise<X402Result> {
+  const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const paidFetch = getWrappedFetch(options.walletClient);
+
+  const res = await paidFetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(timeout),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    throw new Error(
+      `x402: service ${url} returned ${res.status}. Body: ${errorBody.slice(0, 200)}`
+    );
+  }
+
+  const data = await res.json();
+
+  // Check if payment was made by looking for payment response headers
+  const txHash = res.headers.get("payment-response")
+    ?? res.headers.get("x-payment-response")
+    ?? res.headers.get("x-payment-tx")
+    ?? (typeof data === "object" && data !== null
+      ? (data as Record<string, unknown>).txHash as string | undefined
+      : undefined);
+
+  // Determine cost from payment response header if available
+  let amountMicroUsdc = 0;
+  const paymentResponseHeader = res.headers.get("payment-response")
+    ?? res.headers.get("x-payment-response");
+  if (paymentResponseHeader) {
+    try {
+      const decoded = decodePaymentResponseHeader(paymentResponseHeader);
+      if (decoded && typeof decoded === "object" && "transaction" in (decoded as any)) {
+        // Payment was made
+        amountMicroUsdc = options.maxPaymentMicroUsdc ?? 0;
+      }
+    } catch { /* no payment response to decode */ }
+  }
+
+  // If we got a tx hash, payment was made
+  const paid = !!txHash || !!paymentResponseHeader;
+  if (paid && amountMicroUsdc === 0) {
+    amountMicroUsdc = options.maxPaymentMicroUsdc ?? 0;
+  }
+
+  return {
+    data,
+    paid,
+    amountMicroUsdc,
+    txHash,
+  };
+}
+
+// --- Legacy parse402Response for eval script and debugging ---
 
 interface PaymentRequirements {
   scheme: string;
@@ -23,30 +111,10 @@ interface PaymentRequirements {
   extra?: Record<string, unknown>;
 }
 
-interface X402FetchOptions {
-  walletClient: WalletClient;
-  maxPaymentMicroUsdc?: number;
-  timeoutMs?: number;
-}
-
-interface X402Result {
-  data: unknown;
-  paid: boolean;
-  amountMicroUsdc: number;
-  txHash?: string;
-  paymentRequirements?: PaymentRequirements;
-}
-
-/**
- * Normalizes an x402 accepts entry to v1 PaymentRequirements format.
- * Handles v2 differences: `amount` field, `eip155:<chainId>` network strings,
- * and optional fields (`resource`, `description`, `mimeType`).
- */
 function normalizeRequirements(raw: Record<string, unknown>): PaymentRequirements {
-  const network = raw.network as string ?? "base";
   return {
     scheme: (raw.scheme as string) ?? "exact",
-    network: EIP155_NETWORK_MAP[network] ?? network,
+    network: (raw.network as string) ?? "base",
     maxAmountRequired: ((raw.maxAmountRequired ?? raw.amount) as string) ?? "0",
     resource: (raw.resource as string) ?? "",
     description: (raw.description as string) ?? "",
@@ -61,7 +129,6 @@ function normalizeRequirements(raw: Record<string, unknown>): PaymentRequirement
 function parsePaymentObject(obj: Record<string, unknown>): { requirements: PaymentRequirements; rawRequirements: Record<string, unknown>; version: number } | null {
   if (typeof obj.x402Version !== "number") return null;
   if (!Array.isArray(obj.accepts) || obj.accepts.length === 0) return null;
-  // Prefer Base mainnet entry; fall back to first
   const accepts = obj.accepts as Record<string, unknown>[];
   const baseEntry = accepts.find(a => {
     const n = a.network as string ?? "";
@@ -71,12 +138,10 @@ function parsePaymentObject(obj: Record<string, unknown>): { requirements: Payme
 }
 
 export function parse402Response(body: unknown, headerValue?: string | null): { requirements: PaymentRequirements; rawRequirements: Record<string, unknown>; version: number } | null {
-  // Try JSON body first (x402 v1 style)
   if (typeof body === "object" && body !== null) {
     const result = parsePaymentObject(body as Record<string, unknown>);
     if (result) return result;
   }
-  // Fall back to Payment-Required header (x402 v2 style — base64-encoded JSON)
   if (headerValue) {
     try {
       const decoded = JSON.parse(Buffer.from(headerValue, "base64").toString("utf-8"));
@@ -86,80 +151,4 @@ export function parse402Response(body: unknown, headerValue?: string | null): { 
     } catch { /* not valid base64 JSON */ }
   }
   return null;
-}
-
-export async function x402Fetch(
-  url: string,
-  init: RequestInit | undefined,
-  options: X402FetchOptions,
-): Promise<X402Result> {
-  const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-
-  const res1 = await fetch(url, {
-    ...init,
-    signal: AbortSignal.timeout(timeout),
-  });
-
-  if (res1.status !== 402) {
-    const data = await res1.json();
-    return { data, paid: false, amountMicroUsdc: 0 };
-  }
-
-  const body402 = await res1.json();
-  const paymentRequiredHeader = res1.headers.get("payment-required");
-  const parsed = parse402Response(body402, paymentRequiredHeader);
-  if (!parsed) {
-    throw new Error(`x402: 402 response missing valid payment requirements from ${url}`);
-  }
-
-  const { requirements, version } = parsed;
-  const amountMicro = Number(requirements.maxAmountRequired);
-  if (options.maxPaymentMicroUsdc && amountMicro > options.maxPaymentMicroUsdc) {
-    throw new Error(
-      `x402: service ${url} asks for ${amountMicro} micro-USDC, exceeds max ${options.maxPaymentMicroUsdc}`
-    );
-  }
-
-  // Note: x402 SDK v1.1.0 only accepts short network names ("base", "base-sepolia").
-  // Services using CAIP-2 format ("eip155:8453") in v2 will fail payment verification
-  // until the SDK supports CAIP-2 natively.
-  const paymentHeader = await createPaymentHeader(
-    options.walletClient as any,
-    version,
-    requirements as any,
-  );
-
-  // Send both v1 (X-PAYMENT) and v2 (PAYMENT-SIGNATURE) headers for compatibility
-  const res2 = await fetch(url, {
-    ...init,
-    headers: {
-      ...(init?.headers ?? {}),
-      "X-PAYMENT": paymentHeader,
-      "PAYMENT-SIGNATURE": paymentHeader,
-    },
-    signal: AbortSignal.timeout(timeout),
-  });
-
-  if (!res2.ok) {
-    const errorBody = await res2.text();
-    throw new Error(
-      `x402: service ${url} returned ${res2.status} after payment (${amountMicro} micro-USDC charged). Body: ${errorBody.slice(0, 200)}`
-    );
-  }
-
-  const data = await res2.json();
-
-  const txHash = res2.headers.get("x-payment-tx")
-    ?? res2.headers.get("payment-response")
-    ?? (typeof data === "object" && data !== null
-      ? (data as Record<string, unknown>).txHash as string | undefined
-      : undefined);
-
-  return {
-    data,
-    paid: true,
-    amountMicroUsdc: amountMicro,
-    txHash,
-    paymentRequirements: requirements,
-  };
 }
