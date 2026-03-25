@@ -360,10 +360,10 @@ export function ChatPage() {
                             key={prompt}
                             onClick={() => handlePromptClick(prompt)}
                             className="group/item flex items-center w-full text-left text-xs text-muted-foreground hover:text-foreground
-                              px-2.5 py-2 rounded-md hover:bg-muted/80 transition-all duration-150 truncate"
+                              px-2.5 py-2 rounded-md border border-transparent hover:border-border/60 bg-muted/20 hover:bg-muted/60 transition-all duration-150 truncate cursor-pointer"
                           >
                             <span className="truncate flex-1">{prompt}</span>
-                            <ChevronRight className="size-3 opacity-0 -translate-x-1 group-hover/item:opacity-50 group-hover/item:translate-x-0 transition-all duration-150 shrink-0 ml-1" />
+                            <ChevronRight className="size-3 opacity-30 group-hover/item:opacity-60 transition-opacity duration-150 shrink-0 ml-1" />
                           </button>
                         ))}
                       </div>
