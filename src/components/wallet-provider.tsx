@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 const USDC_ADDRESS: Record<string, string> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -69,6 +69,26 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const onTopUpCompleteRef = useRef<(() => void) | null>(null);
   const clearCreditEvent = useCallback(() => setLastCreditEvent(null), []);
   const network = getTargetNetwork();
+
+  // Restore wallet session from HttpOnly cookie on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.authenticated && data.walletAddress) {
+          setWalletAddress(data.walletAddress);
+          setBalance(data.balanceMicroUsdc ?? null);
+        }
+      } catch {
+        // Silent — user will just appear anonymous
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const refreshBalance = useCallback(async () => {
     if (!walletAddress) return;
