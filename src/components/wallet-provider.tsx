@@ -110,10 +110,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [walletAddress]);
 
-  const [isConnecting, setIsConnecting] = useState(false);
+  const isConnectingRef = useRef(false);
 
   const connectWallet = useCallback(async (): Promise<string | undefined> => {
-    if (isConnecting) return undefined;
+    if (isConnectingRef.current) return undefined;
     if (typeof window === "undefined") return undefined;
 
     // If no injected provider, try deep-linking into MetaMask mobile app
@@ -129,7 +129,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return undefined;
     }
 
-    setIsConnecting(true);
+    isConnectingRef.current = true;
     try {
       // Force MetaMask to show the account picker (not just return the cached account)
       // wallet_requestPermissions re-prompts the user to select an account
@@ -209,9 +209,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       console.error("[WALLET] Connection failed", err);
       return undefined;
     } finally {
-      setIsConnecting(false);
+      isConnectingRef.current = false;
     }
-  }, [network, isConnecting, refreshBalance]);
+  }, [network, refreshBalance]);
 
   const switchChain = useCallback(async (chainId: number) => {
     if (typeof window.ethereum === "undefined") throw new Error("No wallet");
