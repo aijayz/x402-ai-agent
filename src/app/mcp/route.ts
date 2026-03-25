@@ -9,6 +9,7 @@ import { getModel } from "@/lib/ai-provider";
 import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { TOOL_PRICES } from "@/lib/tool-prices";
 import { validateUrl } from "@/lib/url-guard";
+import { SUPPORTED_CHAINS, type ChainKey } from "@/lib/chains";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -18,6 +19,21 @@ const USDC_ADDRESS: Record<string, `0x${string}`> = {
 const BASESCAN_HOST: Record<string, string> = {
   "base-sepolia": "api-sepolia.basescan.org",
   "base": "api.basescan.org",
+};
+
+// Etherscan-family API hosts (all share the same API format)
+const EXPLORER_API_HOST: Record<string, string> = {
+  base: "api.basescan.org",
+  ethereum: "api.etherscan.io",
+  arbitrum: "api.arbiscan.io",
+  optimism: "api-optimistic.etherscan.io",
+};
+
+const EXPLORER_NAME: Record<string, string> = {
+  base: "Basescan",
+  ethereum: "Etherscan",
+  arbitrum: "Arbiscan",
+  optimism: "Optimistic Etherscan",
 };
 
 let handler: ReturnType<typeof createPaidMcpHandler> | null = null;
@@ -118,20 +134,27 @@ async function getHandler() {
 
         server.paidTool(
           "get_wallet_profile",
-          "Get ETH balance, USDC balance, and transaction count for any EVM address on Base",
+          "Get ETH balance, USDC balance, and transaction count for any EVM address. Supports Ethereum, Base, Arbitrum, and Optimism.",
           { price: TOOL_PRICES.get_wallet_profile },
           {
             address: z.string().describe("EVM wallet address (0x...)"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Which chain to query (default: base)"),
           },
           {},
           async (args) => {
             try {
+              // For testnet, force base
+              const chainKey = env.NETWORK === "base-sepolia" ? "base" : args.chain;
+              const chainConfig = env.NETWORK === "base-sepolia"
+                ? undefined  // use default getChain()
+                : SUPPORTED_CHAINS[chainKey as ChainKey];
+
               const client = createPublicClient({
-                chain: getChain(),
-                transport: http(),
+                chain: chainConfig?.viemChain ?? getChain(),
+                transport: http(chainConfig?.rpcUrl),
               });
               const addr = args.address as `0x${string}`;
-              const usdcAddr = USDC_ADDRESS[env.NETWORK];
+              const usdcAddr = chainConfig?.usdcAddress ?? USDC_ADDRESS[env.NETWORK];
 
               const [ethBalance, usdcBalance, txCount] = await Promise.all([
                 client.getBalance({ address: addr }),
@@ -149,6 +172,7 @@ async function getHandler() {
                   type: "text",
                   text: JSON.stringify({
                     address: args.address,
+                    chain: chainKey,
                     ethBalance: formatEther(ethBalance),
                     usdcBalance: formatUnits(usdcBalance, 6),
                     transactionCount: txCount,
@@ -233,21 +257,28 @@ async function getHandler() {
 
         server.paidTool(
           "analyze_contract",
-          "Fetch a verified smart contract's source code from Basescan and provide AI analysis of its purpose, functions, and risks",
+          "Fetch a verified smart contract's source code and provide AI analysis of its purpose, functions, and risks. Supports Ethereum, Base, Arbitrum, and Optimism.",
           { price: TOOL_PRICES.analyze_contract },
           {
-            address: z.string().describe("Contract address on Base (0x...)"),
+            address: z.string().describe("Contract address (0x...)"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Which chain the contract is on (default: base)"),
           },
           {},
           async (args) => {
             try {
-              const host = BASESCAN_HOST[env.NETWORK];
+              // For testnet, force base
+              const chain = env.NETWORK === "base-sepolia" ? "base" : args.chain;
+              const host = env.NETWORK === "base-sepolia"
+                ? BASESCAN_HOST[env.NETWORK]
+                : EXPLORER_API_HOST[chain];
+              const explorerName = env.NETWORK === "base-sepolia" ? "Basescan" : (EXPLORER_NAME[chain] ?? "Explorer");
+
               const res = await fetch(
                 `https://${host}/api?module=contract&action=getsourcecode&address=${encodeURIComponent(args.address)}`
               );
               if (!res.ok) {
                 return {
-                  content: [{ type: "text", text: `Error: Basescan API returned ${res.status}${res.status === 429 ? ". Rate limited — try again in a few seconds." : ""}` }],
+                  content: [{ type: "text", text: `Error: ${explorerName} API returned ${res.status}${res.status === 429 ? ". Rate limited — try again in a few seconds." : ""}` }],
                   isError: true,
                 };
               }
@@ -261,9 +292,10 @@ async function getHandler() {
                     type: "text",
                     text: JSON.stringify({
                       address: args.address,
+                      chain,
                       isVerified: false,
                       contractName: null,
-                      analysis: "Contract source code is not verified on Basescan. Cannot analyze unverified contracts.",
+                      analysis: `Contract source code is not verified on ${explorerName}. Cannot analyze unverified contracts.`,
                     }),
                   }],
                 };
@@ -281,6 +313,7 @@ async function getHandler() {
                   type: "text",
                   text: JSON.stringify({
                     address: args.address,
+                    chain,
                     contractName: result.ContractName,
                     isVerified: true,
                     analysis,
