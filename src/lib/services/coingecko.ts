@@ -13,6 +13,9 @@ const PLATFORM_IDS: Record<string, string> = {
   "base-sepolia": "base",
 };
 
+// All chains to try when resolving an unknown address
+const ALL_PLATFORMS = ["ethereum", "base", "arbitrum-one", "optimistic-ethereum", "polygon-pos"] as const;
+
 /**
  * Resolve a contract address on a given network to its token symbol.
  * Returns null if not found or on any error (CoinGecko free tier may rate-limit).
@@ -46,4 +49,40 @@ export async function resolveTargetForMessari(
   if (!/^0x[0-9a-fA-F]{40,}$/.test(target)) return target;
   const symbol = await resolveContractToSymbol(target, network);
   return symbol ?? target;
+}
+
+interface TokenIdentity {
+  symbol: string;
+  name: string;
+  chain: string;
+}
+
+/**
+ * Try to identify a contract address across multiple chains via CoinGecko.
+ * Returns the first match found (tries ethereum first since most tokens originate there).
+ */
+export async function identifyAddressAcrossChains(
+  address: string,
+): Promise<TokenIdentity | null> {
+  const normalized = address.toLowerCase();
+  for (const platform of ALL_PLATFORMS) {
+    try {
+      const res = await fetch(
+        `${COINGECKO_BASE}/coins/${platform}/contract/${encodeURIComponent(normalized)}`,
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) continue;
+      const data = await res.json() as { symbol?: string; name?: string };
+      if (data.symbol) {
+        return {
+          symbol: data.symbol.toUpperCase(),
+          name: data.name ?? data.symbol,
+          chain: platform,
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
 }

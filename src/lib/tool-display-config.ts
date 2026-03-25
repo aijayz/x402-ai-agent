@@ -20,6 +20,7 @@ export const TOOL_DISPLAY: Record<string, ToolDisplayInfo> = {
   generate_image: { label: "Image Generation", icon: "Image" },
 
   // Free tools
+  identify_address: { label: "Address Lookup", icon: "Search" },
   add: { label: "Calculator", icon: "Calculator" },
   get_random_number: { label: "Random Number", icon: "Dice1" },
   check_budget: { label: "Budget Check", icon: "CreditCard" },

@@ -126,3 +126,52 @@
     animation-fill-mode: both;
   }
 }
+
+/*
+ * Streamdown / AI response markdown styling
+ * Overrides Streamdown's built-in Tailwind classes to fit chat bubble context.
+ * Streamdown uses data-streamdown attributes on rendered elements.
+ */
+
+/* Tame headings — Streamdown defaults to text-3xl/2xl/xl which are huge in chat */
+.group.is-assistant [data-streamdown="heading-1"],
+.group.is-assistant [data-streamdown="heading-2"],
+.group.is-assistant [data-streamdown="heading-3"],
+.group.is-assistant [data-streamdown="heading-4"] {
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+/* First heading shouldn't have top margin */
+.group.is-assistant > div > div > [data-streamdown="heading-1"]:first-child,
+.group.is-assistant > div > div > [data-streamdown="heading-2"]:first-child,
+.group.is-assistant > div > div > [data-streamdown="heading-3"]:first-child,
+.group.is-assistant [data-streamdown="heading-1"]:first-child,
+.group.is-assistant [data-streamdown="heading-2"]:first-child,
+.group.is-assistant [data-streamdown="heading-3"]:first-child {
+  margin-top: 0 !important;
+}
+
+/* Tighten spacing between paragraphs */
+.group.is-assistant .space-y-4 {
+  --tw-space-y-reverse: 0;
+  gap: 0;
+}
+.group.is-assistant .space-y-4 > * + * {
+  margin-top: 0.375rem;
+}
+
+/* Horizontal rules */
+.group.is-assistant [data-streamdown="horizontal-rule"] {
+  border-color: oklch(1 0 0 / 8%);
+  margin-top: 0.625rem !important;
+  margin-bottom: 0.625rem !important;
+}
+
+/* Inline code */
+.group.is-assistant [data-streamdown="inline-code"] {
+  font-size: 0.8125rem;
+  background: oklch(1 0 0 / 7%);
+}
