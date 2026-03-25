@@ -168,8 +168,17 @@ export function ChatPage() {
     textareaRef.current?.focus();
   }, [startNewConversation, setMessages]);
 
-  // Update wallet context from message metadata
+  // Track whether we just finished a live stream (vs loading historical messages).
+  const wasStreamingRef = useRef(false);
   useEffect(() => {
+    if (status === "streaming") wasStreamingRef.current = true;
+  }, [status]);
+
+  // Update wallet context from message metadata — only after a live streaming response,
+  // not when loading historical conversations (which contain stale budgetRemaining).
+  useEffect(() => {
+    if (status !== "ready" || !wasStreamingRef.current) return;
+    wasStreamingRef.current = false;
     const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
     const meta = lastAssistant?.metadata as Record<string, unknown> | undefined;
     if (meta) {
@@ -178,7 +187,7 @@ export function ChatPage() {
         freeCallsRemaining: meta.freeCallsRemaining as number | undefined,
       });
     }
-  }, [messages, updateFromMetadata]);
+  }, [messages, updateFromMetadata, status]);
 
   // Reset banner dismissed on new conversation turn
   useEffect(() => {
