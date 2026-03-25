@@ -24,6 +24,7 @@ import { CopyToClipboardButton } from "../copy-to-clipboard";
 import Link from "next/link";
 import { getToolDisplay } from "@/lib/tool-display-config";
 import { TOOL_PRICES } from "@/lib/tool-prices";
+import { renderClusterOutput } from "./cluster-renderers";
 
 /** Format crypto price with appropriate precision: >= $1 → 2dp, >= $0.01 → 4dp, < $0.01 → up to 6 significant digits */
 function formatCryptoPrice(price: number): string {
@@ -44,6 +45,8 @@ const PAID_TOOLS = [
   "track_whale_activity",
   "analyze_social_narrative",
   "analyze_market_trends",
+  "analyze_wallet_portfolio",
+  "screen_token_alpha",
 ];
 
 const isPaidTool = (toolName: string) => PAID_TOOLS.includes(toolName);
@@ -398,56 +401,10 @@ function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode
   try {
     const data = JSON.parse(jsonText);
 
-    // Cluster tools - parse the JSON from the text content
-    if (["analyze_defi_safety", "track_whale_activity", "analyze_social_narrative", "analyze_market_trends"].includes(toolName)) {
-      if (data.serviceCalls?.length > 0 || data.summary) {
-        return (
-          <div className="p-3 space-y-3">
-            {data.summary && (
-              <p className="text-sm text-muted-foreground">{data.summary}</p>
-            )}
-            {data.serviceCalls?.map((call: any, i: number) => (
-              <div key={i} className="rounded-lg bg-muted/30 px-3 py-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{call.serviceName}</span>
-                  {call.costMicroUsdc > 0 && (
-                    <span className="text-xs text-muted-foreground font-mono">
-                      ${(call.costMicroUsdc / 1_000_000).toFixed(4)}
-                    </span>
-                  )}
-                </div>
-                {/* Show key data points based on service type */}
-                {call.data?.riskScore != null && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Risk Score: {call.data.riskScore}/100 ({call.data.riskLevel})
-                    {call.data.flags?.length > 0 && ` — ${call.data.flags.join(", ")}`}
-                  </div>
-                )}
-                {call.data?.sentimentScore != null && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Sentiment: {call.data.sentimentScore > 0 ? "+" : ""}{call.data.sentimentScore} ({call.data.sentimentLabel})
-                  </div>
-                )}
-                {call.data?.walletType && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Type: {call.data.walletType} — ${call.data.totalValueUsd?.toLocaleString()}
-                  </div>
-                )}
-                {call.data?.diamondHandsScore != null && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Diamond Hands: {call.data.diamondHandsScore}/100 — {call.data.holderCount?.toLocaleString()} holders
-                  </div>
-                )}
-                {call.data?.predictionMarkets && (
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {call.data.predictionMarkets.length} markets — {call.data.overallSentiment}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        );
-      }
+    // Cluster tools — rich per-service visual renderers
+    if (["analyze_defi_safety", "track_whale_activity", "analyze_social_narrative", "analyze_market_trends", "analyze_wallet_portfolio", "screen_token_alpha"].includes(toolName)) {
+      const rendered = renderClusterOutput(data);
+      if (rendered) return rendered;
     }
 
     if (toolName === "get_crypto_price" && data.priceUsd != null) {

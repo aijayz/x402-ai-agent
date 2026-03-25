@@ -9,6 +9,8 @@ export const TOOL_DISPLAY: Record<string, ToolDisplayInfo> = {
   track_whale_activity: { label: "Whale Tracker", icon: "Fish" },
   analyze_social_narrative: { label: "Social Sentiment", icon: "MessageCircle" },
   analyze_market_trends: { label: "Market Intelligence", icon: "TrendingUp" },
+  analyze_wallet_portfolio: { label: "Wallet Portfolio", icon: "Briefcase" },
+  screen_token_alpha: { label: "Token Alpha", icon: "Target" },
 
   // MCP paid tools
   get_crypto_price: { label: "Crypto Price", icon: "DollarSign" },
