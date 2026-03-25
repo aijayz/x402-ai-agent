@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { track, identifyUser, resetUser } from "@/lib/analytics";
 
 const USDC_ADDRESS: Record<string, string> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -85,6 +86,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (data.authenticated && data.walletAddress) {
           setWalletAddress(data.walletAddress);
           setBalance(data.balanceMicroUsdc ?? null);
+          identifyUser(data.walletAddress);
         }
       } catch {
         // Silent — user will just appear anonymous
@@ -170,6 +172,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       setWalletAddress(address);
+      identifyUser(address);
+      track("wallet_connected");
 
       // Claim free credits
       try {
@@ -182,7 +186,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const amount = data.granted ?? data.balance ?? 0;
           setBalance(amount);
-          if (amount > 0) setLastCreditEvent({ type: "claimed", amountMicroUsdc: amount });
+          if (amount > 0) {
+            setLastCreditEvent({ type: "claimed", amountMicroUsdc: amount });
+            track("credits_claimed", { amountUsdc: amount / 1_000_000 });
+          }
         } else if (res.status === 409) {
           // Already claimed — just set balance, no event
           setBalance(data.balance ?? 0);
@@ -251,6 +258,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setWalletAddress(null);
     setBalance(null);
     setFreeCallsRemaining(null);
+    resetUser();
     // Clear wallet auth cookie
     document.cookie = "wallet_auth=; path=/; max-age=0";
   }, []);

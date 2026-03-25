@@ -20,6 +20,7 @@ import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, Trendin
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
+import { track } from "@/lib/analytics";
 
 import {
   Reasoning,
@@ -284,15 +285,17 @@ export function ChatPage() {
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !isRestoringSession) {
+      if (messages.length === 0) track("chat_started", { source: "input" });
       sendMessage({ text: input }, { headers });
       setInput("");
     }
-  }, [input, sendMessage, headers, isRestoringSession]);
+  }, [input, sendMessage, headers, isRestoringSession, messages.length]);
 
   const handlePromptClick = useCallback((prompt: string) => {
     if (isRestoringSession) return;
+    if (messages.length === 0) track("chat_started", { source: "suggestion" });
     sendMessage({ text: prompt }, { headers });
-  }, [sendMessage, headers, isRestoringSession]);
+  }, [sendMessage, headers, isRestoringSession, messages.length]);
 
   // Determine if a message is the currently-streaming one
   const lastAssistantId = useMemo(() => {

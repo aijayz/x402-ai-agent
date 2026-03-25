@@ -13,6 +13,7 @@ import {
 import { useWallet } from "@/components/wallet-provider";
 import { cn } from "@/lib/utils";
 import { type ChainKey } from "@/lib/chains";
+import { track } from "@/lib/analytics";
 
 const AMOUNT_PRESETS = [1, 5, 10, 20];
 
@@ -160,6 +161,7 @@ export function TopUpSheet() {
     setDepositInfo(null);
     setSelectedChain("base");
 
+    track("topup_started");
     fetch("/api/credits/topup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -228,6 +230,7 @@ export function TopUpSheet() {
 
       if (res.ok) {
         setTopUpStatus("done");
+        track("topup_completed", { amountUsdc: topUpAmount, chain: selectedChain });
         await refreshBalance();
         onTopUpCompleteRef.current?.();
       } else {
