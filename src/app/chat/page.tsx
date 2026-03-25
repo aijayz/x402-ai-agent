@@ -16,7 +16,7 @@ import {
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart, ChevronRight } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
@@ -359,11 +359,10 @@ export function ChatPage() {
                           <button
                             key={prompt}
                             onClick={() => handlePromptClick(prompt)}
-                            className="group/item flex items-center w-full text-left text-xs text-foreground/70 hover:text-foreground
-                              px-2.5 py-2 rounded-md border border-border/40 hover:border-border/70 bg-muted/30 hover:bg-muted/60 transition-all duration-150 truncate cursor-pointer"
+                            className="block w-full text-left text-xs text-foreground/60 hover:text-foreground
+                              px-2.5 py-1.5 rounded-md hover:bg-muted/50 transition-colors duration-150 truncate cursor-pointer"
                           >
-                            <span className="truncate flex-1">{prompt}</span>
-                            <ChevronRight className="size-3 opacity-30 group-hover/item:opacity-60 transition-opacity duration-150 shrink-0 ml-1" />
+                            {prompt}
                           </button>
                         ))}
                       </div>
