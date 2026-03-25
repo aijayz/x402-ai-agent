@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { CreditStore, MICRO_USDC } from "@/lib/credits/credit-store";
-import { getWalletAgeDays } from "@/lib/credits/wallet-age";
+import { getWalletAgeDays, isSuspiciousAddress } from "@/lib/credits/wallet-age";
 import { env } from "@/lib/env";
 import { walletAuthSetCookie } from "@/lib/wallet-auth";
 import { sendTelegramAlert } from "@/lib/telegram";
@@ -29,6 +29,11 @@ export async function POST(req: Request) {
   }
 
   const { walletAddress } = parsed.data;
+
+  if (isSuspiciousAddress(walletAddress)) {
+    return NextResponse.json({ error: "Invalid wallet address" }, { status: 400 });
+  }
+
   const account = await CreditStore.getOrCreate(walletAddress);
 
   const cookieHeader = walletAuthSetCookie(walletAddress);

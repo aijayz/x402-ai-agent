@@ -1,3 +1,35 @@
+/**
+ * Detect obviously fabricated wallet addresses.
+ * Catches sequential hex, repeated patterns, and all-same-char addresses.
+ */
+export function isSuspiciousAddress(address: string): boolean {
+  const hex = address.slice(2).toLowerCase();
+
+  // All same character (0x0000...0000, 0xffff...ffff)
+  if (/^(.)\1{39}$/.test(hex)) return true;
+
+  // Repeating short pattern (0x1234123412341234..., 0xabcabc...)
+  for (const len of [2, 4, 5, 8, 10, 16, 20]) {
+    const pattern = hex.slice(0, len);
+    if (pattern.repeat(Math.ceil(40 / len)).slice(0, 40) === hex) return true;
+  }
+
+  // Sequential ascending hex (0x0123456789abcdef0123...)
+  const sequential = "0123456789abcdef";
+  for (let start = 0; start < sequential.length; start++) {
+    let seq = "";
+    for (let i = 0; i < 40; i++) {
+      seq += sequential[(start + i) % sequential.length];
+    }
+    if (seq === hex) return true;
+  }
+
+  // Dead/burn addresses
+  if (hex === "000000000000000000000000000000000000dead") return true;
+
+  return false;
+}
+
 const EXPLORER_APIS: Record<string, string> = {
   base: "https://api.basescan.org/api",
   "base-sepolia": "https://api-sepolia.basescan.org/api",
