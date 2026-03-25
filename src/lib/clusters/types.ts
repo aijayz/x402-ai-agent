@@ -38,3 +38,18 @@ export function applyMarkup(costMicroUsdc: number, markupBps = 3000): number {
   const withMarkup = Math.round(costMicroUsdc * (1 + markupBps / 10_000));
   return Math.max(withMarkup, MIN_CLUSTER_CHARGE_MICRO);
 }
+
+/** Log and alert on credit release failure (user overcharged). */
+export async function handleReleaseFailure(
+  clusterName: string,
+  userWallet: string,
+  unusedMicro: number,
+  err: unknown,
+): Promise<void> {
+  console.error(`[${clusterName}] Failed to release credit reservation`, { userWallet, unusedMicro, error: err });
+  // Lazy-import to avoid circular deps
+  const { sendTelegramAlert } = await import("@/lib/telegram");
+  await sendTelegramAlert(
+    `*Credit Release Failed*\n\nUser overcharged — reservation not released.\n\nCluster: ${clusterName}\nWallet: \`${userWallet}\`\nUnreleased: $${(unusedMicro / 1_000_000).toFixed(4)}\nError: ${err instanceof Error ? err.message : String(err)}`
+  ).catch(() => {});
+}

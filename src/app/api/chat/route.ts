@@ -204,53 +204,71 @@ export const POST = async (request: Request) => {
               | { transaction?: string; amount?: number }
               | undefined;
             if (paymentResponse?.transaction) {
-              try {
-                // All amounts in micro-USDC
-                const serviceCostMicro = TOOL_PRICES[toolResult.toolName]
-                  ? Math.round(TOOL_PRICES[toolResult.toolName] * 1_000_000)
-                  : 0;
-                const markupBps = 3000; // 30%
-                const chargedMicro = Math.round(serviceCostMicro * 1.30);
+              const serviceCostMicro = TOOL_PRICES[toolResult.toolName]
+                ? Math.round(TOOL_PRICES[toolResult.toolName] * 1_000_000)
+                : 0;
+              const markupBps = 3000; // 30%
+              const chargedMicro = Math.round(serviceCostMicro * 1.30);
+              const txHash = paymentResponse.transaction;
 
-                // Track in BudgetController (micro-USDC in both modes)
-                budget.recordSpend(chargedMicro, toolResult.toolName, paymentResponse.transaction);
+              // Track in BudgetController (always — even for anon users)
+              budget.recordSpend(chargedMicro, toolResult.toolName, txHash);
+              turnSpendEvents.push({
+                toolName: toolResult.toolName,
+                amountUsdc: chargedMicro / 1_000_000,
+              });
 
-                turnSpendEvents.push({
-                  toolName: toolResult.toolName,
-                  amountUsdc: chargedMicro / 1_000_000,
-                });
-
-                if (walletAddress) {
-                  // Atomic DB deduction for wallet users
-                  const result = await CreditStore.deduct(walletAddress, chargedMicro);
-                  if (!result.success) {
-                    console.error("[PAYMENT] Credit deduction failed after on-chain payment", {
-                      walletAddress,
-                      toolName: toolResult.toolName,
-                      txHash: paymentResponse.transaction,
-                      chargedMicro,
-                    });
-                    await sendTelegramAlert(
-                      `*Payment Failure*\n\nOn-chain payment succeeded but credit deduction failed.\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${paymentResponse.transaction}\`\nNetwork: ${env.NETWORK}`
-                    );
-                  }
-
+              if (walletAddress) {
+                // 1. Record spend event FIRST (audit trail before deduction)
+                try {
                   await SpendEventStore.record({
                     walletAddress,
                     toolName: toolResult.toolName,
                     serviceCostMicroUsdc: serviceCostMicro,
                     chargedAmountMicroUsdc: chargedMicro,
                     markupBps,
-                    txHash: paymentResponse.transaction,
+                    txHash,
                   });
+                } catch (err) {
+                  console.error("[PAYMENT] Failed to record spend event", { walletAddress, txHash, err });
+                  await sendTelegramAlert(
+                    `*Spend Event Failed*\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\`\nError: ${err instanceof Error ? err.message : String(err)}`
+                  ).catch(() => {});
                 }
-              } catch (err) {
-                console.error("[PAYMENT] Failed to record spend event — on-chain payment may be untracked", {
-                  walletAddress,
-                  toolName: toolResult.toolName,
-                  txHash: paymentResponse.transaction,
-                  error: err,
-                });
+
+                // 2. Deduct credits — try normal deduct, then force deduct on failure
+                try {
+                  const result = await CreditStore.deduct(walletAddress, chargedMicro);
+                  if (!result.success) {
+                    // Balance race condition — force deduct (allows negative balance)
+                    console.warn("[PAYMENT] Normal deduct failed (insufficient balance race), force-deducting", {
+                      walletAddress, chargedMicro, txHash,
+                    });
+                    const forced = await CreditStore.forceDeduct(walletAddress, chargedMicro);
+                    if (!forced.success) {
+                      // Account doesn't exist at all — should never happen
+                      console.error("[PAYMENT] Force deduct failed — no account", { walletAddress, txHash });
+                      await sendTelegramAlert(
+                        `*Force Deduct Failed*\n\nNo account found.\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\``
+                      ).catch(() => {});
+                    } else {
+                      await sendTelegramAlert(
+                        `*Balance Race — Force Deducted*\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nNew balance: $${((forced.newBalanceMicroUsdc ?? 0) / 1_000_000).toFixed(4)}\nTx: \`${txHash}\``
+                      ).catch(() => {});
+                    }
+                  }
+                } catch (err) {
+                  // DB error — retry once
+                  console.error("[PAYMENT] Deduct threw, retrying once", { walletAddress, txHash, err });
+                  try {
+                    await CreditStore.forceDeduct(walletAddress, chargedMicro);
+                  } catch (retryErr) {
+                    console.error("[PAYMENT] Retry deduct also failed — UNRECOVERED", { walletAddress, txHash, retryErr });
+                    await sendTelegramAlert(
+                      `*CRITICAL: Unrecovered Payment*\n\nOn-chain payment succeeded but credit deduction failed after retry.\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\`\nError: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`
+                    ).catch(() => {});
+                  }
+                }
               }
             }
           }

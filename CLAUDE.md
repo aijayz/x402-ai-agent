@@ -61,6 +61,7 @@ See `docs/ops/` for operational runbooks:
 | `/api/credits/check-topups` | Cron job — check pending top-ups |
 | `/api/credits/webhook` | Alchemy webhook for deposit confirmation |
 | `/api/registry` | x402 service registry API |
+| `/api/auth/me` | Restore wallet session from HttpOnly cookie (page refresh) |
 
 ### Key Architecture Patterns
 
@@ -99,11 +100,13 @@ Each cluster orchestrates multiple x402 services for cross-referenced intelligen
 - Anonymous: 2 free calls tracked via session cookie + Neon Postgres (`src/lib/credits/session-store.ts`)
 - Wallet users: USDC credit balance with 30% markup on tool costs (`src/lib/credits/credit-store.ts`)
 - Spend events recorded per tool call (`src/lib/credits/spend-store.ts`)
+- Wallet session restored from `wallet_auth` HttpOnly cookie on page refresh via `/api/auth/me`
 - Wallet-age Sybil guard (`src/lib/credits/wallet-age.ts`): queries Basescan for first tx timestamp
   - < 7 days old → $0.10 free credits
   - 7–30 days → $0.25
   - > 30 days → $0.50
   - API failure → $0.10 (safe default)
+- Payment safety net: spend event recorded FIRST (audit trail), then `deduct()` with `forceDeduct()` fallback (allows negative balance) + retry on DB error. Telegram alerts on all failure paths.
 
 **Chat API** (`src/app/api/chat/route.ts`)
 - Validates messages, filters contentless ones (streaming edge cases)

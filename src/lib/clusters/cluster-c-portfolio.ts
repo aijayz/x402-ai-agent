@@ -5,7 +5,7 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup } from "./types";
+import { applyMarkup, handleReleaseFailure } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterCDeps {
@@ -131,12 +131,9 @@ export function createClusterCTools(deps: ClusterCDeps) {
               await CreditStore.release(
                 deps.userWallet,
                 unusedMicro,
-              ).catch((err) => {
-                console.error(
-                  "[CLUSTER_C] Failed to release credit reservation",
-                  { userWallet: deps.userWallet, unusedMicro, error: err },
-                );
-              });
+              ).catch((err) =>
+                handleReleaseFailure("CLUSTER_C", deps.userWallet!, unusedMicro, err),
+              );
             }
           }
         }

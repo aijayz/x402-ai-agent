@@ -48,9 +48,29 @@ export const CreditStore = {
     const rows = await sql`
       UPDATE credit_accounts
       SET balance_micro_usdc = balance_micro_usdc - ${amountMicroUsdc},
+          lifetime_spent_micro_usdc = lifetime_spent_micro_usdc + ${amountMicroUsdc},
           updated_at = now()
       WHERE wallet_address = ${walletAddress}
         AND balance_micro_usdc >= ${amountMicroUsdc}
+      RETURNING balance_micro_usdc
+    `;
+    if (rows.length === 0) {
+      return { success: false };
+    }
+    return { success: true, newBalanceMicroUsdc: Number(rows[0].balance_micro_usdc) };
+  },
+
+  /**
+   * Unconditional deduction — allows negative balance.
+   * Use ONLY when on-chain payment has already succeeded and credits MUST be charged.
+   */
+  async forceDeduct(walletAddress: string, amountMicroUsdc: number): Promise<DeductResult> {
+    const rows = await sql`
+      UPDATE credit_accounts
+      SET balance_micro_usdc = balance_micro_usdc - ${amountMicroUsdc},
+          lifetime_spent_micro_usdc = lifetime_spent_micro_usdc + ${amountMicroUsdc},
+          updated_at = now()
+      WHERE wallet_address = ${walletAddress}
       RETURNING balance_micro_usdc
     `;
     if (rows.length === 0) {
