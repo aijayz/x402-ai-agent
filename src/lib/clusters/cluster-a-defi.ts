@@ -7,6 +7,7 @@ import { telemetry } from "../telemetry";
 import { env } from "../env";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
+import { applyMarkup } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterADeps {
@@ -100,7 +101,7 @@ export function createClusterATools(deps: ClusterADeps) {
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
-            const unusedMicro = maxReservationMicro - totalCost;
+            const unusedMicro = maxReservationMicro - applyMarkup(totalCost);
             if (unusedMicro > 0) {
               await CreditStore.release(deps.userWallet, unusedMicro).catch((err) => {
                 console.error("[CLUSTER_A] Failed to release credit reservation", {

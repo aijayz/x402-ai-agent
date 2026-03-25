@@ -137,25 +137,69 @@ const PROBE_CASES: ProbeCase[] = [
     attemptPayment: true,
   },
 
-  // Browserbase — web scraping ($0.01/search)
+  // GenVox — social sentiment ($0.03/call, x402 v2)
   {
-    name: "browserbase-search",
-    description: "Browserbase: web search for crypto trends",
-    url: "https://x402.browserbase.com/search",
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: "Base L2 DeFi trends 2026" }),
-    expectedCostMicroUsdc: 10_000,
+    name: "genvox-btc",
+    description: "GenVox: Bitcoin sentiment",
+    url: "https://api.genvox.io/v1/sentiment/bitcoin",
+    method: "GET",
+    expectedCostMicroUsdc: 30_000,
     attemptPayment: true,
   },
   {
-    name: "browserbase-fetch",
-    description: "Browserbase: fetch page content",
-    url: "https://x402.browserbase.com/fetch",
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: "https://defillama.com/chain/Base" }),
-    expectedCostMicroUsdc: 10_000,
+    name: "genvox-eth",
+    description: "GenVox: Ethereum sentiment",
+    url: "https://api.genvox.io/v1/sentiment/ethereum",
+    method: "GET",
+    expectedCostMicroUsdc: 30_000,
+    attemptPayment: true,
+  },
+
+  // SLAMai — wallet + token holder intelligence ($0.001/call)
+  {
+    name: "slamai-wallet",
+    description: "SLAMai: Vitalik wallet trades",
+    url: `https://api.slamai.dev/wallet/trades?blockchain=base&wallet_address=${VITALIK}&num=10`,
+    method: "GET",
+    expectedCostMicroUsdc: 1_000,
+    attemptPayment: true,
+  },
+  {
+    name: "slamai-token-holders",
+    description: "SLAMai: WETH top holder reputation",
+    url: `https://api.slamai.dev/token/holder/reputation?blockchain=base&address=${WETH}`,
+    method: "GET",
+    expectedCostMicroUsdc: 1_000,
+    attemptPayment: true,
+  },
+
+  // QuantumShield Whale Activity ($0.002/call)
+  {
+    name: "qs-whale-activity",
+    description: "QS: Whale activity for WETH",
+    url: `https://quantumshield-api.vercel.app/api/whale/activity?address=${WETH}`,
+    method: "GET",
+    expectedCostMicroUsdc: 2_000,
+    attemptPayment: true,
+  },
+
+  // RugMunch — was 502 before, retest to see if back up
+  {
+    name: "rugmunch",
+    description: "RugMunch: scan WETH (was 502 before)",
+    url: `https://cryptorugmunch.app/api/agent/v1/scan?target=${WETH}`,
+    method: "GET",
+    expectedCostMicroUsdc: 20_000,
+    attemptPayment: true,
+  },
+
+  // DiamondClaws — was 530 before, retest to see if back up
+  {
+    name: "diamondclaws",
+    description: "DiamondClaws: score WETH (was 530 before)",
+    url: `https://diamondclaws.io/score?target=${WETH}`,
+    method: "GET",
+    expectedCostMicroUsdc: 1_000,
     attemptPayment: true,
   },
 ];
@@ -356,7 +400,30 @@ async function main() {
     const signer = toClientEvmSigner(account as any);
     const x402 = new x402Client();
     registerExactEvmScheme(x402, { signer });
-    const paidFetch = wrapFetchWithPayment(fetch, x402);
+    // Normalizing wrapper: flatten extra.domain → extra for v1 services (QuantumShield)
+    const normalizing402: typeof fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const res = await fetch(input, init);
+      if (res.status !== 402) return res;
+      const body = await res.text();
+      let normalized = body;
+      try {
+        const parsed = JSON.parse(body);
+        if (Array.isArray(parsed?.accepts)) {
+          let changed = false;
+          for (const accept of parsed.accepts) {
+            if (accept.extra?.domain && !accept.extra.name) {
+              accept.extra.name = accept.extra.domain.name;
+              accept.extra.version = accept.extra.domain.version;
+              changed = true;
+            }
+          }
+          if (changed) normalized = JSON.stringify(parsed);
+        }
+      } catch { /* not JSON */ }
+      return new Response(normalized, { status: res.status, statusText: res.statusText, headers: res.headers });
+    }) as typeof fetch;
+
+    const paidFetch = wrapFetchWithPayment(normalizing402, x402);
 
     for (const pc of probeCases) {
       const label = `[${pc.name}] ${pc.description}`;

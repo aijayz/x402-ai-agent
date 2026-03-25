@@ -5,6 +5,7 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
+import { applyMarkup } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterDDeps {
@@ -16,9 +17,9 @@ export function createClusterDTools(deps: ClusterDDeps) {
   return {
     analyze_social_narrative: tool({
       description:
-        "Analyze market intelligence — contract risk scoring and wallet reputation for a token or topic. " +
-        "Calls external x402 services (Augur, QuantumShield). " +
-        "Costs ~$0.10.",
+        "Analyze social narrative and market sentiment for a token or topic — community sentiment, contract risk scoring, and wallet reputation. " +
+        "Calls external x402 services (GenVox, Augur, QuantumShield). " +
+        "Costs ~$0.17.",
       inputSchema: z.object({
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
       }),
@@ -41,6 +42,7 @@ export function createClusterDTools(deps: ClusterDDeps) {
         const clusterStart = Date.now();
         try {
           const serviceConfigs = [
+            { name: "genvox", input: { topic } },
             { name: "augur", input: { address: topic } },
             { name: "qs-wallet-risk", input: { address: topic } },
           ] as const;
@@ -79,7 +81,7 @@ export function createClusterDTools(deps: ClusterDDeps) {
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
-            const unusedMicro = maxReservationMicro - totalCost;
+            const unusedMicro = maxReservationMicro - applyMarkup(totalCost);
             if (unusedMicro > 0) {
               await CreditStore.release(deps.userWallet, unusedMicro).catch((err) => {
                 console.error("[CLUSTER_D] Failed to release credit reservation", {

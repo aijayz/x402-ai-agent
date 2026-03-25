@@ -15,6 +15,10 @@ const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
     real: () => import("./adapters/messari").then(m => m.messariTokenUnlocksAdapter),
     stub: () => import("./adapters/stubs/messari.stub").then(m => m.messariTokenUnlocksStub),
   },
+  "messari-allocations": {
+    real: () => import("./adapters/messari").then(m => m.messariAllocationsAdapter),
+    stub: () => import("./adapters/stubs/messari.stub").then(m => m.messariAllocationsStub),
+  },
   // QuantumShield endpoints (quantumshield-api.vercel.app)
   "qs-token-security": {
     real: () => import("./adapters/quantum-shield").then(m => m.qsTokenSecurity),
@@ -27,6 +31,20 @@ const adapters: Record<string, { real: AdapterLoader; stub: AdapterLoader }> = {
   "qs-wallet-risk": {
     real: () => import("./adapters/quantum-shield").then(m => m.qsWalletRisk),
     stub: () => import("./adapters/stubs/quantum-shield.stub").then(m => m.qsWalletRiskStub),
+  },
+  "qs-whale-activity": {
+    real: () => import("./adapters/quantum-shield").then(m => m.qsWhaleActivity),
+    stub: () => import("./adapters/stubs/quantum-shield.stub").then(m => m.qsWhaleActivityStub),
+  },
+  // GenVox (api.genvox.io) — social sentiment intelligence
+  "genvox": {
+    real: () => import("./adapters/genvox").then(m => m.genvoxAdapter),
+    stub: () => import("./adapters/stubs/genvox.stub").then(m => m.genvoxStub),
+  },
+  // SLAMai (api.slamai.dev) — wallet trade intelligence
+  "slamai-wallet": {
+    real: () => import("./adapters/slamai").then(m => m.slaMaiWalletAdapter),
+    stub: () => import("./adapters/stubs/slamai.stub").then(m => m.slaMaiWalletStub),
   },
 };
 

@@ -1,4 +1,5 @@
 import { env } from "../../env";
+import { callWithPayment } from "../payment-handler";
 import type { X402ServiceAdapter, X402ServiceResponse, PaymentContext } from "../types";
 
 const MESSARI_BASE = env.MESSARI_URL ?? "https://api.messari.io";
@@ -65,5 +66,30 @@ export const messariTokenUnlocksAdapter: X402ServiceAdapter<MessariTokenUnlocksI
       cost: 0,
       source: "Messari",
     };
+  },
+};
+
+// --- Messari Allocations (x402 v2, paid) ---
+
+interface MessariAllocationsInput {
+  assetSymbol: string; // e.g. "ARB", "OP", "ETH"
+}
+
+/**
+ * Messari token allocations — paid x402 v2 endpoint ($0.25/call).
+ * Returns detailed token allocation breakdowns: investor, team,
+ * foundation, ecosystem, community splits with vesting schedules.
+ */
+export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInput, unknown> = {
+  name: "Messari Allocations",
+  estimatedCostMicroUsdc: 250_000,
+  async call(input: MessariAllocationsInput, ctx: PaymentContext): Promise<X402ServiceResponse<unknown>> {
+    const result = await callWithPayment(
+      `${MESSARI_BASE}/token-unlocks/v1/allocations?assetSymbol=${encodeURIComponent(input.assetSymbol)}`,
+      undefined,
+      ctx,
+      { maxPaymentMicroUsdc: 500_000, timeoutMs: 15_000 },
+    );
+    return { data: result.data, cost: result.costMicroUsdc, source: "Messari Allocations" };
   },
 };

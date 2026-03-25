@@ -7,6 +7,7 @@ import { telemetry } from "../telemetry";
 import { env } from "../env";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
+import { applyMarkup } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterEDeps {
@@ -18,10 +19,10 @@ export function createClusterETools(deps: ClusterEDeps) {
   return {
     screen_token_alpha: tool({
       description:
-        "Screen a token for alpha signals: security score and upcoming token unlock schedule. " +
-        "Calls QuantumShield (token security) and Messari (unlock schedule). " +
+        "Screen a token for alpha signals: security score, unlock schedule, and detailed allocation breakdown (investor/team/foundation splits). " +
+        "Calls QuantumShield (token security), Messari (unlock schedule + allocations). " +
         "Accepts a token name/symbol (e.g. 'AERO', 'cbBTC') or contract address. " +
-        "Costs ~$0.002.",
+        "Costs ~$0.33.",
       inputSchema: z.object({
         target: z
           .string()
@@ -30,7 +31,7 @@ export function createClusterETools(deps: ClusterEDeps) {
           ),
       }),
       execute: async ({ target }): Promise<ClusterResult> => {
-        const maxReservationMicro = 10_000;
+        const maxReservationMicro = 500_000;
         let reserved = false;
 
         if (deps.userWallet) {
@@ -67,11 +68,12 @@ export function createClusterETools(deps: ClusterEDeps) {
           const serviceConfigs = [
             ...(isAddress
               ? [
-                  { name: "qs-token-security", input: { address: target } },
+                  { name: "qs-token-security" as const, input: { address: target } },
                 ]
               : []),
-            { name: "messari-token-unlocks", input: { target: messariTarget } },
-          ] as const;
+            { name: "messari-token-unlocks" as const, input: { target: messariTarget } },
+            { name: "messari-allocations" as const, input: { assetSymbol: messariTarget } },
+          ];
 
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
@@ -139,7 +141,7 @@ export function createClusterETools(deps: ClusterEDeps) {
               (sum, c) => sum + c.costMicroUsdc,
               0,
             );
-            const unusedMicro = maxReservationMicro - totalCost;
+            const unusedMicro = maxReservationMicro - applyMarkup(totalCost);
             if (unusedMicro > 0) {
               await CreditStore.release(
                 deps.userWallet,

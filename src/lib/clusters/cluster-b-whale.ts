@@ -5,6 +5,7 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
+import { applyMarkup } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterBDeps {
@@ -16,15 +17,15 @@ export function createClusterBTools(deps: ClusterBDeps) {
   return {
     track_whale_activity: tool({
       description:
-        "Track whale and smart money activity. Pass a wallet or token contract address to see whale accumulation patterns. " +
+        "Track whale and smart money activity. Pass a wallet or token contract address to see whale accumulation patterns, trade history, and risk profiles. " +
         "Requires an Ethereum address (0x format). To analyze a token like ETH or USDC, use get_crypto_price first to get its contract address. " +
-        "Calls external x402 services (QuantumShield). " +
-        "Costs ~$0.002.",
+        "Calls external x402 services (QuantumShield, SLAMai). " +
+        "Costs ~$0.02.",
       inputSchema: z.object({
         address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid Ethereum address (0x + 40 hex chars)").describe("Wallet address or token contract address to analyze (0x format)"),
       }),
       execute: async ({ address }): Promise<ClusterResult> => {
-        const maxReservationMicro = 20_000;
+        const maxReservationMicro = 25_000;
         let reserved = false;
 
         if (deps.userWallet) {
@@ -43,6 +44,8 @@ export function createClusterBTools(deps: ClusterBDeps) {
         try {
           const serviceConfigs = [
             { name: "qs-wallet-risk", input: { address } },
+            { name: "qs-whale-activity", input: { address } },
+            { name: "slamai-wallet", input: { address } },
           ] as const;
 
           for (const svc of serviceConfigs) {
@@ -79,7 +82,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
-            const unusedMicro = maxReservationMicro - totalCost;
+            const unusedMicro = maxReservationMicro - applyMarkup(totalCost);
             if (unusedMicro > 0) {
               await CreditStore.release(deps.userWallet, unusedMicro).catch((err) => {
                 console.error("[CLUSTER_B] Failed to release credit reservation", {

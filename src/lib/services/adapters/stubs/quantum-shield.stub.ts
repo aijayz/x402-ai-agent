@@ -58,3 +58,19 @@ export const qsWalletRiskStub: X402ServiceAdapter<QSInput, unknown> = {
   },
 };
 
+// --- Whale Activity ---
+const WHALE_ACTIVITY_POOL = [
+  { whaleCount: 42, netFlow: "accumulating", topBuyer: "0xWhale1", volume24h: "$12.4M", trend: "bullish" },
+  { whaleCount: 8, netFlow: "distributing", topSeller: "0xWhale2", volume24h: "$890K", trend: "bearish" },
+  { whaleCount: 23, netFlow: "neutral", volume24h: "$3.1M", trend: "sideways" },
+];
+
+export const qsWhaleActivityStub: X402ServiceAdapter<QSInput, unknown> = {
+  name: "QS Whale Activity",
+  estimatedCostMicroUsdc: 2_000,
+  async call(input: QSInput): Promise<X402ServiceResponse<unknown>> {
+    const idx = hashToIndex(input.address, WHALE_ACTIVITY_POOL.length);
+    return { data: WHALE_ACTIVITY_POOL[idx], cost: 2_000, source: "QuantumShield Whale Activity (stub)" };
+  },
+};
+

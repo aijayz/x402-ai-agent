@@ -5,6 +5,7 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
+import { applyMarkup } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterFDeps {
@@ -16,8 +17,8 @@ export function createClusterFTools(deps: ClusterFDeps) {
   return {
     analyze_market_trends: tool({
       description:
-        "Analyze market trends — smart contract intelligence via QuantumShield. " +
-        "Costs ~$0.003.",
+        "Analyze market trends — social sentiment via GenVox plus optional smart contract audit via QuantumShield. " +
+        "Costs ~$0.04.",
       inputSchema: z.object({
         query: z.string().describe("Market trend query, e.g. 'trending narratives', 'ETH sentiment this week'"),
         contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional().describe("Optional: contract address (0x format) for contract audit"),
@@ -40,17 +41,12 @@ export function createClusterFTools(deps: ClusterFDeps) {
 
         const clusterStart = Date.now();
         try {
-          if (!contractAddress) {
-            return {
-              summary: `Market trend analysis for "${query}" requires a contract address for audit. Provide a contract address to get a detailed security audit via QuantumShield.`,
-              serviceCalls: [],
-              totalCostMicroUsdc: 0,
-            };
-          }
-
-          const serviceConfigs = [
-            { name: "qs-contract-audit" as const, input: { address: contractAddress } },
+          const serviceConfigs: { name: "genvox" | "qs-contract-audit"; input: Record<string, string> }[] = [
+            { name: "genvox", input: { topic: query } },
           ];
+          if (contractAddress) {
+            serviceConfigs.push({ name: "qs-contract-audit", input: { address: contractAddress } });
+          }
 
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
@@ -86,7 +82,7 @@ export function createClusterFTools(deps: ClusterFDeps) {
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
-            const unusedMicro = maxReservationMicro - totalCost;
+            const unusedMicro = maxReservationMicro - applyMarkup(totalCost);
             if (unusedMicro > 0) {
               await CreditStore.release(deps.userWallet, unusedMicro).catch((err) => {
                 console.error("[CLUSTER_F] Failed to release credit reservation", {

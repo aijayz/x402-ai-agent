@@ -5,6 +5,7 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
+import { applyMarkup } from "./types";
 import type { ClusterResult, ServiceCallResult } from "./types";
 
 interface ClusterCDeps {
@@ -16,9 +17,9 @@ export function createClusterCTools(deps: ClusterCDeps) {
   return {
     analyze_wallet_portfolio: tool({
       description:
-        "Deep-dive analysis of a wallet address: risk profile and on-chain reputation. " +
-        "Calls QuantumShield (wallet risk score + whale activity). " +
-        "Costs ~$0.004.",
+        "Deep-dive analysis of a wallet address: risk profile, trade history, whale activity, and on-chain reputation. " +
+        "Calls QuantumShield + SLAMai for cross-referenced intelligence. " +
+        "Costs ~$0.02.",
       inputSchema: z.object({
         address: z
           .string()
@@ -29,7 +30,7 @@ export function createClusterCTools(deps: ClusterCDeps) {
           .describe("Wallet address to analyze (0x format)"),
       }),
       execute: async ({ address }): Promise<ClusterResult> => {
-        const maxReservationMicro = 15_000;
+        const maxReservationMicro = 25_000;
         let reserved = false;
 
         if (deps.userWallet) {
@@ -58,6 +59,8 @@ export function createClusterCTools(deps: ClusterCDeps) {
         try {
           const serviceConfigs = [
             { name: "qs-wallet-risk", input: { address } },
+            { name: "slamai-wallet", input: { address } },
+            { name: "qs-whale-activity", input: { address } },
           ] as const;
 
           for (const svc of serviceConfigs) {
@@ -123,7 +126,7 @@ export function createClusterCTools(deps: ClusterCDeps) {
               (sum, c) => sum + c.costMicroUsdc,
               0,
             );
-            const unusedMicro = maxReservationMicro - totalCost;
+            const unusedMicro = maxReservationMicro - applyMarkup(totalCost);
             if (unusedMicro > 0) {
               await CreditStore.release(
                 deps.userWallet,
