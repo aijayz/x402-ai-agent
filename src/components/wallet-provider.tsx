@@ -56,6 +56,8 @@ interface WalletContextValue {
   switchChain: (chainId: number) => Promise<void>;
   updateFromMetadata: (meta: { budgetRemaining?: number; freeCallsRemaining?: number }) => void;
   onTopUpCompleteRef: React.RefObject<(() => void) | null>;
+  /** True while /api/auth/me is being checked on mount */
+  isRestoringSession: boolean;
 }
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -69,6 +71,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const onTopUpCompleteRef = useRef<(() => void) | null>(null);
   const clearCreditEvent = useCallback(() => setLastCreditEvent(null), []);
   const network = getTargetNetwork();
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   // Restore wallet session from HttpOnly cookie on mount
   useEffect(() => {
@@ -85,6 +88,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
       } catch {
         // Silent — user will just appear anonymous
+      } finally {
+        if (!cancelled) setIsRestoringSession(false);
       }
     })();
     return () => { cancelled = true; };
@@ -261,7 +266,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, switchChain, updateFromMetadata, onTopUpCompleteRef }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, switchChain, updateFromMetadata, onTopUpCompleteRef, isRestoringSession }}>
       {children}
     </WalletContext.Provider>
   );

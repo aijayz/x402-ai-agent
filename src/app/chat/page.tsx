@@ -107,7 +107,7 @@ function parseActions(text: string): { cleanText: string; actions: string[]; sug
 export function ChatPage() {
   const [input, setInput] = useState("");
   const [lastError, setLastError] = useState<Error | null>(null);
-  const { walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef } = useWallet();
+  const { walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef, isRestoringSession } = useWallet();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingRetryRef = useRef<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -282,15 +282,16 @@ export function ChatPage() {
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim()) {
+    if (input.trim() && !isRestoringSession) {
       sendMessage({ text: input }, { headers });
       setInput("");
     }
-  }, [input, sendMessage, headers]);
+  }, [input, sendMessage, headers, isRestoringSession]);
 
   const handlePromptClick = useCallback((prompt: string) => {
+    if (isRestoringSession) return;
     sendMessage({ text: prompt }, { headers });
-  }, [sendMessage, headers]);
+  }, [sendMessage, headers, isRestoringSession]);
 
   // Determine if a message is the currently-streaming one
   const lastAssistantId = useMemo(() => {
@@ -536,7 +537,7 @@ export function ChatPage() {
                 <span>Explore</span>
               </button>
             </PromptInputTools>
-            <PromptInputSubmit disabled={!input} status={status} />
+            <PromptInputSubmit disabled={!input || isRestoringSession} status={status} />
           </PromptInputToolbar>
         </PromptInput>
 
