@@ -16,9 +16,8 @@ export function createClusterFTools(deps: ClusterFDeps) {
   return {
     analyze_market_trends: tool({
       description:
-        "Analyze market trends — sentiment analysis, liquidity analysis, and smart contract intelligence. " +
-        "Calls external x402 services (GenVox, QuantumShield). " +
-        "Costs ~$0.03.",
+        "Analyze market trends — smart contract intelligence via QuantumShield. " +
+        "Costs ~$0.003.",
       inputSchema: z.object({
         query: z.string().describe("Market trend query, e.g. 'trending narratives', 'ETH sentiment this week'"),
         contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional().describe("Optional: contract address (0x format) for contract audit"),
@@ -41,12 +40,17 @@ export function createClusterFTools(deps: ClusterFDeps) {
 
         const clusterStart = Date.now();
         try {
-          const baseConfigs = [
-            { name: "genvox" as const, input: { topic: query } },
+          if (!contractAddress) {
+            return {
+              summary: `Market trend analysis for "${query}" requires a contract address for audit. Provide a contract address to get a detailed security audit via QuantumShield.`,
+              serviceCalls: [],
+              totalCostMicroUsdc: 0,
+            };
+          }
+
+          const serviceConfigs = [
+            { name: "qs-contract-audit" as const, input: { address: contractAddress } },
           ];
-          const serviceConfigs = contractAddress
-            ? [...baseConfigs, { name: "qs-contract-audit" as const, input: { address: contractAddress } }]
-            : baseConfigs;
 
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();

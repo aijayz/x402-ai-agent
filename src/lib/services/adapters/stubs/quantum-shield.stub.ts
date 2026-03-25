@@ -58,18 +58,3 @@ export const qsWalletRiskStub: X402ServiceAdapter<QSInput, unknown> = {
   },
 };
 
-// --- Whale Activity ---
-const WHALE_ACTIVITY_POOL = [
-  { topHolderPct: 0.08, whaleCount: 3, recentLargeTxs: 1, manipulation: "low" },
-  { topHolderPct: 0.32, whaleCount: 7, recentLargeTxs: 5, manipulation: "medium" },
-  { topHolderPct: 0.61, whaleCount: 2, recentLargeTxs: 12, manipulation: "high" },
-];
-
-export const qsWhaleActivityStub: X402ServiceAdapter<QSInput, unknown> = {
-  name: "QS Whale Activity",
-  estimatedCostMicroUsdc: 2_000,
-  async call(input: QSInput): Promise<X402ServiceResponse<unknown>> {
-    const idx = hashToIndex(input.address, WHALE_ACTIVITY_POOL.length);
-    return { data: WHALE_ACTIVITY_POOL[idx], cost: 2_000, source: "QuantumShield Whale Activity (stub)" };
-  },
-};

@@ -18,11 +18,10 @@ export function createClusterETools(deps: ClusterEDeps) {
   return {
     screen_token_alpha: tool({
       description:
-        "Screen a token for alpha signals: security score, top holder quality (smart money vs bots), " +
-        "and upcoming token unlock schedule that could pressure price. " +
-        "Calls QuantumShield (token security), SLAMai (holder reputation), and Messari (unlock schedule). " +
+        "Screen a token for alpha signals: security score and upcoming token unlock schedule. " +
+        "Calls QuantumShield (token security) and Messari (unlock schedule). " +
         "Accepts a token name/symbol (e.g. 'AERO', 'cbBTC') or contract address. " +
-        "Costs ~$0.01.",
+        "Costs ~$0.002.",
       inputSchema: z.object({
         target: z
           .string()
@@ -69,7 +68,6 @@ export function createClusterETools(deps: ClusterEDeps) {
             ...(isAddress
               ? [
                   { name: "qs-token-security", input: { address: target } },
-                  { name: "slamai-token-holders", input: { address: target } },
                 ]
               : []),
             { name: "messari-token-unlocks", input: { target: messariTarget } },

@@ -16,10 +16,9 @@ export function createClusterCTools(deps: ClusterCDeps) {
   return {
     analyze_wallet_portfolio: tool({
       description:
-        "Deep-dive analysis of a wallet address: trade history, smart money tier (Whale/Dolphin/Fish), " +
-        "IQ score, risk profile, and on-chain reputation. " +
-        "Calls SLAMai (trade patterns + mass tier) and QuantumShield (wallet risk score + whale activity). " +
-        "Costs ~$0.01.",
+        "Deep-dive analysis of a wallet address: risk profile and on-chain reputation. " +
+        "Calls QuantumShield (wallet risk score + whale activity). " +
+        "Costs ~$0.004.",
       inputSchema: z.object({
         address: z
           .string()
@@ -58,9 +57,7 @@ export function createClusterCTools(deps: ClusterCDeps) {
         const clusterStart = Date.now();
         try {
           const serviceConfigs = [
-            { name: "slamai-wallet", input: { address } },
             { name: "qs-wallet-risk", input: { address } },
-            { name: "qs-whale-activity", input: { address } },
           ] as const;
 
           for (const svc of serviceConfigs) {

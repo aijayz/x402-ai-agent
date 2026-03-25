@@ -16,11 +16,10 @@ export function createClusterBTools(deps: ClusterBDeps) {
   return {
     track_whale_activity: tool({
       description:
-        "Track whale and smart money activity. Pass a wallet address to profile a specific whale (risk score, transaction history). " +
-        "Pass a token contract address to see holder concentration and whale accumulation for that token. " +
+        "Track whale and smart money activity. Pass a wallet or token contract address to see whale accumulation patterns. " +
         "Requires an Ethereum address (0x format). To analyze a token like ETH or USDC, use get_crypto_price first to get its contract address. " +
-        "Calls external x402 services (SLAMai, QuantumShield). " +
-        "Costs ~$0.01.",
+        "Calls external x402 services (QuantumShield). " +
+        "Costs ~$0.002.",
       inputSchema: z.object({
         address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "Must be a valid Ethereum address (0x + 40 hex chars)").describe("Wallet address or token contract address to analyze (0x format)"),
       }),
@@ -43,9 +42,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
         const clusterStart = Date.now();
         try {
           const serviceConfigs = [
-            { name: "slamai-wallet", input: { address } },
-            { name: "slamai-token-holders", input: { address } },
-            { name: "qs-whale-activity", input: { address } },
+            { name: "qs-wallet-risk", input: { address } },
           ] as const;
 
           for (const svc of serviceConfigs) {

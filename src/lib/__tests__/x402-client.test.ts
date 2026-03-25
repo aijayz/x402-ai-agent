@@ -52,6 +52,7 @@ describe("x402-client", () => {
     expect(result!.version).toBe(2);
     expect(result!.requirements.maxAmountRequired).toBe("100000");
     expect(result!.requirements.network).toBe("base");
+    expect(result!.rawRequirements.network).toBe("eip155:8453");
     expect(result!.requirements.payTo).toBe("0x1234567890abcdef1234567890abcdef12345678");
   });
 

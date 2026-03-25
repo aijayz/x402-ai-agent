@@ -33,9 +33,7 @@ export const env = createEnv({
 
     // x402 service URLs (optional — real adapters use these on mainnet; stubs used on testnet)
     AUGUR_URL: z.string().url().optional(),
-    GENVOX_URL: z.string().url().optional(),
     QUANTUM_SHIELD_URL: z.string().url().optional(),
-    SLAMAI_URL: z.string().url().optional(),
     MESSARI_URL: z.string().url().optional(),
     COINGECKO_URL: z.string().url().optional(),
 
@@ -73,9 +71,7 @@ export const env = createEnv({
     ALCHEMY_WEBHOOK_KEY_ARBITRUM: process.env.ALCHEMY_WEBHOOK_KEY_ARBITRUM,
     ALCHEMY_WEBHOOK_KEY_OPTIMISM: process.env.ALCHEMY_WEBHOOK_KEY_OPTIMISM,
     AUGUR_URL: process.env.AUGUR_URL,
-    GENVOX_URL: process.env.GENVOX_URL,
     QUANTUM_SHIELD_URL: process.env.QUANTUM_SHIELD_URL,
-    SLAMAI_URL: process.env.SLAMAI_URL,
     MESSARI_URL: process.env.MESSARI_URL,
     COINGECKO_URL: process.env.COINGECKO_URL,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,

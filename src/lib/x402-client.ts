@@ -58,7 +58,7 @@ function normalizeRequirements(raw: Record<string, unknown>): PaymentRequirement
   };
 }
 
-function parsePaymentObject(obj: Record<string, unknown>): { requirements: PaymentRequirements; version: number } | null {
+function parsePaymentObject(obj: Record<string, unknown>): { requirements: PaymentRequirements; rawRequirements: Record<string, unknown>; version: number } | null {
   if (typeof obj.x402Version !== "number") return null;
   if (!Array.isArray(obj.accepts) || obj.accepts.length === 0) return null;
   // Prefer Base mainnet entry; fall back to first
@@ -67,10 +67,10 @@ function parsePaymentObject(obj: Record<string, unknown>): { requirements: Payme
     const n = a.network as string ?? "";
     return n === "base" || n === "eip155:8453";
   }) ?? accepts[0];
-  return { requirements: normalizeRequirements(baseEntry), version: obj.x402Version as number };
+  return { requirements: normalizeRequirements(baseEntry), rawRequirements: baseEntry, version: obj.x402Version as number };
 }
 
-export function parse402Response(body: unknown, headerValue?: string | null): { requirements: PaymentRequirements; version: number } | null {
+export function parse402Response(body: unknown, headerValue?: string | null): { requirements: PaymentRequirements; rawRequirements: Record<string, unknown>; version: number } | null {
   // Try JSON body first (x402 v1 style)
   if (typeof body === "object" && body !== null) {
     const result = parsePaymentObject(body as Record<string, unknown>);
@@ -120,17 +120,22 @@ export async function x402Fetch(
     );
   }
 
+  // Note: x402 SDK v1.1.0 only accepts short network names ("base", "base-sepolia").
+  // Services using CAIP-2 format ("eip155:8453") in v2 will fail payment verification
+  // until the SDK supports CAIP-2 natively.
   const paymentHeader = await createPaymentHeader(
     options.walletClient as any,
     version,
     requirements as any,
   );
 
+  // Send both v1 (X-PAYMENT) and v2 (PAYMENT-SIGNATURE) headers for compatibility
   const res2 = await fetch(url, {
     ...init,
     headers: {
       ...(init?.headers ?? {}),
       "X-PAYMENT": paymentHeader,
+      "PAYMENT-SIGNATURE": paymentHeader,
     },
     signal: AbortSignal.timeout(timeout),
   });
@@ -145,6 +150,7 @@ export async function x402Fetch(
   const data = await res2.json();
 
   const txHash = res2.headers.get("x-payment-tx")
+    ?? res2.headers.get("payment-response")
     ?? (typeof data === "object" && data !== null
       ? (data as Record<string, unknown>).txHash as string | undefined
       : undefined);

@@ -35,4 +35,3 @@ function createQSAdapter(
 export const qsTokenSecurity = createQSAdapter("QS Token Security", "/api/token/security", 2_000);
 export const qsContractAudit = createQSAdapter("QS Contract Audit", "/api/contract/audit", 3_000);
 export const qsWalletRisk = createQSAdapter("QS Wallet Risk", "/api/wallet/risk", 2_000);
-export const qsWhaleActivity = createQSAdapter("QS Whale Activity", "/api/whale/activity", 2_000);

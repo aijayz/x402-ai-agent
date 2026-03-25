@@ -16,9 +16,9 @@ export function createClusterDTools(deps: ClusterDDeps) {
   return {
     analyze_social_narrative: tool({
       description:
-        "Analyze market intelligence — sentiment analysis, contract risk scoring, and wallet reputation for a token or topic. " +
-        "Calls external x402 services (GenVox, Augur, QuantumShield). " +
-        "Costs ~$0.13.",
+        "Analyze market intelligence — contract risk scoring and wallet reputation for a token or topic. " +
+        "Calls external x402 services (Augur, QuantumShield). " +
+        "Costs ~$0.10.",
       inputSchema: z.object({
         topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge narrative'"),
       }),
@@ -41,7 +41,6 @@ export function createClusterDTools(deps: ClusterDDeps) {
         const clusterStart = Date.now();
         try {
           const serviceConfigs = [
-            { name: "genvox", input: { topic } },
             { name: "augur", input: { address: topic } },
             { name: "qs-wallet-risk", input: { address: topic } },
           ] as const;

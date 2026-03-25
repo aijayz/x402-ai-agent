@@ -1,16 +1,17 @@
 /**
  * x402 Service Quality Evaluation
  *
- * Calls each service adapter on mainnet with known test inputs,
- * logs raw responses, timing, and cost to reports/service-eval.json.
+ * Two modes:
+ *   1. Adapter tests — calls existing service adapters via registry (pays + gets data)
+ *   2. Raw x402 probe — hits new candidate endpoints to verify 402 response + payment flow
  *
  * Usage:
  *   NETWORK=base npx tsx scripts/eval-services.ts
  *   NETWORK=base npx tsx scripts/eval-services.ts --service qs-token-security
+ *   NETWORK=base npx tsx scripts/eval-services.ts --probe-only   # only test new candidates
  *   NETWORK=base npx tsx scripts/eval-services.ts --dry-run
  *
  * Requires: CDP_API_KEY_ID, CDP_API_KEY_SECRET, CDP_WALLET_SECRET in .env.local
- * Cost: ~$0.50-$1.00 for a full run
  */
 
 import { readFileSync, writeFileSync, mkdirSync } from "fs";
@@ -44,7 +45,8 @@ const WETH = "0x4200000000000000000000000000000000000006";
 const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 const AERO = "0x940181a94A35A4569E4529A3CDfB74e38FD98631";
 const VITALIK = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
-const RANDOM_WALLET = "0x28C6c06298d514Db089934071355E5743bf21d60"; // Binance 14
+
+// ─── Part 1: Existing adapter-based tests ───
 
 interface TestCase {
   service: string;
@@ -53,21 +55,9 @@ interface TestCase {
 }
 
 const TEST_CASES: TestCase[] = [
-  // Augur — contract risk scoring
+  // Augur — contract risk scoring (x402 v2)
   { service: "augur", input: { address: WETH }, description: "WETH risk score" },
   { service: "augur", input: { address: AERO }, description: "AERO risk score" },
-
-  // SLAMai — wallet trades
-  { service: "slamai-wallet", input: { address: VITALIK }, description: "Vitalik wallet profile" },
-  { service: "slamai-wallet", input: { address: RANDOM_WALLET }, description: "Binance wallet profile" },
-
-  // SLAMai — token holders
-  { service: "slamai-token-holders", input: { address: WETH }, description: "WETH top holders" },
-  { service: "slamai-token-holders", input: { address: AERO }, description: "AERO top holders" },
-
-  // GenVox — sentiment
-  { service: "genvox", input: { topic: "bitcoin" }, description: "Bitcoin sentiment" },
-  { service: "genvox", input: { topic: "ethereum" }, description: "Ethereum sentiment" },
 
   // QuantumShield — token security
   { service: "qs-token-security", input: { address: WETH }, description: "WETH token security" },
@@ -79,13 +69,98 @@ const TEST_CASES: TestCase[] = [
   // QuantumShield — wallet risk
   { service: "qs-wallet-risk", input: { address: VITALIK }, description: "Vitalik wallet risk" },
 
-  // QuantumShield — whale activity
-  { service: "qs-whale-activity", input: { address: WETH }, description: "WETH whale activity" },
-
   // Messari — token unlocks (free)
   { service: "messari-token-unlocks", input: { target: "ethereum" }, description: "ETH token unlocks" },
   { service: "messari-token-unlocks", input: { target: "arbitrum" }, description: "ARB token unlocks" },
 ];
+
+// ─── Part 2: Raw x402 probes for new candidate services ───
+
+interface ProbeCase {
+  name: string;
+  description: string;
+  url: string;
+  method: "GET" | "POST";
+  headers?: Record<string, string>;
+  body?: string;
+  expectedCostMicroUsdc: number;
+  /** If true, attempt payment after 402 (costs real USDC). If false, just verify 402 response. */
+  attemptPayment: boolean;
+}
+
+const PROBE_CASES: ProbeCase[] = [
+  // Neynar — Farcaster social data ($0.01/call)
+  {
+    name: "neynar-user",
+    description: "Neynar: Farcaster user lookup (FID 3 = dwr)",
+    url: "https://api.neynar.com/v2/farcaster/user/bulk?fids=3",
+    method: "GET",
+    expectedCostMicroUsdc: 10_000,
+    attemptPayment: true,
+  },
+  {
+    name: "neynar-trending",
+    description: "Neynar: trending casts feed",
+    url: "https://api.neynar.com/v2/farcaster/feed/trending?limit=5",
+    method: "GET",
+    expectedCostMicroUsdc: 10_000,
+    attemptPayment: true,
+  },
+  {
+    name: "neynar-cast-search",
+    description: "Neynar: search casts for 'ethereum'",
+    url: "https://api.neynar.com/v2/farcaster/cast/search?q=ethereum&limit=5",
+    method: "GET",
+    expectedCostMicroUsdc: 10_000,
+    attemptPayment: true,
+  },
+
+  // BaseWhales — whale intelligence ($0.01/call)
+  {
+    name: "basewhales-ask",
+    description: "BaseWhales: AI whale query",
+    url: "https://basewhales.com/api/ask",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: "What are the biggest whale moves on Base in the last hour?" }),
+    expectedCostMicroUsdc: 10_000,
+    attemptPayment: true,
+  },
+
+  // Messari Allocations — token allocations ($0.25/call, x402 v2)
+  {
+    name: "messari-allocations",
+    description: "Messari: ARB token allocations (x402 v2)",
+    url: "https://api.messari.io/token-unlocks/v1/allocations?assetSymbol=ARB",
+    method: "GET",
+    expectedCostMicroUsdc: 250_000,
+    attemptPayment: true,
+  },
+
+  // Browserbase — web scraping ($0.01/search)
+  {
+    name: "browserbase-search",
+    description: "Browserbase: web search for crypto trends",
+    url: "https://x402.browserbase.com/search",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "Base L2 DeFi trends 2026" }),
+    expectedCostMicroUsdc: 10_000,
+    attemptPayment: true,
+  },
+  {
+    name: "browserbase-fetch",
+    description: "Browserbase: fetch page content",
+    url: "https://x402.browserbase.com/fetch",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: "https://defillama.com/chain/Base" }),
+    expectedCostMicroUsdc: 10_000,
+    attemptPayment: true,
+  },
+];
+
+// ─── Shared types ───
 
 interface EvalResult {
   service: string;
@@ -102,9 +177,40 @@ interface EvalResult {
   timestamp: string;
 }
 
+interface ProbeResult {
+  name: string;
+  description: string;
+  url: string;
+  phase1_402: {
+    status: number;
+    hasX402Body: boolean;
+    hasPaymentRequiredHeader: boolean;
+    x402Version: number | null;
+    network: string | null;
+    costMicroUsdc: number | null;
+    payTo: string | null;
+  } | null;
+  phase2_payment: {
+    status: number;
+    hasData: boolean;
+    dataPreview: unknown;
+    dataKeys: string[];
+    txHash: string | null;
+  } | null;
+  status: "x402-verified" | "x402-payment-ok" | "x402-payment-failed" | "not-x402" | "error";
+  responseTimeMs: number;
+  costMicroUsdc: number;
+  error?: string;
+  timestamp: string;
+}
+
+// ─── Main ───
+
 async function main() {
   const args = process.argv.slice(2);
   const dryRun = args.includes("--dry-run");
+  const probeOnly = args.includes("--probe-only");
+  const adapterOnly = args.includes("--adapter-only");
   const serviceFilter = args.includes("--service")
     ? args[args.indexOf("--service") + 1]
     : null;
@@ -112,44 +218,61 @@ async function main() {
   console.log("=== x402 Service Quality Evaluation ===\n");
   console.log(`Network: ${process.env.NETWORK}`);
   console.log(`Dry run: ${dryRun}`);
+  console.log(`Mode: ${probeOnly ? "probe-only" : adapterOnly ? "adapter-only" : "full"}`);
   if (serviceFilter) console.log(`Filter: ${serviceFilter}`);
   console.log();
 
-  const cases = serviceFilter
-    ? TEST_CASES.filter(tc => tc.service === serviceFilter)
-    : TEST_CASES;
+  // Filter cases
+  const adapterCases = probeOnly ? [] : (
+    serviceFilter
+      ? TEST_CASES.filter(tc => tc.service === serviceFilter)
+      : TEST_CASES
+  );
+  const probeCases = adapterOnly ? [] : (
+    serviceFilter
+      ? PROBE_CASES.filter(pc => pc.name === serviceFilter)
+      : PROBE_CASES
+  );
 
-  if (cases.length === 0) {
-    console.error(`No test cases for service: ${serviceFilter}`);
-    console.log("Available:", [...new Set(TEST_CASES.map(tc => tc.service))].join(", "));
+  if (adapterCases.length === 0 && probeCases.length === 0) {
+    console.error(`No test cases for: ${serviceFilter}`);
+    console.log("Adapters:", [...new Set(TEST_CASES.map(tc => tc.service))].join(", "));
+    console.log("Probes:", PROBE_CASES.map(pc => pc.name).join(", "));
     process.exit(1);
   }
 
-  // Estimate cost
+  // Cost estimate
   const costEstimate: Record<string, number> = {
     "augur": 100_000,
-    "slamai-wallet": 1_000,
-    "slamai-token-holders": 1_000,
-    "genvox": 30_000,
     "qs-token-security": 2_000,
     "qs-contract-audit": 3_000,
     "qs-wallet-risk": 2_000,
-    "qs-whale-activity": 2_000,
     "messari-token-unlocks": 0,
   };
-  const totalEstimate = cases.reduce((sum, tc) => sum + (costEstimate[tc.service] ?? 0), 0);
-  console.log(`Estimated cost: $${(totalEstimate / 1_000_000).toFixed(4)} USDC (${cases.length} calls)\n`);
+  const adapterEstimate = adapterCases.reduce((sum, tc) => sum + (costEstimate[tc.service] ?? 0), 0);
+  const probeEstimate = probeCases
+    .filter(pc => pc.attemptPayment)
+    .reduce((sum, pc) => sum + pc.expectedCostMicroUsdc, 0);
+  const totalEstimate = adapterEstimate + probeEstimate;
+
+  console.log(`Adapter tests: ${adapterCases.length} cases (~$${(adapterEstimate / 1_000_000).toFixed(4)})`);
+  console.log(`Probe tests: ${probeCases.length} cases (~$${(probeEstimate / 1_000_000).toFixed(4)})`);
+  console.log(`Total estimated cost: $${(totalEstimate / 1_000_000).toFixed(4)} USDC\n`);
 
   if (dryRun) {
-    console.log("Test cases:");
-    for (const tc of cases) {
-      console.log(`  ${tc.service}: ${tc.description}`);
+    if (adapterCases.length > 0) {
+      console.log("Adapter tests:");
+      for (const tc of adapterCases) console.log(`  ${tc.service}: ${tc.description}`);
+    }
+    if (probeCases.length > 0) {
+      console.log("Probe tests:");
+      for (const pc of probeCases) console.log(`  ${pc.name}: ${pc.description} (~$${(pc.expectedCostMicroUsdc / 1_000_000).toFixed(4)})`);
     }
     console.log("\nRun without --dry-run to execute.");
     return;
   }
 
-  // Initialize CDP wallet client
+  // Initialize CDP wallet
   console.log("Initializing CDP wallet...");
   const cdpClient = new CdpClient();
   const cdpAccount = await cdpClient.evm.getOrCreateAccount({ name: "Purchaser" });
@@ -164,95 +287,257 @@ async function main() {
 
   const ctx = { walletClient: walletClient as any, userWallet: null };
 
-  // Dynamic import to get adapters after env is loaded
-  const { getService } = await import("../src/lib/services/registry");
-
-  const results: EvalResult[] = [];
+  const adapterResults: EvalResult[] = [];
+  const probeResults: ProbeResult[] = [];
   let totalCost = 0;
 
-  for (const tc of cases) {
-    const label = `[${tc.service}] ${tc.description}`;
-    process.stdout.write(`${label}...`);
+  // ─── Run adapter tests ───
+  if (adapterCases.length > 0) {
+    console.log("── Adapter Tests ──\n");
+    const { getService } = await import("../src/lib/services/registry");
 
-    const start = Date.now();
-    let result: EvalResult;
+    for (const tc of adapterCases) {
+      const label = `[${tc.service}] ${tc.description}`;
+      process.stdout.write(`${label}...`);
 
-    try {
-      const adapter = await getService(tc.service as any);
-      const response = await adapter.call(tc.input, ctx);
-      const elapsed = Date.now() - start;
-      totalCost += response.cost;
+      const start = Date.now();
+      let result: EvalResult;
 
-      const data = response.data;
-      const hasData = data !== null && data !== undefined
-        && (typeof data !== "object" || Object.keys(data as object).length > 0);
-      const dataKeys = typeof data === "object" && data !== null
-        ? Object.keys(data as object)
-        : undefined;
+      try {
+        const adapter = await getService(tc.service as any);
+        const response = await adapter.call(tc.input, ctx);
+        const elapsed = Date.now() - start;
+        totalCost += response.cost;
 
-      // Truncate large responses for the preview
-      const preview = JSON.stringify(data);
-      const dataPreview = preview.length > 2000
-        ? JSON.parse(preview.slice(0, 2000) + '..."')
-        : data;
+        const data = response.data;
+        const hasData = data !== null && data !== undefined
+          && (typeof data !== "object" || Object.keys(data as object).length > 0);
+        const dataKeys = typeof data === "object" && data !== null
+          ? Object.keys(data as object)
+          : undefined;
 
-      result = {
-        service: tc.service,
-        description: tc.description,
-        input: tc.input,
-        status: "success",
-        responseTimeMs: elapsed,
-        costMicroUsdc: response.cost,
-        dataPreview,
-        hasData,
-        dataKeys,
-        timestamp: new Date().toISOString(),
-      };
+        const preview = JSON.stringify(data);
+        const dataPreview = preview.length > 2000
+          ? preview.slice(0, 2000) + "…[truncated]"
+          : data;
 
-      console.log(` ✓ ${elapsed}ms, $${(response.cost / 1_000_000).toFixed(4)}, ${dataKeys?.length ?? 0} keys`);
-    } catch (err) {
-      const elapsed = Date.now() - start;
-      const errorMsg = err instanceof Error ? err.message : String(err);
+        result = {
+          service: tc.service, description: tc.description, input: tc.input,
+          status: "success", responseTimeMs: elapsed, costMicroUsdc: response.cost,
+          dataPreview, hasData, dataKeys, timestamp: new Date().toISOString(),
+        };
+        console.log(` ✓ ${elapsed}ms, $${(response.cost / 1_000_000).toFixed(4)}, ${dataKeys?.length ?? 0} keys`);
+      } catch (err) {
+        const elapsed = Date.now() - start;
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        result = {
+          service: tc.service, description: tc.description, input: tc.input,
+          status: "error", responseTimeMs: elapsed, costMicroUsdc: 0,
+          dataPreview: null, hasData: false, error: errorMsg, timestamp: new Date().toISOString(),
+        };
+        console.log(` ✗ ${elapsed}ms — ${errorMsg.slice(0, 120)}`);
+      }
 
-      result = {
-        service: tc.service,
-        description: tc.description,
-        input: tc.input,
-        status: "error",
-        responseTimeMs: elapsed,
-        costMicroUsdc: 0,
-        dataPreview: null,
-        hasData: false,
-        error: errorMsg,
-        timestamp: new Date().toISOString(),
-      };
-
-      console.log(` ✗ ${elapsed}ms — ${errorMsg.slice(0, 100)}`);
+      adapterResults.push(result);
     }
-
-    results.push(result);
   }
 
-  // Summary
+  // ─── Run probe tests ───
+  if (probeCases.length > 0) {
+    console.log("\n── x402 Probe Tests ──\n");
+
+    // Lazy import x402 client for payment
+    const { parse402Response } = await import("../src/lib/x402-client");
+    const { createPaymentHeader } = await import("x402/client");
+
+    for (const pc of probeCases) {
+      const label = `[${pc.name}] ${pc.description}`;
+      process.stdout.write(`${label}...`);
+
+      const start = Date.now();
+      let probeResult: ProbeResult;
+
+      try {
+        // Phase 1: Hit endpoint, expect 402
+        const res1 = await fetch(pc.url, {
+          method: pc.method,
+          headers: pc.headers,
+          body: pc.method === "POST" ? pc.body : undefined,
+          signal: AbortSignal.timeout(15_000),
+        });
+
+        if (res1.status !== 402) {
+          const elapsed = Date.now() - start;
+          const bodyText = await res1.text().catch(() => "");
+          probeResult = {
+            name: pc.name, description: pc.description, url: pc.url,
+            phase1_402: null, phase2_payment: null,
+            status: "not-x402", responseTimeMs: elapsed, costMicroUsdc: 0,
+            error: `Expected 402, got ${res1.status}. Body: ${bodyText.slice(0, 200)}`,
+            timestamp: new Date().toISOString(),
+          };
+          console.log(` ✗ ${elapsed}ms — not 402 (got ${res1.status})`);
+          probeResults.push(probeResult);
+          continue;
+        }
+
+        // Parse 402 response
+        const body402 = await res1.json().catch(() => ({}));
+        const paymentRequiredHeader = res1.headers.get("payment-required");
+        const parsed = parse402Response(body402, paymentRequiredHeader);
+
+        const phase1 = {
+          status: 402,
+          hasX402Body: !!(body402 as any)?.x402Version,
+          hasPaymentRequiredHeader: !!paymentRequiredHeader,
+          x402Version: parsed?.version ?? null,
+          network: parsed?.requirements?.network ?? null,
+          costMicroUsdc: parsed ? Number(parsed.requirements.maxAmountRequired) : null,
+          payTo: parsed?.requirements?.payTo ?? null,
+        };
+
+        if (!parsed) {
+          const elapsed = Date.now() - start;
+          probeResult = {
+            name: pc.name, description: pc.description, url: pc.url,
+            phase1_402: phase1, phase2_payment: null,
+            status: "not-x402", responseTimeMs: elapsed, costMicroUsdc: 0,
+            error: "Got 402 but no parseable x402 payment requirements",
+            timestamp: new Date().toISOString(),
+          };
+          console.log(` ⚠ ${elapsed}ms — 402 but no valid x402 body/header`);
+          probeResults.push(probeResult);
+          continue;
+        }
+
+        // Phase 1 success — x402 is live
+        const costLabel = `$${((phase1.costMicroUsdc ?? 0) / 1_000_000).toFixed(4)}`;
+        console.log(` 402✓ v${phase1.x402Version} ${phase1.network} ${costLabel}`);
+
+        // Phase 2: Attempt payment (if enabled)
+        if (!pc.attemptPayment) {
+          const elapsed = Date.now() - start;
+          probeResult = {
+            name: pc.name, description: pc.description, url: pc.url,
+            phase1_402: phase1, phase2_payment: null,
+            status: "x402-verified", responseTimeMs: elapsed, costMicroUsdc: 0,
+            timestamp: new Date().toISOString(),
+          };
+          probeResults.push(probeResult);
+          continue;
+        }
+
+        process.stdout.write(` → paying...`);
+
+        const paymentHeader = await createPaymentHeader(
+          walletClient as any,
+          parsed.version,
+          parsed.requirements as any,
+        );
+
+        const res2 = await fetch(pc.url, {
+          method: pc.method,
+          headers: {
+            ...pc.headers,
+            "X-PAYMENT": paymentHeader,
+            "PAYMENT-SIGNATURE": paymentHeader,
+          },
+          body: pc.method === "POST" ? pc.body : undefined,
+          signal: AbortSignal.timeout(30_000),
+        });
+
+        const elapsed = Date.now() - start;
+
+        if (!res2.ok) {
+          const errBody = await res2.text().catch(() => "");
+          probeResult = {
+            name: pc.name, description: pc.description, url: pc.url,
+            phase1_402: phase1,
+            phase2_payment: { status: res2.status, hasData: false, dataPreview: null, dataKeys: [], txHash: null },
+            status: "x402-payment-failed", responseTimeMs: elapsed,
+            costMicroUsdc: phase1.costMicroUsdc ?? 0,
+            error: `Payment sent but got ${res2.status}: ${errBody.slice(0, 200)}`,
+            timestamp: new Date().toISOString(),
+          };
+          console.log(` ✗ paid but ${res2.status}`);
+          totalCost += phase1.costMicroUsdc ?? 0;
+          probeResults.push(probeResult);
+          continue;
+        }
+
+        // Success — got data back
+        const data = await res2.json().catch(() => null);
+        const hasData = data !== null && typeof data === "object" && Object.keys(data).length > 0;
+        const dataKeys = hasData ? Object.keys(data) : [];
+        const preview = JSON.stringify(data);
+        const dataPreview = preview.length > 2000
+          ? preview.slice(0, 2000) + "…[truncated]"
+          : data;
+
+        const txHash = res2.headers.get("x-payment-tx")
+          ?? res2.headers.get("payment-response")
+          ?? null;
+
+        const paidCost = phase1.costMicroUsdc ?? 0;
+        totalCost += paidCost;
+
+        probeResult = {
+          name: pc.name, description: pc.description, url: pc.url,
+          phase1_402: phase1,
+          phase2_payment: { status: res2.status, hasData, dataPreview, dataKeys, txHash },
+          status: "x402-payment-ok", responseTimeMs: elapsed, costMicroUsdc: paidCost,
+          timestamp: new Date().toISOString(),
+        };
+        console.log(` ✓ ${elapsed}ms, ${costLabel}, ${dataKeys.length} keys`);
+      } catch (err) {
+        const elapsed = Date.now() - start;
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        probeResult = {
+          name: pc.name, description: pc.description, url: pc.url,
+          phase1_402: null, phase2_payment: null,
+          status: "error", responseTimeMs: elapsed, costMicroUsdc: 0,
+          error: errorMsg, timestamp: new Date().toISOString(),
+        };
+        console.log(` ✗ ${elapsed}ms — ${errorMsg.slice(0, 120)}`);
+      }
+
+      probeResults.push(probeResult);
+    }
+  }
+
+  // ─── Summary ───
   console.log("\n=== Summary ===\n");
 
-  const services = [...new Set(results.map(r => r.service))];
-  for (const svc of services) {
-    const svcResults = results.filter(r => r.service === svc);
-    const successes = svcResults.filter(r => r.status === "success");
-    const failures = svcResults.filter(r => r.status === "error");
-    const avgTime = successes.length > 0
-      ? Math.round(successes.reduce((s, r) => s + r.responseTimeMs, 0) / successes.length)
-      : 0;
-    const cost = svcResults.reduce((s, r) => s + r.costMicroUsdc, 0);
-    const hasUseful = successes.some(r => r.hasData);
+  if (adapterResults.length > 0) {
+    console.log("Adapter tests:");
+    const services = [...new Set(adapterResults.map(r => r.service))];
+    for (const svc of services) {
+      const svcResults = adapterResults.filter(r => r.service === svc);
+      const successes = svcResults.filter(r => r.status === "success");
+      const avgTime = successes.length > 0
+        ? Math.round(successes.reduce((s, r) => s + r.responseTimeMs, 0) / successes.length)
+        : 0;
+      const cost = svcResults.reduce((s, r) => s + r.costMicroUsdc, 0);
+      const status = successes.length === 0 ? "FAIL"
+        : !successes.some(r => r.hasData) ? "EMPTY" : "OK";
+      const icon = status === "OK" ? "✓" : status === "EMPTY" ? "⚠" : "✗";
+      console.log(`  ${icon} ${svc}: ${successes.length}/${svcResults.length} ok, avg ${avgTime}ms, $${(cost / 1_000_000).toFixed(4)} [${status}]`);
+    }
+  }
 
-    const status = failures.length === svcResults.length ? "FAIL"
-      : !hasUseful ? "EMPTY"
-      : "OK";
-
-    const icon = status === "OK" ? "✓" : status === "EMPTY" ? "⚠" : "✗";
-    console.log(`  ${icon} ${svc}: ${successes.length}/${svcResults.length} ok, avg ${avgTime}ms, $${(cost / 1_000_000).toFixed(4)} [${status}]`);
+  if (probeResults.length > 0) {
+    console.log("\nProbe tests:");
+    for (const pr of probeResults) {
+      const icon = pr.status === "x402-payment-ok" ? "✓"
+        : pr.status === "x402-verified" ? "◎"
+        : pr.status === "x402-payment-failed" ? "⚠"
+        : "✗";
+      const costLabel = pr.costMicroUsdc > 0 ? `$${(pr.costMicroUsdc / 1_000_000).toFixed(4)}` : "free";
+      const extra = pr.phase2_payment?.dataKeys?.length
+        ? `${pr.phase2_payment.dataKeys.length} keys`
+        : pr.error?.slice(0, 80) ?? "";
+      console.log(`  ${icon} ${pr.name}: ${pr.status}, ${pr.responseTimeMs}ms, ${costLabel} — ${extra}`);
+    }
   }
 
   console.log(`\nTotal cost: $${(totalCost / 1_000_000).toFixed(4)} USDC`);
@@ -265,8 +550,10 @@ async function main() {
     network: process.env.NETWORK,
     wallet: account.address,
     totalCostMicroUsdc: totalCost,
-    totalCases: results.length,
-    results,
+    totalAdapterCases: adapterResults.length,
+    totalProbeCases: probeResults.length,
+    adapterResults,
+    probeResults,
   }, null, 2));
 
   console.log(`\nResults saved to: ${outPath}`);
