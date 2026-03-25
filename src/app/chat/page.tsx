@@ -52,15 +52,15 @@ const capabilities = [
     title: "DeFi Research",
     prompts: [
       "Is contract 0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984 safe?",
-      "Analyze the top lending protocols on Base",
+      "How safe is the AAVE token contract?",
     ],
   },
   {
     icon: Sparkles,
     title: "Whale Tracking",
     prompts: [
-      "Who are the biggest ETH holders on Base right now?",
-      "What is the whale accumulation trend for USDC on Base?",
+      "Track whale activity for the USDC token",
+      "Are whales accumulating ETH right now?",
     ],
   },
   {
@@ -68,7 +68,7 @@ const capabilities = [
     title: "Social Sentiment",
     prompts: [
       "What's the narrative around Solana on Twitter?",
-      "Summarize crypto sentiment from Farcaster",
+      "What's the community sentiment around the Bitcoin halving?",
     ],
   },
   {
@@ -76,7 +76,7 @@ const capabilities = [
     title: "Wallet Portfolio",
     prompts: [
       "Analyze wallet 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
-      "What's the risk profile of my wallet?",
+      "Check the risk profile of Vitalik's wallet",
     ],
   },
   {
@@ -84,7 +84,7 @@ const capabilities = [
     title: "Token Alpha",
     prompts: [
       "Screen PEPE for alpha signals",
-      "What tokens have the best holder quality right now?",
+      "Screen ARB for unlock schedule and allocations",
     ],
   },
 ];
