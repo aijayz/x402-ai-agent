@@ -22,6 +22,41 @@ interface X402Result {
 // Cache wrapped fetch per wallet address to avoid re-creating on every call
 const wrappedFetchCache = new Map<string, typeof fetch>();
 
+/**
+ * Some x402 v1 services (e.g. QuantumShield) nest EIP-712 domain params under
+ * `extra.domain` instead of flat `extra`. The SDK v2.8.0 expects `extra.name`
+ * and `extra.version` directly. This fetch wrapper normalizes 402 responses.
+ */
+function normalizing402Fetch(baseFetch: typeof fetch): typeof fetch {
+  return (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const res = await baseFetch(input, init);
+    if (res.status !== 402) return res;
+
+    const body = await res.text();
+    let normalized = body;
+    try {
+      const parsed = JSON.parse(body);
+      if (Array.isArray(parsed?.accepts)) {
+        let changed = false;
+        for (const accept of parsed.accepts) {
+          if (accept.extra?.domain && !accept.extra.name) {
+            accept.extra.name = accept.extra.domain.name;
+            accept.extra.version = accept.extra.domain.version;
+            changed = true;
+          }
+        }
+        if (changed) normalized = JSON.stringify(parsed);
+      }
+    } catch { /* not JSON, pass through */ }
+
+    return new Response(normalized, {
+      status: res.status,
+      statusText: res.statusText,
+      headers: res.headers,
+    });
+  }) as typeof fetch;
+}
+
 function getWrappedFetch(walletClient: WalletClient): typeof fetch {
   const address = walletClient.account?.address;
   if (!address) throw new Error("x402: wallet client has no account");
@@ -33,7 +68,7 @@ function getWrappedFetch(walletClient: WalletClient): typeof fetch {
   const client = new x402Client();
   registerExactEvmScheme(client, { signer });
 
-  const wrapped = wrapFetchWithPayment(fetch, client);
+  const wrapped = wrapFetchWithPayment(normalizing402Fetch(fetch), client);
   wrappedFetchCache.set(address, wrapped as typeof fetch);
   return wrapped as typeof fetch;
 }
