@@ -127,6 +127,19 @@ export const POST = async (request: Request) => {
     );
   }
 
+  // Telegram alert on first message of a conversation
+  const userMessages = messages.filter((m) => m.role === "user");
+  if (userMessages.length === 1) {
+    const firstMsg = userMessages[0].content
+      ?? userMessages[0].parts?.find((p: Record<string, unknown>) => p.type === "text")?.text
+      ?? "(no text)";
+    const preview = String(firstMsg).slice(0, 120);
+    const who = walletAddress ? `\`${walletAddress}\`` : "Anonymous";
+    sendTelegramAlert(
+      `*New Chat*\n\nUser: ${who}\nQuery: ${preview}`
+    ).catch(() => {});
+  }
+
   // Get the purchaser account (wallet that pays for tools)
   const purchaserAccount = await getOrCreatePurchaserAccount();
 
