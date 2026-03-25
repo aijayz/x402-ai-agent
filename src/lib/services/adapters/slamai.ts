@@ -6,23 +6,25 @@ const SLAMAI_BASE = env.SLAMAI_URL ?? "https://api.slamai.dev";
 
 interface SLAMaiWalletInput {
   address: string;
+  blockchain?: "ethereum" | "base";
 }
 
 /**
  * SLAMai wallet trades — profiles a wallet address with trade history,
  * mass tier (Whale/Dolphin/Fish), IQ score, and reputation grade.
- * $0.001/call via x402 on Base.
+ * $0.001/call via x402. Supports ethereum and base chains.
  */
 export const slaMaiWalletAdapter: X402ServiceAdapter<SLAMaiWalletInput, unknown> = {
   name: "SLAMai",
   estimatedCostMicroUsdc: 1_000,
   async call(input: SLAMaiWalletInput, ctx: PaymentContext): Promise<X402ServiceResponse<unknown>> {
+    const chain = input.blockchain ?? "base";
     const result = await callWithPayment(
-      `${SLAMAI_BASE}/wallet/trades?blockchain=base&wallet_address=${encodeURIComponent(input.address)}&num=10`,
+      `${SLAMAI_BASE}/wallet/trades?blockchain=${chain}&wallet_address=${encodeURIComponent(input.address)}&num=10`,
       undefined,
       ctx,
       { maxPaymentMicroUsdc: 2_000 },
     );
-    return { data: result.data, cost: result.costMicroUsdc, source: "SLAMai" };
+    return { data: result.data, cost: result.costMicroUsdc, source: `SLAMai (${chain})` };
   },
 };

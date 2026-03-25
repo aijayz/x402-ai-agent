@@ -41,11 +41,18 @@ export function createClusterDTools(deps: ClusterDDeps) {
 
         const clusterStart = Date.now();
         try {
-          const serviceConfigs = [
+          // GenVox takes free-text topics; Augur and QS Wallet Risk need EVM addresses.
+          // Only call address-based services if the topic looks like an address.
+          const isAddress = /^0x[0-9a-fA-F]{40}$/.test(topic);
+          const serviceConfigs: { name: "genvox" | "augur" | "qs-wallet-risk"; input: Record<string, string> }[] = [
             { name: "genvox", input: { topic } },
-            { name: "augur", input: { address: topic } },
-            { name: "qs-wallet-risk", input: { address: topic } },
-          ] as const;
+          ];
+          if (isAddress) {
+            serviceConfigs.push(
+              { name: "augur", input: { address: topic } },
+              { name: "qs-wallet-risk", input: { address: topic } },
+            );
+          }
 
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
