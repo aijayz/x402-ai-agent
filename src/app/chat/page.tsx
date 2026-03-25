@@ -67,7 +67,7 @@ const capabilities = [
     icon: MessageCircle,
     title: "Social Sentiment",
     prompts: [
-      "What's the narrative around Solana on Twitter?",
+      "What's the crypto buzz around ETH on X this week?",
       "What's the community sentiment around the Bitcoin halving?",
     ],
   },
