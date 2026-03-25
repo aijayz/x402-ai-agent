@@ -359,8 +359,8 @@ export function ChatPage() {
                           <button
                             key={prompt}
                             onClick={() => handlePromptClick(prompt)}
-                            className="group/item flex items-center w-full text-left text-xs text-muted-foreground hover:text-foreground
-                              px-2.5 py-2 rounded-md border border-transparent hover:border-border/60 bg-muted/20 hover:bg-muted/60 transition-all duration-150 truncate cursor-pointer"
+                            className="group/item flex items-center w-full text-left text-xs text-foreground/70 hover:text-foreground
+                              px-2.5 py-2 rounded-md border border-border/40 hover:border-border/70 bg-muted/30 hover:bg-muted/60 transition-all duration-150 truncate cursor-pointer"
                           >
                             <span className="truncate flex-1">{prompt}</span>
                             <ChevronRight className="size-3 opacity-30 group-hover/item:opacity-60 transition-opacity duration-150 shrink-0 ml-1" />
