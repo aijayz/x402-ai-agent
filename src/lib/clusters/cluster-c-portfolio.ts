@@ -7,6 +7,8 @@ import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
 import { applyMarkup, handleReleaseFailure, toQSChain, toSLAMaiChain } from "./types";
 import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
+import { queryDune } from "../services/dune";
+import { getTemplate, isTemplateReady } from "../services/dune-templates";
 
 interface ClusterCDeps {
   walletClient: WalletClient;
@@ -66,6 +68,12 @@ export function createClusterCTools(deps: ClusterCDeps) {
             { name: "qs-whale-activity" as const, input: { address, chain: qsChain } },
           ];
 
+          // Dune temporal data: wallet PnL (non-blocking)
+          const walletPnlTemplate = getTemplate("wallet_pnl_30d");
+          const dunePromise = (walletPnlTemplate && isTemplateReady(walletPnlTemplate))
+            ? queryDune("wallet_pnl_30d", walletPnlTemplate.duneQueryId, { wallet_address: address, chain }).catch(() => null)
+            : Promise.resolve(null);
+
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
             try {
@@ -99,6 +107,18 @@ export function createClusterCTools(deps: ClusterCDeps) {
             }
           }
 
+          // Await Dune result
+          const duneResult = await dunePromise;
+          const hasDune = !!(duneResult?.rows?.length);
+          if (hasDune) {
+            calls.push({
+              serviceName: "Dune Analytics (30d PnL)",
+              data: { wallet_pnl_30d: duneResult!.rows },
+              costMicroUsdc: 0,
+              paid: false,
+            });
+          }
+
           const totalCost = calls.reduce(
             (sum, c) => sum + c.costMicroUsdc,
             0,
@@ -117,6 +137,7 @@ export function createClusterCTools(deps: ClusterCDeps) {
           const summary =
             successNames.length > 0
               ? `Analyzed wallet ${address} using ${successNames.join(", ")}.` +
+                (hasDune ? " Includes 30-day PnL from Dune Analytics." : "") +
                 (failedNames.length > 0
                   ? ` ${failedNames.join(", ")} temporarily unavailable.`
                   : "")
