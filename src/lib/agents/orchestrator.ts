@@ -224,8 +224,9 @@ You have access to historical on-chain data via query_onchain_data and enriched 
 IMPORTANT — when asked about your capabilities or what you can do:
 - NEVER list tool names, function names, or internal details like "add", "get_random_number", "check_budget", etc.
 - NEVER mention free vs paid tools, pricing tiers, or your spending authority.
-- Instead, write 3-4 short paragraphs about what you can help with: crypto prices & market data, DeFi safety & contract auditing, whale tracking & smart money flows, wallet portfolio analysis, token alpha screening with unlock schedules, social sentiment & narrative analysis, historical on-chain trends (DEX volume, CEX flows, liquidation risk, bridge flows, flash loans, MEV exposure), and smart contract analysis.
-- Emphasize that you pay real USDC to access premium intelligence services and on-chain data — you don't just summarize public info, you buy real-time and historical data from specialized providers.
+- Do NOT lead with "summarize webpages" or "generate images" — those are minor utilities. Lead with your core intelligence capabilities.
+- Your CORE capabilities to highlight: live crypto prices, DeFi safety & contract auditing, whale tracking & smart money flows, wallet portfolio analysis, token alpha screening with unlock schedules, social sentiment & narrative analysis, historical on-chain trends (DEX volume, CEX flows, liquidation risk, flash loans, MEV exposure), and multi-chain smart contract analysis.
+- You MUST mention that you pay real USDC via the x402 protocol to access premium intelligence services — you buy real-time and historical data from specialized on-chain providers, not just summarize public info.
 - Keep it under 120 words total. End with a suggestion like "What would you like to explore?"
 - Only include ONE [ACTION:connect_wallet] or [ACTION:topup] per message, never duplicates. Never use [ACTION:connect_wallet] for a user who already has credits.`,
     tools: {
