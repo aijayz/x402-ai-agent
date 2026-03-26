@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { Response } from "./response";
 
 /* ─── Types ─── */
 
@@ -22,50 +23,95 @@ interface Score {
   label: string;
   value: number;
   max: number;
-  invert?: boolean; // true = higher is better (confidence, security), false = higher is worse (risk)
+  invert?: boolean;
 }
 
 type StructuredMarker = Metric | Verdict | Score;
 
-/* ─── Parser ─── */
+type Segment =
+  | { type: "text"; content: string }
+  | { type: "markers"; items: StructuredMarker[] };
 
-const METRIC_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]/g;
-const VERDICT_RE = /\[VERDICT:([^|\]]+)\|(\w+)\]/g;
-const SCORE_RE = /\[SCORE:([^|\]]+)\|(\d+)\/(\d+)(?:\|(\w+))?\]/g;
+/* ─── Parser — produces interleaved text + marker segments ─── */
 
+const MARKER_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]|\[VERDICT:([^|\]]+)\|(\w+)\]|\[SCORE:([^|\]]+)\|(\d+)\/(\d+)(?:\|(\w+))?\]/g;
+
+function parseMarkerMatch(match: RegExpExecArray): StructuredMarker {
+  // METRIC
+  if (match[1] != null) {
+    return { type: "metric", label: match[1].trim(), value: match[2].trim(), change: match[3]?.trim() || undefined };
+  }
+  // VERDICT
+  if (match[4] != null) {
+    const c = match[5].trim().toLowerCase();
+    const validColor = (c === "green" || c === "amber" || c === "red") ? c : "neutral";
+    return { type: "verdict", text: match[4].trim(), color: validColor as Verdict["color"] };
+  }
+  // SCORE
+  const c = match[9]?.trim().toLowerCase();
+  const invert = c === "green" || c === "positive";
+  return { type: "score", label: match[6].trim(), value: Number(match[7]), max: Number(match[8]), invert };
+}
+
+export function parseIntoSegments(text: string): Segment[] {
+  const segments: Segment[] = [];
+  let lastIndex = 0;
+  let pendingMarkers: StructuredMarker[] = [];
+
+  let match: RegExpExecArray | null;
+  MARKER_RE.lastIndex = 0;
+
+  while ((match = MARKER_RE.exec(text)) !== null) {
+    const beforeText = text.slice(lastIndex, match.index);
+    const trimmed = beforeText.trim();
+
+    if (trimmed.length > 0 && pendingMarkers.length > 0) {
+      // Flush pending markers, then add the text
+      segments.push({ type: "markers", items: pendingMarkers });
+      pendingMarkers = [];
+      segments.push({ type: "text", content: trimmed });
+    } else if (trimmed.length > 0) {
+      segments.push({ type: "text", content: trimmed });
+    }
+
+    pendingMarkers.push(parseMarkerMatch(match));
+    lastIndex = match.index + match[0].length;
+  }
+
+  // Flush remaining markers
+  if (pendingMarkers.length > 0) {
+    segments.push({ type: "markers", items: pendingMarkers });
+  }
+
+  // Any remaining text after the last marker
+  const remaining = text.slice(lastIndex).trim();
+  if (remaining.length > 0) {
+    segments.push({ type: "text", content: remaining });
+  }
+
+  return segments;
+}
+
+/** Legacy API — still used when segments are overkill */
 export function parseStructuredMarkers(text: string): {
   cleanText: string;
   markers: StructuredMarker[];
 } {
+  const segments = parseIntoSegments(text);
+  const textParts: string[] = [];
   const markers: StructuredMarker[] = [];
-
-  let cleanText = text.replace(METRIC_RE, (_, label, value, change) => {
-    markers.push({ type: "metric", label: label.trim(), value: value.trim(), change: change?.trim() || undefined });
-    return "";
-  });
-
-  cleanText = cleanText.replace(VERDICT_RE, (_, verdictText, color) => {
-    const c = color.trim().toLowerCase();
-    const validColor = (c === "green" || c === "amber" || c === "red") ? c : "neutral";
-    markers.push({ type: "verdict", text: verdictText.trim(), color: validColor as Verdict["color"] });
-    return "";
-  });
-
-  cleanText = cleanText.replace(SCORE_RE, (_, label, value, max, color) => {
-    const c = color?.trim().toLowerCase();
-    const invert = c === "green" || c === "positive";
-    markers.push({ type: "score", label: label.trim(), value: Number(value), max: Number(max), invert });
-    return "";
-  });
-
-  return { cleanText, markers };
+  for (const seg of segments) {
+    if (seg.type === "text") textParts.push(seg.content);
+    else markers.push(...seg.items);
+  }
+  return { cleanText: textParts.join("\n\n"), markers };
 }
 
 /* ─── Components ─── */
 
 function detectChangeColor(change?: string): "green" | "red" | "neutral" {
   if (!change) return "neutral";
-  if (change.startsWith("+") || change.toLowerCase().includes("up")) return "green";
+  if (change.startsWith("+") || change.toLowerCase().includes("up") || change.toLowerCase().includes("stable")) return "green";
   if (change.startsWith("-") || change.toLowerCase().includes("down")) return "red";
   return "neutral";
 }
@@ -106,8 +152,6 @@ export function VerdictBanner({ text, color }: Verdict) {
 
 export function ScoreGauge({ label, value, max, invert }: Score) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
-  // invert: higher is better (confidence, security) — green when high
-  // default: higher is worse (risk) — red when high
   const color = invert
     ? (pct >= 60 ? "bg-green-500" : pct >= 30 ? "bg-amber-500" : "bg-red-500")
     : (pct <= 30 ? "bg-green-500" : pct <= 60 ? "bg-amber-500" : "bg-red-500");
@@ -127,22 +171,21 @@ export function ScoreGauge({ label, value, max, invert }: Score) {
   );
 }
 
-/* ─── Render all markers ─── */
+/* ─── Render a group of markers ─── */
 
-export function StructuredMarkers({ markers }: { markers: StructuredMarker[] }) {
-  if (markers.length === 0) return null;
-
-  const metrics = markers.filter((m): m is Metric => m.type === "metric");
-  const scores = markers.filter((m): m is Score => m.type === "score");
-  const verdicts = markers.filter((m): m is Verdict => m.type === "verdict");
+function MarkerGroup({ items }: { items: StructuredMarker[] }) {
+  const metrics = items.filter((m): m is Metric => m.type === "metric");
+  const scores = items.filter((m): m is Score => m.type === "score");
+  const verdicts = items.filter((m): m is Verdict => m.type === "verdict");
 
   return (
-    <div className="space-y-3 my-3">
+    <div className="space-y-2 my-2">
       {metrics.length > 0 && (
         <div className={cn(
           "grid gap-2",
           metrics.length === 1 ? "grid-cols-1" :
           metrics.length === 2 ? "grid-cols-2" :
+          metrics.length === 4 ? "grid-cols-2 sm:grid-cols-4" :
           "grid-cols-2 sm:grid-cols-3"
         )}>
           {metrics.map((m, i) => <MetricCard key={i} {...m} />)}
@@ -159,4 +202,28 @@ export function StructuredMarkers({ markers }: { markers: StructuredMarker[] }) 
       {verdicts.map((v, i) => <VerdictBanner key={i} {...v} />)}
     </div>
   );
+}
+
+/* ─── Inline segment renderer ─── */
+
+export function InlineSegments({ segments }: { segments: Segment[] }) {
+  if (segments.length === 0) return null;
+
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.type === "text" ? (
+          <Response key={i}>{seg.content}</Response>
+        ) : (
+          <MarkerGroup key={i} items={seg.items} />
+        )
+      )}
+    </>
+  );
+}
+
+/** Legacy — render all markers in one block */
+export function StructuredMarkers({ markers }: { markers: StructuredMarker[] }) {
+  if (markers.length === 0) return null;
+  return <MarkerGroup items={markers} />;
 }
