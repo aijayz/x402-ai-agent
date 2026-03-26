@@ -23,7 +23,7 @@ export const slaMaiWalletAdapter: X402ServiceAdapter<SLAMaiWalletInput, unknown>
       `${SLAMAI_BASE}/wallet/trades?blockchain=${chain}&wallet_address=${encodeURIComponent(input.address)}&num=10`,
       undefined,
       ctx,
-      { maxPaymentMicroUsdc: 2_000 },
+      { maxPaymentMicroUsdc: 2_000, expectedCostMicroUsdc: 1_000 },
     );
     return { data: result.data, cost: result.costMicroUsdc, source: `SLAMai (${chain})` };
   },

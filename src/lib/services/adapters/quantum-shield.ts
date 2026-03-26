@@ -38,7 +38,7 @@ function createQSAdapter(
         `${baseUrl}${endpoint}?address=${encodeURIComponent(input.address)}&chain=${chainParam}`,
         undefined,
         ctx,
-        { maxPaymentMicroUsdc: costMicroUsdc * 3 },
+        { maxPaymentMicroUsdc: costMicroUsdc * 3, expectedCostMicroUsdc: costMicroUsdc },
       );
       return { data: result.data, cost: result.costMicroUsdc, source: `QuantumShield (${name})` };
     },

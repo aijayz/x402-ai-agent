@@ -3,6 +3,7 @@ import type { PaymentContext } from "./types";
 
 interface CallOptions {
   maxPaymentMicroUsdc: number;
+  expectedCostMicroUsdc?: number;
   timeoutMs?: number;
 }
 
@@ -17,9 +18,16 @@ export async function callWithPayment<T = unknown>(
     maxPaymentMicroUsdc: options.maxPaymentMicroUsdc,
     timeoutMs: options.timeoutMs,
   });
+  // x402 SDK handles payment silently — some services don't echo payment-response
+  // headers, so x402Fetch may report amountMicroUsdc=0 even when payment occurred.
+  // If the service returned data successfully, payment was made. Fall back to the
+  // adapter's expected cost.
+  const cost = result.amountMicroUsdc > 0
+    ? result.amountMicroUsdc
+    : (options.expectedCostMicroUsdc ?? 0);
   return {
     data: result.data as T,
-    costMicroUsdc: result.amountMicroUsdc,
-    paid: result.paid,
+    costMicroUsdc: cost,
+    paid: result.paid || cost > 0,
   };
 }

@@ -16,7 +16,7 @@ export const augurAdapter: X402ServiceAdapter<AugurInput, unknown> = {
       `${url}/analyze?address=${encodeURIComponent(input.address)}`,
       undefined,
       ctx,
-      { maxPaymentMicroUsdc: 200_000 },
+      { maxPaymentMicroUsdc: 200_000, expectedCostMicroUsdc: 100_000 },
     );
     return { data: result.data, cost: result.costMicroUsdc, source: "Augur" };
   },

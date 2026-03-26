@@ -16,7 +16,7 @@ export const genvoxAdapter: X402ServiceAdapter<GenvoxInput, unknown> = {
       `${url}/v1/sentiment/${encodeURIComponent(input.topic)}`,
       undefined,
       ctx,
-      { maxPaymentMicroUsdc: 60_000 },
+      { maxPaymentMicroUsdc: 60_000, expectedCostMicroUsdc: 30_000 },
     );
     return { data: result.data, cost: result.costMicroUsdc, source: "GenVox" };
   },

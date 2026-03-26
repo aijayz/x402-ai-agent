@@ -88,7 +88,7 @@ export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInp
       `${MESSARI_BASE}/token-unlocks/v1/allocations?assetSymbol=${encodeURIComponent(input.assetSymbol)}`,
       undefined,
       ctx,
-      { maxPaymentMicroUsdc: 500_000, timeoutMs: 15_000 },
+      { maxPaymentMicroUsdc: 500_000, expectedCostMicroUsdc: 250_000, timeoutMs: 15_000 },
     );
     return { data: result.data, cost: result.costMicroUsdc, source: "Messari Allocations" };
   },
