@@ -88,7 +88,14 @@ function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
     return withMarkup(TOOL_PRICES[toolName]);
   }
 
-  // Cluster tools: parse output for totalCostMicroUsdc
+  // Cluster tools: check for totalCostMicroUsdc in output
+  // Native AI SDK tools return ClusterResult directly as the output object
+  if (output && typeof (output as Record<string, unknown>).totalCostMicroUsdc === "number") {
+    const cost = (output as Record<string, unknown>).totalCostMicroUsdc as number;
+    if (cost > 0) return withMarkup(cost / 1_000_000);
+  }
+
+  // MCP-wrapped cluster output: { content: [{ type: "text", text: JSON }] }
   const parsed = ToolOutputSchema.safeParse(output);
   if (parsed.success && parsed.data?.content) {
     const text = parsed.data.content.map(c => c.text).join("");
@@ -148,6 +155,15 @@ const mapRenderResultTypeToState = (
 /** Extract a brief text snippet from tool output for the header */
 function extractResultSnippet(part: ToolUIPart | DynamicToolUIPart): string | null {
   if (part.state !== "output-available") return null;
+
+  // Try to extract from native AI SDK tool output (cluster tools, Dune, etc.)
+  const raw = part.output as Record<string, unknown> | undefined;
+  if (raw && !raw.content) {
+    if (raw.serviceCalls && Array.isArray(raw.serviceCalls)) return `${raw.serviceCalls.length} services`;
+    if (raw.template && raw.rowCount != null) return `${raw.template} · ${raw.rowCount} rows`;
+  }
+
+  // MCP tool output: { content: [{ type: "text", text }] }
   const parsed = ToolOutputSchema.safeParse(part.output);
   if (!parsed.success || !parsed.data?.content || parsed.data.isError) return null;
   const text = parsed.data.content.map(c => c.text).join("");
@@ -586,6 +602,15 @@ function renderRawOutput({
   output: ToolUIPart["output"];
   toolName?: string;
 }): RenderOutputResult {
+  // Native AI SDK tool output (cluster tools, Dune, etc.) — not MCP-wrapped
+  const raw = output as Record<string, unknown> | undefined;
+  if (raw && !raw.content && !raw.isError && toolName) {
+    const toolSpecific = renderToolSpecificOutput(toolName, JSON.stringify(raw));
+    if (toolSpecific) {
+      return { type: "success", content: toolSpecific };
+    }
+  }
+
   const parseResult = ToolOutputSchema.safeParse(output);
   if (!parseResult.success) {
     return {
