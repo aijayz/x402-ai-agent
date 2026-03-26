@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ClientProviders } from "@/components/client-providers";
 import { WalletPill, CreditBadge } from "@/components/wallet-pill";
 import { TopUpSheet } from "@/components/topup-sheet";
+import { SpendHistorySheet } from "@/components/spend-history-sheet";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 export default function ChatLayout({
@@ -86,6 +87,7 @@ export default function ChatLayout({
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
         <TopUpSheet />
+        <SpendHistorySheet />
       </div>
     </ClientProviders>
   );

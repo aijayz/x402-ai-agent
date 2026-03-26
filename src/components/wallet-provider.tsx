@@ -50,6 +50,8 @@ interface WalletContextValue {
   network: NetworkId;
   topUpOpen: boolean;
   setTopUpOpen: (open: boolean) => void;
+  spendHistoryOpen: boolean;
+  setSpendHistoryOpen: (open: boolean) => void;
   connectWallet: () => Promise<string | undefined>;
   disconnectWallet: () => void;
   refreshBalance: () => Promise<void>;
@@ -68,6 +70,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<number | null>(null);
   const [freeCallsRemaining, setFreeCallsRemaining] = useState<number | null>(null);
   const [topUpOpen, setTopUpOpen] = useState(false);
+  const [spendHistoryOpen, setSpendHistoryOpen] = useState(false);
   const [lastCreditEvent, setLastCreditEvent] = useState<CreditEvent | null>(null);
   const onTopUpCompleteRef = useRef<(() => void) | null>(null);
   const clearCreditEvent = useCallback(() => setLastCreditEvent(null), []);
@@ -274,7 +277,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   return (
-    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, switchChain, updateFromMetadata, onTopUpCompleteRef, isRestoringSession }}>
+    <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, spendHistoryOpen, setSpendHistoryOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, switchChain, updateFromMetadata, onTopUpCompleteRef, isRestoringSession }}>
       {children}
     </WalletContext.Provider>
   );

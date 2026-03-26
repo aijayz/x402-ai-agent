@@ -1,7 +1,8 @@
 "use client";
 
 import { useWallet } from "./wallet-provider";
-import { LogOut, Wallet, Coins, ArrowUpRight } from "lucide-react";
+import { LogOut, Wallet, Coins, ArrowUpRight, Receipt } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export function WalletPill() {
   const { walletAddress, network, connectWallet, disconnectWallet } = useWallet();
@@ -46,7 +47,7 @@ export function WalletPill() {
 }
 
 export function CreditBadge() {
-  const { walletAddress, balance, setTopUpOpen } = useWallet();
+  const { walletAddress, balance, setTopUpOpen, setSpendHistoryOpen } = useWallet();
 
   if (!walletAddress || balance == null) return null;
 
@@ -59,6 +60,17 @@ export function CreditBadge() {
         <Coins className="size-3" />
         <span className="font-mono font-medium">${displayBalance}</span>
       </div>
+      <button
+        onClick={() => setSpendHistoryOpen(true)}
+        className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+          bg-muted/50 border border-border
+          text-muted-foreground hover:text-foreground hover:bg-muted/80 hover:border-muted-foreground/30
+          transition-all duration-200"
+        title="View spend history"
+      >
+        <Receipt className="size-3" />
+        <span className="hidden sm:inline">History</span>
+      </button>
       <button
         onClick={() => setTopUpOpen(true)}
         className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
