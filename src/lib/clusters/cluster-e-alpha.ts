@@ -9,6 +9,8 @@ import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
 import { applyMarkup, handleReleaseFailure, toQSChain } from "./types";
 import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
+import { queryDune } from "../services/dune";
+import { getTemplate, isTemplateReady } from "../services/dune-templates";
 
 interface ClusterEDeps {
   walletClient: WalletClient;
@@ -78,6 +80,17 @@ export function createClusterETools(deps: ClusterEDeps) {
             { name: "messari-allocations" as const, input: { assetSymbol: messariTarget } },
           ];
 
+          // Dune temporal data — only if input is an address (not name/symbol)
+          const duneTemplates = ["smart_money_moves_7d", "token_velocity"] as const;
+          const dunePromises = isAddress
+            ? duneTemplates.map((tpl) => {
+                const template = getTemplate(tpl);
+                if (!template || !isTemplateReady(template)) return Promise.resolve(null);
+                return queryDune(tpl, template.duneQueryId, { token_address: target, chain }).catch(() => null);
+              })
+            : [];
+          const duneResultsPromise = Promise.all(dunePromises);
+
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
             try {
@@ -111,6 +124,24 @@ export function createClusterETools(deps: ClusterEDeps) {
             }
           }
 
+          // Await Dune results
+          const duneResults = await duneResultsPromise;
+          const duneData: Record<string, unknown> = {};
+          for (let i = 0; i < duneTemplates.length; i++) {
+            if (duneResults[i]?.rows?.length) {
+              duneData[duneTemplates[i]] = duneResults[i]!.rows;
+            }
+          }
+          const hasDune = Object.keys(duneData).length > 0;
+          if (hasDune) {
+            calls.push({
+              serviceName: "Dune Analytics (temporal)",
+              data: duneData,
+              costMicroUsdc: 0,
+              paid: false,
+            });
+          }
+
           const totalCost = calls.reduce(
             (sum, c) => sum + c.costMicroUsdc,
             0,
@@ -129,6 +160,7 @@ export function createClusterETools(deps: ClusterEDeps) {
           const summary =
             successNames.length > 0
               ? `Screened ${target} using ${successNames.join(", ")}.` +
+                (hasDune ? " Includes smart money moves and token velocity from Dune Analytics." : "") +
                 (!isAddress
                   ? " Tip: pass a contract address for full security + holder analysis."
                   : "") +
