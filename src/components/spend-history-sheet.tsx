@@ -97,9 +97,9 @@ export function SpendHistorySheet() {
 
   return (
     <Sheet open={spendHistoryOpen} onOpenChange={setSpendHistoryOpen}>
-      <SheetContent side="right" className="w-[min(380px,100vw)] sm:w-[420px] p-0 flex flex-col">
+      <SheetContent side="right" className="w-[min(380px,100vw)] sm:w-[420px] p-0 flex flex-col gap-0 overflow-hidden">
         {/* Header with gradient — matches topup sheet style */}
-        <div className="relative px-6 pt-6 pb-5 overflow-hidden">
+        <div className="relative px-6 pt-8 pb-5 overflow-hidden shrink-0">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/8 via-amber-400/4 to-transparent" />
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 bg-amber-500/8" />
 
@@ -119,7 +119,7 @@ export function SpendHistorySheet() {
         </div>
 
         {/* Balance hero */}
-        <div className="mx-5 mb-4 rounded-xl bg-gradient-to-br from-muted/80 via-muted/50 to-muted/30 border border-border p-4">
+        <div className="mx-5 mb-4 shrink-0 rounded-xl bg-gradient-to-br from-muted/80 via-muted/50 to-muted/30 border border-border p-4">
           <div className="flex items-baseline justify-between mb-3">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Available Balance</span>
           </div>
@@ -146,7 +146,7 @@ export function SpendHistorySheet() {
         </div>
 
         {/* Transaction list */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           {loading && ledger.length === 0 && (
             <div className="px-5 py-16 text-center">
               <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
