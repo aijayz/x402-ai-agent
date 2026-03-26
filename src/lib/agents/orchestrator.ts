@@ -1,4 +1,4 @@
-import { ToolLoopAgent, stepCountIs } from "ai";
+import { ToolLoopAgent, stepCountIs, tool } from "ai";
 import type { LanguageModel, ToolSet } from "ai";
 import type { BudgetController } from "@/lib/budget-controller";
 import { createBudgetTools } from "./tools";
@@ -12,6 +12,11 @@ import { createClusterDTools } from "@/lib/clusters/cluster-d-social";
 import { createClusterETools } from "@/lib/clusters/cluster-e-alpha";
 import { createClusterFTools } from "@/lib/clusters/cluster-f-market";
 import type { WalletClient } from "viem";
+import { z } from "zod";
+import { queryDune } from "@/lib/services/dune";
+import { DUNE_TEMPLATES, TEMPLATE_NAMES, getTemplate, isTemplateReady } from "@/lib/services/dune-templates";
+import { CreditStore } from "@/lib/credits/credit-store";
+import { handleReleaseFailure } from "@/lib/clusters/types";
 
 // Lazy-init: seed the registry on first orchestrator creation
 let registrySeeded = false;
@@ -56,6 +61,76 @@ export function createOrchestrator({
     ...createClusterDTools(clusterDeps),
     ...createClusterETools(clusterDeps),
     ...createClusterFTools(clusterDeps),
+  } : {};
+
+  const duneTools: ToolSet = options.walletClient ? {
+    query_onchain_data: tool({
+      description:
+        "Query historical on-chain data from Dune Analytics. Pick a template and provide params. " +
+        "Available templates:\n" +
+        Object.values(DUNE_TEMPLATES).map(t => `- ${t.id}: ${t.description}`).join("\n") +
+        "\nCosts $0.05 per query. Returns tabular data with rows.",
+      inputSchema: z.object({
+        template: z.enum(TEMPLATE_NAMES).describe("Template name to execute"),
+        token_address: z.string().optional().describe("Token contract address (0x format)"),
+        wallet_address: z.string().optional().describe("Wallet address (0x format)"),
+        contract_address: z.string().optional().describe("Contract address (0x format)"),
+        chain: z.enum(["ethereum", "base", "arbitrum", "optimism"]).default("ethereum")
+          .describe("Chain to query"),
+      }),
+      execute: async (input) => {
+        const tpl = getTemplate(input.template);
+        if (!tpl) return { error: `Unknown template: ${input.template}` };
+        if (!isTemplateReady(tpl)) return { error: `Template ${input.template} is not yet configured (no Dune query ID)` };
+
+        // Reserve credits (already deducts — reservation IS payment)
+        const costMicro = 50_000; // $0.05
+        let reserved = false;
+        if (options.userWallet) {
+          const reservation = await CreditStore.reserve(options.userWallet, costMicro);
+          if (!reservation.success) {
+            return { error: "Insufficient credit balance for on-chain data query ($0.05). Please top up." };
+          }
+          reserved = true;
+        }
+
+        try {
+          const params: Record<string, unknown> = { chain: input.chain };
+          if (input.token_address) params.token_address = input.token_address;
+          if (input.wallet_address) params.wallet_address = input.wallet_address;
+          if (input.contract_address) params.contract_address = input.contract_address;
+
+          const result = await queryDune(input.template, tpl.duneQueryId, params);
+
+          if (!result) {
+            // Release reservation — user not charged on failure
+            if (reserved && options.userWallet) {
+              await CreditStore.release(options.userWallet, costMicro).catch((err) =>
+                handleReleaseFailure("DUNE_STANDALONE", options.userWallet!, costMicro, err),
+              );
+            }
+            return { error: "On-chain data temporarily unavailable. Try again shortly." };
+          }
+
+          return {
+            summary: `Dune Analytics: ${input.template} returned ${result.rows.length} rows${result.cacheHit ? " (cached)" : ""}.`,
+            data: result.rows.slice(0, 50), // Limit rows sent to LLM context
+            rowCount: result.rows.length,
+            template: input.template,
+            freshness: result.cacheHit ? "cached (< 15 min)" : "fresh",
+          };
+        } catch (err) {
+          // Release reservation on unexpected error
+          if (reserved && options.userWallet) {
+            await CreditStore.release(options.userWallet, costMicro).catch((releaseErr) =>
+              handleReleaseFailure("DUNE_STANDALONE", options.userWallet!, costMicro, releaseErr),
+            );
+          }
+          console.error("[DUNE] Standalone tool error", err);
+          return { error: "On-chain data query failed unexpectedly." };
+        }
+      },
+    }),
   } : {};
 
   const balanceText = isAnonymous
@@ -140,15 +215,11 @@ You also have research cluster tools that orchestrate multiple x402 services (Au
 These tools orchestrate multiple real x402 services for cross-referenced intelligence. Each cluster combines 2-4 independent services.
 If some services in a cluster are unavailable, present results from the ones that responded. Frame unavailable ones as "temporarily unavailable" — don't apologize.
 
-DATA LIMITATIONS — SNAPSHOT VS TEMPORAL DATA:
-Many tools return snapshot data (current state at time of query). When a user asks a temporal or trend question — "are whales accumulating?", "is volume trending up?", "has this token been gaining?", "what happened over the last 30 days?" — be honest about what the data can and cannot answer.
-
-Rules for temporal questions:
-- Answer with whatever the snapshot data does show (current distribution, current balance, latest trade recorded, etc.)
-- Explicitly state what you CANNOT determine: "This shows the current wallet distribution, but does not tell us whether these positions were built up recently or have been held for months."
-- Do NOT present static distribution data as if it answers a trend question. A wallet holding 500 ETH today does not tell you whether they were buying or selling last week.
-- Suggest the right tool for the job when you can't answer it: "For historical accumulation flows, platforms like Nansen or Dune Analytics track wallet-level changes over time." or "For volume trend data, CoinGecko or TradingView show OHLCV history."
-- If the user asks a trend question and the only available data is a snapshot, lead with that caveat before presenting the data. Example: "I can show you the current on-chain state, but I can't tell you the direction of change — here's what the snapshot shows:"
+HISTORICAL ON-CHAIN DATA (Dune Analytics):
+You have access to historical on-chain data via query_onchain_data and enriched cluster tools. Use this for trend questions like "are whales accumulating?", "is volume increasing?", "what are smart money wallets doing?"
+- Cluster tools (track_whale_activity, analyze_wallet_portfolio, etc.) now include 7-day flow trends automatically — no need to call query_onchain_data separately for questions those clusters cover.
+- Use query_onchain_data ($0.05) for questions outside cluster scope: bridge flows, stablecoin supply trends, flash loan activity, MEV exposure, contract interaction trends.
+- If a question requires data outside the available templates (specific protocol internals, governance votes, historical price charts), acknowledge the limitation.
 
 IMPORTANT — when asked about your capabilities or what you can do:
 - NEVER list tool names, function names, or internal details like "add", "get_random_number", "check_budget", etc.
@@ -162,6 +233,7 @@ IMPORTANT — when asked about your capabilities or what you can do:
       ...budgetTools,
       ...discoveryTools,
       ...clusterTools,
+      ...duneTools,
     },
     stopWhen: stepCountIs(12),
   });
