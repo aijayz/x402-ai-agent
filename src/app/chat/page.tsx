@@ -14,6 +14,7 @@ import {
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
 import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart } from "lucide-react";
@@ -107,8 +108,10 @@ function parseActions(text: string): { cleanText: string; actions: string[]; sug
 }
 
 export function ChatPage() {
+  const searchParams = useSearchParams();
   const [input, setInput] = useState("");
   const [lastError, setLastError] = useState<Error | null>(null);
+  const autoSentRef = useRef(false);
   const { walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, connectWallet, setTopUpOpen, updateFromMetadata, onTopUpCompleteRef, isRestoringSession } = useWallet();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingRetryRef = useRef<string | null>(null);
@@ -233,6 +236,18 @@ export function ChatPage() {
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  // Auto-send from ?q= query param (landing page tool cards)
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q && !autoSentRef.current && messages.length === 0 && status === "ready") {
+      autoSentRef.current = true;
+      track("chat_started", { source: "landing_tool" });
+      sendMessage({ text: q }, { headers: walletAddress ? { "x-wallet-address": walletAddress } : undefined });
+      // Clean up URL without triggering navigation
+      window.history.replaceState({}, "", "/chat");
+    }
+  }, [searchParams, messages.length, status, sendMessage, walletAddress]);
 
   const headers = walletAddress ? { "x-wallet-address": walletAddress } : undefined;
 
@@ -567,4 +582,12 @@ export function ChatPage() {
   );
 };
 
-export default ChatPage;
+import { Suspense } from "react";
+
+export default function ChatPageWrapper() {
+  return (
+    <Suspense>
+      <ChatPage />
+    </Suspense>
+  );
+}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Github } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Github, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const clusters = [
@@ -48,11 +48,11 @@ const clusters = [
 ];
 
 const tools = [
-  { icon: DollarSign, title: "Crypto Prices", cost: "$0.01", description: "Live prices, 24h change, market cap" },
-  { icon: Layers, title: "Wallet Profile", cost: "$0.02", description: "On-chain balances and activity" },
-  { icon: Globe, title: "URL Summarizer", cost: "$0.03", description: "Fetch and summarize any webpage" },
-  { icon: FileSearch, title: "Contract Analysis", cost: "$0.03", description: "Verified smart contract analysis" },
-  { icon: ImageIcon, title: "Image Generation", cost: "$0.05", description: "AI-powered image generation" },
+  { icon: DollarSign, title: "Crypto Prices", cost: "$0.01", description: "Live prices, 24h change, market cap", prompt: "What's the current price of Ethereum?" },
+  { icon: Layers, title: "Wallet Profile", cost: "$0.02", description: "On-chain balances and activity", prompt: "Analyze wallet 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" },
+  { icon: FileSearch, title: "Contract Analysis", cost: "$0.03", description: "Verified smart contract analysis", prompt: "How safe is the AAVE token contract?" },
+  { icon: Database, title: "On-Chain Data", cost: "$0.05", description: "Whale flows, DEX volume, trends", prompt: "What's the flash loan activity for WETH on Ethereum?" },
+  { icon: Fish, title: "Whale Tracker", cost: "~$0.02", description: "Smart money accumulation signals", prompt: "Are whales accumulating ETH right now?" },
 ];
 
 export default function LandingPage() {
@@ -239,9 +239,10 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {tools.map((t, i) => (
-              <div
+              <Link
                 key={t.title}
-                className="group rounded-xl border border-border/50 hover:border-border p-4 space-y-2 text-center transition-all duration-300 hover:translate-y-[-2px] hover:bg-muted/20 animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                href={`/chat?q=${encodeURIComponent(t.prompt)}`}
+                className="group rounded-xl border border-border/50 hover:border-border p-4 space-y-2 text-center transition-all duration-300 hover:translate-y-[-2px] hover:bg-muted/20 animate-in fade-in slide-in-from-bottom-2 fill-mode-both cursor-pointer"
                 style={{ animationDelay: `${100 + i * 80}ms`, animationDuration: "400ms" }}
               >
                 <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted/40 border border-border/40 mx-auto group-hover:bg-muted/60 transition-colors">
@@ -250,7 +251,7 @@ export default function LandingPage() {
                 <h3 className="text-sm font-medium text-foreground">{t.title}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{t.description}</p>
                 <p className="text-xs font-mono text-blue-400">{t.cost}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
