@@ -48,7 +48,8 @@ interface DuneResult {
 async function getLatestResult(queryId: number, params: Record<string, unknown>): Promise<DuneResult | null> {
   const qp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
-    qp.set(k, String(v));
+    // Dune results endpoint requires "params." prefix to match by parameters
+    qp.set(`params.${k}`, String(v));
   }
   const url = `${DUNE_BASE}/query/${queryId}/results?${qp.toString()}`;
   const res = await fetch(url, { headers: duneHeaders() });
