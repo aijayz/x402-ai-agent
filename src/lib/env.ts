@@ -46,6 +46,9 @@ export const env = createEnv({
     // Upstash Redis (Edge runtime compatible — used for rate limiting)
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+
+    // Dune Analytics (optional — temporal on-chain data)
+    DUNE_API_KEY: z.string().optional(),
   },
 
   client: {
@@ -86,6 +89,7 @@ export const env = createEnv({
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+    DUNE_API_KEY: process.env.DUNE_API_KEY,
   },
 
   /**

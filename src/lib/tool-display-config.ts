@@ -19,6 +19,8 @@ export const TOOL_DISPLAY: Record<string, ToolDisplayInfo> = {
   analyze_contract: { label: "Contract Analysis", icon: "FileCode" },
   generate_image: { label: "Image Generation", icon: "Image" },
 
+  query_onchain_data: { label: "On-Chain Data", icon: "Database" },
+
   // Free tools
   identify_address: { label: "Address Lookup", icon: "Search" },
   add: { label: "Calculator", icon: "Calculator" },

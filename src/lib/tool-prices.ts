@@ -9,4 +9,5 @@ export const TOOL_PRICES: Record<string, number> = {
   summarize_url: 0.03,
   analyze_contract: 0.03,
   generate_image: 0.05,
+  query_onchain_data: 0.05,
 };

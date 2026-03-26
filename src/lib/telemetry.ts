@@ -48,4 +48,18 @@ export const telemetry = {
       timestamp: new Date().toISOString(),
     }));
   },
+
+  duneQuery(params: {
+    template: string;
+    cacheHit: boolean;
+    durationMs: number;
+    rowCount: number | null;
+    error?: string;
+  }) {
+    console.log(JSON.stringify({
+      event: "dune_query",
+      ...params,
+      timestamp: new Date().toISOString(),
+    }));
+  },
 };
