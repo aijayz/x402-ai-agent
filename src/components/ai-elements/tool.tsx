@@ -28,10 +28,9 @@ import { renderClusterOutput } from "./cluster-renderers";
 
 /** Apply 30% markup to match what the user is actually charged. Mirrors server-side applyMarkup(). */
 const MARKUP_FACTOR = 1.30;
-const MIN_CHARGE_USDC = 0.02;
 function withMarkup(costUsdc: number): number {
   if (costUsdc === 0) return 0;
-  return Math.max(costUsdc * MARKUP_FACTOR, MIN_CHARGE_USDC);
+  return costUsdc * MARKUP_FACTOR;
 }
 
 /** Format crypto price with appropriate precision: >= $1 → 2dp, >= $0.01 → 4dp, < $0.01 → up to 6 significant digits */

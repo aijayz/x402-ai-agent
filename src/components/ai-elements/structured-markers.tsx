@@ -22,6 +22,7 @@ interface Score {
   label: string;
   value: number;
   max: number;
+  invert?: boolean; // true = higher is better (confidence, security), false = higher is worse (risk)
 }
 
 type StructuredMarker = Metric | Verdict | Score;
@@ -30,7 +31,7 @@ type StructuredMarker = Metric | Verdict | Score;
 
 const METRIC_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]/g;
 const VERDICT_RE = /\[VERDICT:([^|\]]+)\|(\w+)\]/g;
-const SCORE_RE = /\[SCORE:([^|\]]+)\|(\d+)\/(\d+)\]/g;
+const SCORE_RE = /\[SCORE:([^|\]]+)\|(\d+)\/(\d+)(?:\|(\w+))?\]/g;
 
 export function parseStructuredMarkers(text: string): {
   cleanText: string;
@@ -50,8 +51,10 @@ export function parseStructuredMarkers(text: string): {
     return "";
   });
 
-  cleanText = cleanText.replace(SCORE_RE, (_, label, value, max) => {
-    markers.push({ type: "score", label: label.trim(), value: Number(value), max: Number(max) });
+  cleanText = cleanText.replace(SCORE_RE, (_, label, value, max, color) => {
+    const c = color?.trim().toLowerCase();
+    const invert = c === "green" || c === "positive";
+    markers.push({ type: "score", label: label.trim(), value: Number(value), max: Number(max), invert });
     return "";
   });
 
@@ -101,12 +104,16 @@ export function VerdictBanner({ text, color }: Verdict) {
   );
 }
 
-export function ScoreGauge({ label, value, max }: Score) {
+export function ScoreGauge({ label, value, max, invert }: Score) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100));
-  const color =
-    pct <= 30 ? "bg-green-500" : pct <= 60 ? "bg-amber-500" : "bg-red-500";
-  const textColor =
-    pct <= 30 ? "text-green-400" : pct <= 60 ? "text-amber-400" : "text-red-400";
+  // invert: higher is better (confidence, security) — green when high
+  // default: higher is worse (risk) — red when high
+  const color = invert
+    ? (pct >= 60 ? "bg-green-500" : pct >= 30 ? "bg-amber-500" : "bg-red-500")
+    : (pct <= 30 ? "bg-green-500" : pct <= 60 ? "bg-amber-500" : "bg-red-500");
+  const textColor = invert
+    ? (pct >= 60 ? "text-green-400" : pct >= 30 ? "text-amber-400" : "text-red-400")
+    : (pct <= 30 ? "text-green-400" : pct <= 60 ? "text-amber-400" : "text-red-400");
   return (
     <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
       <div className="flex items-center justify-between mb-1.5">

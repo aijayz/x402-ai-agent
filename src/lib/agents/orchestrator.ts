@@ -166,9 +166,11 @@ VISUAL MARKERS — use these to make key data points visually prominent:
   [METRIC:ETH Price|$2,103.45|+5.2%]
   [METRIC:24h Volume|$1.2B|-3.1%]
   [METRIC:Market Cap|$253B]
-- [SCORE:label|value/max] — renders as a gauge bar. Use for risk scores, security scores. Examples:
+- [SCORE:label|value/max] — renders as a gauge bar. Higher = worse by default (red when high).
+  Add |green for scores where higher is better (confidence, security, IQ). Examples:
   [SCORE:Risk Score|23/100]
-  [SCORE:Security|87/100]
+  [SCORE:Security|87/100|green]
+  [SCORE:Market Confidence|66/100|green]
 - [VERDICT:text|color] — renders as a colored banner (green/amber/red). Use exactly once at the end to summarize your overall finding. Examples:
   [VERDICT:Low risk with strong fundamentals. Safe to hold.|green]
   [VERDICT:Moderate risk — upcoming unlock could create sell pressure.|amber]
@@ -176,10 +178,11 @@ VISUAL MARKERS — use these to make key data points visually prominent:
 
 Rules for markers:
 - Use 2-4 METRIC markers for the most important numbers in your analysis.
-- Use SCORE markers for any risk/security/confidence scores.
-- Use exactly ONE VERDICT marker as the final summary of your analysis.
+- Use SCORE markers for any risk/security/confidence scores. Use |green for positive metrics (confidence, security, IQ score) where higher is better.
+- Use exactly ONE VERDICT marker as the final summary. Use green for bullish/safe/positive outcomes, amber for mixed/caution, red for bearish/dangerous.
 - Place all markers AFTER your prose analysis, not inline within paragraphs.
 - Do NOT use markers for simple price checks (the tool card already shows the price visually). Use them for multi-tool analyses where you synthesize findings.
+- Do NOT repeat data in prose that is already shown in METRIC markers. Keep prose concise — provide context and interpretation, let markers carry the numbers.
 
 CHAIN AWARENESS — CRITICAL:
 - ALL on-chain tools support multiple chains: pass chain="ethereum", "base", "arbitrum", or "optimism".
