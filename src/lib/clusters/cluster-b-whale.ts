@@ -7,6 +7,8 @@ import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
 import { applyMarkup, handleReleaseFailure, toQSChain, toSLAMaiChain } from "./types";
 import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
+import { queryDune } from "../services/dune";
+import { getTemplate, isTemplateReady } from "../services/dune-templates";
 
 interface ClusterBDeps {
   walletClient: WalletClient;
@@ -51,6 +53,17 @@ export function createClusterBTools(deps: ClusterBDeps) {
             { name: "slamai-wallet" as const, input: { address, blockchain: toSLAMaiChain(chain as ClusterChain) } },
           ];
 
+          // Dune temporal data (non-blocking — null on failure)
+          const duneTemplates = ["whale_net_flow_7d", "cex_net_flow_7d", "smart_money_moves_7d"] as const;
+          const dunePromises = duneTemplates.map((tpl) => {
+            const template = getTemplate(tpl);
+            if (!template || !isTemplateReady(template)) return Promise.resolve(null);
+            return queryDune(tpl, template.duneQueryId, { token_address: address, chain }).catch(() => null);
+          });
+
+          // Run x402 services sequentially (existing pattern) + Dune in parallel
+          const duneResultsPromise = Promise.all(dunePromises);
+
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
             try {
@@ -71,13 +84,34 @@ export function createClusterBTools(deps: ClusterBDeps) {
             }
           }
 
+          // Await Dune results (should already be resolved by now)
+          const duneResults = await duneResultsPromise;
+          const duneData: Record<string, unknown> = {};
+          for (let i = 0; i < duneTemplates.length; i++) {
+            if (duneResults[i]?.rows?.length) {
+              duneData[duneTemplates[i]] = duneResults[i]!.rows;
+            }
+          }
+
+          // Include Dune data as a service call result (zero cost — bundled)
+          if (Object.keys(duneData).length > 0) {
+            calls.push({
+              serviceName: "Dune Analytics (temporal)",
+              data: duneData,
+              costMicroUsdc: 0,
+              paid: false,
+            });
+          }
+
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
           telemetry.clusterComplete({ cluster: "B", tool: "track_whale_activity", totalLatencyMs: Date.now() - clusterStart, servicesOk: calls.length, servicesFailed: errors.length, totalCostMicroUsdc: totalCost });
 
           const failedNames = errors.map(e => e.split(":")[0]);
           const successNames = calls.map(c => c.serviceName);
+          const hasDune = Object.keys(duneData).length > 0;
           const summary = successNames.length > 0
             ? `Tracked whale activity using ${successNames.join(", ")}.` +
+              (hasDune ? " Includes 7-day flow trends from Dune Analytics." : "") +
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
             : `Whale Intelligence unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
