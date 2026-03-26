@@ -81,7 +81,7 @@ export const DUNE_TEMPLATES: Record<string, DuneTemplate> = {
 
   bridge_flow_7d: {
     id: "bridge_flow_7d",
-    duneQueryId: 0,
+    duneQueryId: 6911550,
     description: "Net bridge inflows/outflows for a chain over 7 days — shows capital movement between L1s and L2s",
     params: [
       { name: "chain", type: "string", required: true },
