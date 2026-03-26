@@ -229,6 +229,15 @@ export const POST = async (request: Request) => {
                 toolName: toolResult.toolName,
                 amountUsdc: chargedMicro / 1_000_000,
               });
+              if (walletAddress) {
+                SpendEventStore.record({
+                  walletAddress,
+                  toolName: toolResult.toolName,
+                  serviceCostMicroUsdc: clusterOutput.totalCostMicroUsdc,
+                  chargedAmountMicroUsdc: chargedMicro,
+                  markupBps: 3000,
+                }).catch((err) => console.error("[SPEND] Failed to record cluster spend event", { walletAddress, tool: toolResult.toolName, err }));
+              }
             }
 
             // Track Dune standalone tool costs (credit deduction handled internally)
@@ -242,6 +251,15 @@ export const POST = async (request: Request) => {
                 toolName: toolResult.toolName,
                 amountUsdc: duneChargedMicro / 1_000_000,
               });
+              if (walletAddress) {
+                SpendEventStore.record({
+                  walletAddress,
+                  toolName: toolResult.toolName,
+                  serviceCostMicroUsdc: 50_000,
+                  chargedAmountMicroUsdc: duneChargedMicro,
+                  markupBps: 3000,
+                }).catch((err) => console.error("[SPEND] Failed to record Dune spend event", { walletAddress, err }));
+              }
             }
 
             if (paymentResponse?.transaction) {
