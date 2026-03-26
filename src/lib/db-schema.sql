@@ -48,3 +48,20 @@ CREATE TABLE IF NOT EXISTS conversations (
 
 CREATE INDEX IF NOT EXISTS idx_conversations_wallet
   ON conversations (wallet_address, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS reports (
+  id TEXT PRIMARY KEY,
+  wallet_address TEXT,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  markers JSONB,
+  metadata JSONB,
+  type TEXT NOT NULL DEFAULT 'user',
+  digest_date DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_wallet ON reports(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_reports_created ON reports(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reports_digest_date ON reports(digest_date) WHERE type = 'digest';

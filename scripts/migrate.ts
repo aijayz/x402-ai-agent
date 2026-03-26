@@ -61,6 +61,36 @@ const migrations: [string, string][] = [
     "drop old spend_events_tx_hash_key unique if exists",
     `ALTER TABLE spend_events DROP CONSTRAINT IF EXISTS spend_events_tx_hash_key`,
   ],
+  [
+    "create reports table",
+    `CREATE TABLE IF NOT EXISTS reports (
+       id TEXT PRIMARY KEY,
+       wallet_address TEXT,
+       title TEXT NOT NULL,
+       content TEXT NOT NULL,
+       markers JSONB,
+       metadata JSONB,
+       type TEXT NOT NULL DEFAULT 'user',
+       digest_date DATE,
+       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+       expires_at TIMESTAMPTZ
+     )`,
+  ],
+  [
+    "create reports indexes",
+    `DO $$
+     BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_reports_wallet') THEN
+         CREATE INDEX idx_reports_wallet ON reports(wallet_address);
+       END IF;
+       IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_reports_created') THEN
+         CREATE INDEX idx_reports_created ON reports(created_at DESC);
+       END IF;
+       IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_reports_digest_date') THEN
+         CREATE UNIQUE INDEX idx_reports_digest_date ON reports(digest_date) WHERE type = 'digest';
+       END IF;
+     END $$`,
+  ],
 ];
 
 async function main() {
