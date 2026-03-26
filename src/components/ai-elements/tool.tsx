@@ -218,7 +218,7 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
       {cost != null && cost > 0 && (
         <>
           <span className="text-xs text-muted-foreground/50">·</span>
-          <span className="text-xs text-amber-500 font-medium">${cost < 0.01 ? cost.toFixed(3) : cost.toFixed(2)}</span>
+          <span className="text-xs text-amber-500 font-medium">${cost < 0.01 ? cost.toFixed(3) : cost < 0.1 ? cost.toFixed(3) : cost.toFixed(2)}</span>
         </>
       )}
       <ChevronDownIcon className="size-3 ml-auto text-muted-foreground/50" />
