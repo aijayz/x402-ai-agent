@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
 import { track } from "@/lib/analytics";
+import { parseStructuredMarkers, StructuredMarkers } from "@/components/ai-elements/structured-markers";
 
 import {
   Reasoning,
@@ -415,11 +416,16 @@ export function ChatPage() {
                       const actions = walletAddress
                         ? parsed.actions.filter(a => a !== "connect_wallet")
                         : parsed.actions;
-                      const { cleanText, suggestions } = parsed;
+                      const { suggestions } = parsed;
+                      // Parse structured visual markers from the cleaned text
+                      const { cleanText, markers } = isStreaming
+                        ? { cleanText: parsed.cleanText, markers: [] }
+                        : parseStructuredMarkers(parsed.cleanText);
 
                       return (
                         <div key={`${message.id}-${i}`}>
                           <Response>{cleanText}</Response>
+                          <StructuredMarkers markers={markers} />
                           {actions.length > 0 && (
                             <div className="flex gap-2 mt-3">
                               {actions.map((action) => (

@@ -416,6 +416,71 @@ function renderToolSpecificOutput(toolName: string, jsonText: string): ReactNode
       if (rendered) return rendered;
     }
 
+    // Dune query_onchain_data — render time-series as formatted table
+    if (toolName === "query_onchain_data" && Array.isArray(data.data) && data.data.length > 0) {
+      const rows = data.data as Record<string, unknown>[];
+      const cols = Object.keys(rows[0]);
+      const isDateCol = (col: string) => /day|date|time|block_date/i.test(col);
+      const isNumCol = (col: string) => /usd|flow|volume|count|pnl|score|amount|risk/i.test(col);
+
+      const fmtVal = (col: string, val: unknown): string => {
+        if (val == null) return "—";
+        if (isDateCol(col) && typeof val === "string") {
+          try { return new Date(val).toLocaleDateString("en-US", { month: "short", day: "numeric" }); } catch { return String(val); }
+        }
+        if (typeof val === "number") {
+          if (isNumCol(col)) {
+            if (Math.abs(val) >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
+            if (Math.abs(val) >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;
+            return `$${val.toFixed(2)}`;
+          }
+          return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+        return String(val);
+      };
+
+      const colLabel = (col: string) => col.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const numColor = (col: string, val: unknown): string => {
+        if (typeof val !== "number" || !(/flow|change|pnl/i.test(col))) return "";
+        return val > 0 ? "text-green-400" : val < 0 ? "text-red-400" : "";
+      };
+
+      return (
+        <div className="p-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-medium">{data.template}</span>
+            <span>·</span>
+            <span>{data.rowCount} rows</span>
+            {data.freshness && <><span>·</span><span>{data.freshness}</span></>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/50">
+                  {cols.map(col => (
+                    <th key={col} className={`py-1.5 px-2 font-medium text-muted-foreground whitespace-nowrap ${isNumCol(col) ? "text-right" : "text-left"}`}>
+                      {colLabel(col)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, ri) => (
+                  <tr key={ri} className={ri % 2 === 0 ? "bg-muted/20" : ""}>
+                    {cols.map(col => (
+                      <td key={col} className={`py-1.5 px-2 font-mono whitespace-nowrap ${isNumCol(col) ? "text-right" : ""} ${numColor(col, row[col])}`}>
+                        {fmtVal(col, row[col])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
     if (toolName === "get_crypto_price" && data.priceUsd != null) {
       const changePositive = (data.change24h ?? 0) >= 0;
       return (
