@@ -212,6 +212,15 @@ export const POST = async (request: Request) => {
         }),
         onStepFinish: async ({ toolResults }) => {
           for (const toolResult of toolResults ?? []) {
+            // Debug: log tool result shape to diagnose missing cluster costs
+            console.log("[STEP_FINISH]", {
+              toolName: toolResult.toolName,
+              outputType: typeof toolResult.output,
+              isString: typeof toolResult.output === "string",
+              hasServiceCalls: typeof toolResult.output === "object" && toolResult.output !== null && "serviceCalls" in (toolResult.output as Record<string, unknown>),
+              outputKeys: typeof toolResult.output === "object" && toolResult.output !== null ? Object.keys(toolResult.output as Record<string, unknown>).slice(0, 10) : undefined,
+              outputPreview: typeof toolResult.output === "string" ? (toolResult.output as string).slice(0, 200) : undefined,
+            });
             const output = toolResult.output as Record<string, unknown> | undefined;
             const meta = output?._meta as Record<string, unknown> | undefined;
             const paymentResponse = meta?.["x402/payment-response"] as
