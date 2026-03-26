@@ -26,6 +26,14 @@ import { getToolDisplay } from "@/lib/tool-display-config";
 import { TOOL_PRICES } from "@/lib/tool-prices";
 import { renderClusterOutput } from "./cluster-renderers";
 
+/** Apply 30% markup to match what the user is actually charged. Mirrors server-side applyMarkup(). */
+const MARKUP_FACTOR = 1.30;
+const MIN_CHARGE_USDC = 0.02;
+function withMarkup(costUsdc: number): number {
+  if (costUsdc === 0) return 0;
+  return Math.max(costUsdc * MARKUP_FACTOR, MIN_CHARGE_USDC);
+}
+
 /** Format crypto price with appropriate precision: >= $1 → 2dp, >= $0.01 → 4dp, < $0.01 → up to 6 significant digits */
 function formatCryptoPrice(price: number): string {
   if (price >= 1) return price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -63,6 +71,7 @@ const ToolOutputSchema = z
   })
   .optional();
 
+/** Extract what the user is charged for a tool call (with 30% markup applied). */
 function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
   if (part.state !== "output-available") return null;
 
@@ -73,10 +82,10 @@ function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
   const meta = output?._meta as Record<string, unknown> | undefined;
   const paymentResponse = meta?.["x402/payment-response"] as { amount?: number } | undefined;
   if (paymentResponse?.amount != null) {
-    return Number(paymentResponse.amount) / 1e6;
+    return withMarkup(Number(paymentResponse.amount) / 1e6);
   }
   if (TOOL_PRICES[toolName]) {
-    return TOOL_PRICES[toolName];
+    return withMarkup(TOOL_PRICES[toolName]);
   }
 
   // Cluster tools: parse output for totalCostMicroUsdc
@@ -86,7 +95,7 @@ function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
     try {
       const json = JSON.parse(text);
       if (typeof json.totalCostMicroUsdc === "number" && json.totalCostMicroUsdc > 0) {
-        return json.totalCostMicroUsdc / 1_000_000;
+        return withMarkup(json.totalCostMicroUsdc / 1_000_000);
       }
     } catch {
       // Not JSON cluster output
@@ -194,7 +203,7 @@ export const ToolHeader = ({ className, part, ...props }: ToolHeaderProps) => {
       {cost != null && cost > 0 && (
         <>
           <span className="text-xs text-muted-foreground/50">·</span>
-          <span className="text-xs text-amber-500 font-medium">${cost.toFixed(2)}</span>
+          <span className="text-xs text-amber-500 font-medium">${cost < 0.01 ? cost.toFixed(3) : cost.toFixed(2)}</span>
         </>
       )}
       <ChevronDownIcon className="size-3 ml-auto text-muted-foreground/50" />
