@@ -9,6 +9,8 @@ import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
 import { applyMarkup, handleReleaseFailure, augurSupportsChain, toQSChain } from "./types";
 import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
+import { queryDune } from "../services/dune";
+import { getTemplate, isTemplateReady } from "../services/dune-templates";
 
 interface ClusterADeps {
   walletClient: WalletClient;
@@ -70,6 +72,15 @@ export function createClusterATools(deps: ClusterADeps) {
                ...baseServices.slice(-1)]
             : baseServices;
 
+          // Dune temporal data (non-blocking — null on failure)
+          const duneTemplates = ["liquidation_risk", "dex_pair_depth"] as const;
+          const dunePromises = duneTemplates.map((tpl) => {
+            const template = getTemplate(tpl);
+            if (!template || !isTemplateReady(template)) return Promise.resolve(null);
+            return queryDune(tpl, template.duneQueryId, { token_address: target, chain }).catch(() => null);
+          });
+          const duneResultsPromise = Promise.all(dunePromises);
+
           for (const svc of serviceConfigs) {
             const svcStart = Date.now();
             try {
@@ -90,6 +101,24 @@ export function createClusterATools(deps: ClusterADeps) {
             }
           }
 
+          // Await Dune results
+          const duneResults = await duneResultsPromise;
+          const duneData: Record<string, unknown> = {};
+          for (let i = 0; i < duneTemplates.length; i++) {
+            if (duneResults[i]?.rows?.length) {
+              duneData[duneTemplates[i]] = duneResults[i]!.rows;
+            }
+          }
+          const hasDune = Object.keys(duneData).length > 0;
+          if (hasDune) {
+            calls.push({
+              serviceName: "Dune Analytics (temporal)",
+              data: duneData,
+              costMicroUsdc: 0,
+              paid: false,
+            });
+          }
+
           const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
           telemetry.clusterComplete({ cluster: "A", tool: "analyze_defi_safety", totalLatencyMs: Date.now() - clusterStart, servicesOk: calls.length, servicesFailed: errors.length, totalCostMicroUsdc: totalCost });
 
@@ -97,6 +126,7 @@ export function createClusterATools(deps: ClusterADeps) {
           const successNames = calls.map(c => c.serviceName);
           const summary = successNames.length > 0
             ? `Analyzed ${target} using ${successNames.join(", ")}.` +
+              (hasDune ? " Includes liquidation risk and liquidity depth from Dune Analytics." : "") +
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
             : `DeFi Safety Analysis unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
