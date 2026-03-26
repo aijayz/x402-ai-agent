@@ -16,6 +16,7 @@ import { checkAndIncrementIpFreeCalls, decrementIpFreeCalls } from "@/lib/rate-l
 import { getVerifiedWallet } from "@/lib/wallet-auth";
 import { sendTelegramAlert } from "@/lib/telegram";
 import { TOOL_PRICES } from "@/lib/tool-prices";
+import { applyMarkup } from "@/lib/clusters/types";
 
 const SESSION_COOKIE_MAX_AGE = 1800; // 30 minutes
 
@@ -216,6 +217,32 @@ export const POST = async (request: Request) => {
             const paymentResponse = meta?.["x402/payment-response"] as
               | { transaction?: string; amount?: number }
               | undefined;
+            // Track cluster tool costs (credit deduction handled internally by cluster)
+            const clusterOutput = output as { totalCostMicroUsdc?: number; serviceCalls?: unknown[] } | undefined;
+            if (
+              clusterOutput?.serviceCalls &&
+              typeof clusterOutput.totalCostMicroUsdc === "number" &&
+              clusterOutput.totalCostMicroUsdc > 0
+            ) {
+              const chargedMicro = applyMarkup(clusterOutput.totalCostMicroUsdc);
+              turnSpendEvents.push({
+                toolName: toolResult.toolName,
+                amountUsdc: chargedMicro / 1_000_000,
+              });
+            }
+
+            // Track Dune standalone tool costs (credit deduction handled internally)
+            if (
+              toolResult.toolName === "query_onchain_data" &&
+              output &&
+              !("error" in (output as Record<string, unknown>))
+            ) {
+              turnSpendEvents.push({
+                toolName: toolResult.toolName,
+                amountUsdc: 0.05,
+              });
+            }
+
             if (paymentResponse?.transaction) {
               const serviceCostMicro = TOOL_PRICES[toolResult.toolName]
                 ? Math.round(TOOL_PRICES[toolResult.toolName] * 1_000_000)
