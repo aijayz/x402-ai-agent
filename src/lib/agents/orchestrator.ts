@@ -16,7 +16,7 @@ import { z } from "zod";
 import { queryDune } from "@/lib/services/dune";
 import { DUNE_TEMPLATES, TEMPLATE_NAMES, getTemplate, isTemplateReady } from "@/lib/services/dune-templates";
 import { CreditStore } from "@/lib/credits/credit-store";
-import { handleReleaseFailure } from "@/lib/clusters/types";
+import { applyMarkup, handleReleaseFailure } from "@/lib/clusters/types";
 
 // Lazy-init: seed the registry on first orchestrator creation
 let registrySeeded = false;
@@ -83,8 +83,8 @@ export function createOrchestrator({
         if (!tpl) return { error: `Unknown template: ${input.template}` };
         if (!isTemplateReady(tpl)) return { error: `Template ${input.template} is not yet configured (no Dune query ID)` };
 
-        // Reserve credits (already deducts — reservation IS payment)
-        const costMicro = 50_000; // $0.05
+        // Reserve credits with markup (already deducts — reservation IS payment)
+        const costMicro = applyMarkup(50_000); // $0.05 base + 30% markup
         let reserved = false;
         if (options.userWallet) {
           const reservation = await CreditStore.reserve(options.userWallet, costMicro);

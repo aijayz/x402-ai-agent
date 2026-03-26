@@ -237,9 +237,10 @@ export const POST = async (request: Request) => {
               output &&
               !("error" in (output as Record<string, unknown>))
             ) {
+              const duneChargedMicro = applyMarkup(50_000); // $0.05 base + 30% markup
               turnSpendEvents.push({
                 toolName: toolResult.toolName,
-                amountUsdc: 0.05,
+                amountUsdc: duneChargedMicro / 1_000_000,
               });
             }
 
