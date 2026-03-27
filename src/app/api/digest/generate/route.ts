@@ -33,6 +33,12 @@ export async function GET(req: Request) {
     const data = await collectDigestData();
     const { title, content, markers } = await generateDigest(data);
 
+    // Build symbol → icon URL map for the viewer
+    const tokenIcons: Record<string, string> = {};
+    for (const p of data.prices) {
+      if (p.iconUrl) tokenIcons[p.symbol] = p.iconUrl;
+    }
+
     const report = await ReportStore.create({
       title,
       content,
@@ -43,6 +49,7 @@ export async function GET(req: Request) {
         tokenCount: data.prices.length,
         sourcesOk: ["prices", "whale_flows", "cex_flows", "stablecoin_supply", "sentiment"].length - data.errors.length,
         sourcesFailed: data.errors,
+        tokenIcons,
       },
       type: "digest",
       digestDate: today,

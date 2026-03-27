@@ -28,6 +28,7 @@ interface CoinGeckoMarket {
   id: string;
   symbol: string;
   name: string;
+  image: string;
   current_price: number;
   price_change_percentage_24h: number | null;
   market_cap: number;
@@ -62,6 +63,7 @@ export async function getDigestTokens(): Promise<TokenPrice[]> {
         marketCap: m.market_cap ?? 0,
         volume24h: m.total_volume ?? 0,
         isFixed: FIXED_SET.has(m.id),
+        iconUrl: m.image,
       };
 
       if (FIXED_SET.has(m.id)) {

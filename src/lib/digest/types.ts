@@ -8,6 +8,7 @@ export interface TokenPrice {
   marketCap: number;
   volume24h: number;
   isFixed: boolean; // true for the 6 majors, false for dynamic top-gainer slots
+  iconUrl?: string; // CoinGecko token image URL
 }
 
 // ── Reduced types (headline numbers passed to AI) ────────────

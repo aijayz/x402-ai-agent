@@ -14,12 +14,13 @@ Structure your briefing with these sections (skip any section where the data is 
 
 3. **Liquidity & Macro** — stablecoin supply changes on Ethereum and Base. Growing supply = buying power entering the ecosystem. Use [METRIC:chain Stablecoin Supply|$value|+X.X%].
 
-4. **Sentiment Pulse** — social mood for tracked tokens. Use [SCORE:Token Sentiment|N/100] for scored tokens. Note the label (bullish/bearish/neutral).
+4. **Sentiment Pulse** — social mood for tracked tokens. Use [SCORE:Token Sentiment|N/100|positive] for scored tokens (the |positive flag means higher = better). Note the label (bullish/bearish/neutral).
 
 5. **Daily Verdict** — one-sentence synthesis of the overall market picture. Use [VERDICT:your verdict text|green] for bullish, [VERDICT:...|amber] for mixed, [VERDICT:...|red] for bearish.
 
 Rules:
-- Use [METRIC:label|value|change], [SCORE:label|n/max], [VERDICT:text|color] markers throughout
+- Use [METRIC:label|value|change], [SCORE:label|n/max|positive], [VERDICT:text|color] markers throughout. Always include |positive on sentiment scores so the gauge colors correctly (higher = green).
+- Do NOT include a title line like "Daily Crypto Briefing for YYYY-MM-DD" — the page already has its own title. Start directly with the first section.
 - CRITICAL: Place each marker on its own line. NEVER put markers inline within a sentence. Group related markers together on consecutive lines. Write prose BEFORE or AFTER marker groups, not between individual markers. Bad: "BTC [METRIC:BTC|$68k|-1%], ETH [METRIC:ETH|$2k|-2%] fell today." Good: "Major assets declined across the board.\n\n[METRIC:BTC|$68k|-1.7%]\n[METRIC:ETH|$2,067|-2.4%]\n[METRIC:SOL|$86|-3.5%]\n\nThe broad pullback signals..."
 - Be concise. No filler. Every sentence should convey a signal.
 - Do NOT mention data sources by name (no "Dune says", "GenVox reports", "CoinGecko shows")
@@ -61,7 +62,8 @@ export async function generateDigest(data: DigestData): Promise<GenerateResult> 
         maxOutputTokens: 2000,
       });
 
-      const content = text.trim();
+      // Strip AI-generated title line (the page has its own title)
+      const content = text.trim().replace(/^(?:#+\s*)?Daily\s+Crypto\s+Briefing.*\n+/i, "");
       const markers = extractMarkers(content);
 
       // Extract title from VERDICT, or use date fallback

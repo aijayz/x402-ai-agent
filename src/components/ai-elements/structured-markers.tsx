@@ -10,6 +10,7 @@ interface Metric {
   label: string;
   value: string;
   change?: string;
+  iconUrl?: string;
 }
 
 interface Verdict {
@@ -135,11 +136,17 @@ const changeColors = {
   neutral: "text-muted-foreground",
 };
 
-export function MetricCard({ label, value, change }: Metric) {
+export function MetricCard({ label, value, change, iconUrl }: Metric) {
   const color = detectChangeColor(change);
   return (
     <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2 min-w-0">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1.5 mb-0.5">
+        {iconUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={iconUrl} alt="" className="size-4 rounded-full" />
+        )}
+        <div className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</div>
+      </div>
       <div className="font-mono text-lg font-semibold truncate">{value}</div>
       {change && (
         <div className={cn("text-xs font-medium font-mono", changeColors[color])}>{change}</div>
@@ -174,7 +181,7 @@ export function ScoreGauge({ label, value, max, invert }: Score) {
   return (
     <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
+        <span className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</span>
         <span className={cn("text-sm font-mono font-semibold", textColor)}>{value}/{max}</span>
       </div>
       <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
@@ -186,8 +193,16 @@ export function ScoreGauge({ label, value, max, invert }: Score) {
 
 /* ─── Render a group of markers ─── */
 
-function MarkerGroup({ items }: { items: StructuredMarker[] }) {
-  const metrics = items.filter((m): m is Metric => m.type === "metric");
+function MarkerGroup({ items, tokenIcons }: { items: StructuredMarker[]; tokenIcons?: Record<string, string> }) {
+  const metrics = items.filter((m): m is Metric => m.type === "metric").map(m => {
+    if (tokenIcons) {
+      // Match label against icon map (e.g. "BTC" or "ETH CEX Net Flow" → "ETH")
+      const symbol = m.label.split(/\s/)[0];
+      const iconUrl = tokenIcons[symbol] ?? tokenIcons[m.label];
+      if (iconUrl) return { ...m, iconUrl };
+    }
+    return m;
+  });
   const scores = items.filter((m): m is Score => m.type === "score");
   const verdicts = items.filter((m): m is Verdict => m.type === "verdict");
 
@@ -219,7 +234,7 @@ function MarkerGroup({ items }: { items: StructuredMarker[] }) {
 
 /* ─── Inline segment renderer ─── */
 
-export function InlineSegments({ segments }: { segments: Segment[] }) {
+export function InlineSegments({ segments, tokenIcons }: { segments: Segment[]; tokenIcons?: Record<string, string> }) {
   if (segments.length === 0) return null;
 
   return (
@@ -228,7 +243,7 @@ export function InlineSegments({ segments }: { segments: Segment[] }) {
         seg.type === "text" ? (
           <Response key={i}>{seg.content}</Response>
         ) : (
-          <MarkerGroup key={i} items={seg.items} />
+          <MarkerGroup key={i} items={seg.items} tokenIcons={tokenIcons} />
         )
       )}
     </>

@@ -135,6 +135,7 @@ export function DigestViewer({ report }: { report: Report }) {
   const segments = parseIntoSegments(report.content);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   useAddressLinks(bodyRef);
+  const tokenIcons = (report.metadata as Record<string, unknown>)?.tokenIcons as Record<string, string> | undefined;
 
   const digestDate = report.digestDate ?? report.createdAt.slice(0, 10);
   const displayDate = new Date(digestDate + "T00:00:00Z").toLocaleDateString("en-US", {
@@ -242,11 +243,11 @@ export function DigestViewer({ report }: { report: Report }) {
                   [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:text-foreground/80
                   [&_p]:mb-1.5 [&_p:last-child]:mb-0"
               >
-                <InlineSegments segments={[seg]} />
+                <InlineSegments segments={[seg]} tokenIcons={tokenIcons} />
               </div>
             ) : (
               <div key={i} className="my-2">
-                <InlineSegments segments={[seg]} />
+                <InlineSegments segments={[seg]} tokenIcons={tokenIcons} />
               </div>
             )
           )}
