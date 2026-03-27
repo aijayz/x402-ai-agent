@@ -20,6 +20,7 @@ Structure your briefing with these sections (skip any section where the data is 
 
 Rules:
 - Use [METRIC:label|value|change], [SCORE:label|n/max], [VERDICT:text|color] markers throughout
+- CRITICAL: Place each marker on its own line. NEVER put markers inline within a sentence. Group related markers together on consecutive lines. Write prose BEFORE or AFTER marker groups, not between individual markers. Bad: "BTC [METRIC:BTC|$68k|-1%], ETH [METRIC:ETH|$2k|-2%] fell today." Good: "Major assets declined across the board.\n\n[METRIC:BTC|$68k|-1.7%]\n[METRIC:ETH|$2,067|-2.4%]\n[METRIC:SOL|$86|-3.5%]\n\nThe broad pullback signals..."
 - Be concise. No filler. Every sentence should convey a signal.
 - Do NOT mention data sources by name (no "Dune says", "GenVox reports", "CoinGecko shows")
 - Do NOT mention any data that is missing or unavailable — just skip that section silently

@@ -2,6 +2,8 @@ import { ReportStore } from "@/lib/reports/report-store";
 import { DigestViewer } from "./digest-viewer";
 import type { Metadata } from "next";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Daily Briefing — Obol AI",
   description: "Daily crypto market briefing powered by AI-synthesized on-chain data, whale flows, and sentiment analysis.",

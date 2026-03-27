@@ -61,15 +61,22 @@ export function parseIntoSegments(text: string): Segment[] {
   let match: RegExpExecArray | null;
   MARKER_RE.lastIndex = 0;
 
+  // Punctuation/conjunctions between consecutive markers should not break grouping
+  const GLUE_RE = /^[\s,;]*(?:and|or|&)?[\s,;]*$/i;
+
   while ((match = MARKER_RE.exec(text)) !== null) {
     const beforeText = text.slice(lastIndex, match.index);
     const trimmed = beforeText.trim();
 
     if (trimmed.length > 0 && pendingMarkers.length > 0) {
-      // Flush pending markers, then add the text
-      segments.push({ type: "markers", items: pendingMarkers });
-      pendingMarkers = [];
-      segments.push({ type: "text", content: trimmed });
+      if (GLUE_RE.test(trimmed)) {
+        // Skip glue text — keep grouping markers together
+      } else {
+        // Real text — flush pending markers, then add the text
+        segments.push({ type: "markers", items: pendingMarkers });
+        pendingMarkers = [];
+        segments.push({ type: "text", content: trimmed });
+      }
     } else if (trimmed.length > 0) {
       segments.push({ type: "text", content: trimmed });
     }
