@@ -52,7 +52,7 @@ export function MessageActions({
   const hasMarkers = /\[(METRIC|VERDICT|SCORE):/.test(textContent);
 
   // Nothing to show — no cost and no shareable content
-  if (totalCost === 0 && !hasMarkers) return null;
+  if (totalCost === 0 && !hasMarkers && textContent.length < 200) return null;
 
   const handleShareClick = async () => {
     setShareState("saving");
