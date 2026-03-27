@@ -1,9 +1,11 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { useAccount, useDisconnect, useSwitchChain, useWalletClient } from "wagmi";
+import { useAccount, useConnect, useDisconnect, useSwitchChain, useWalletClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { track, identifyUser, resetUser } from "@/lib/analytics";
+import { useIsMobileSafariWithoutWallet } from "@/hooks/use-mobile-wallet";
+import { MobileWalletSheet } from "@/components/mobile-wallet-sheet";
 
 const USDC_ADDRESS: Record<string, string> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -64,10 +66,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   // Wagmi hooks — replace raw window.ethereum calls
   const { address: wagmiAddress } = useAccount();
+  const { connectors, connect } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChainAsync } = useSwitchChain();
   const { data: walletClient } = useWalletClient();
   const { openConnectModal, connectModalOpen } = useConnectModal();
+
+  // Mobile: bypass RainbowKit modal on iOS Safari without injected wallet
+  const isMobileSafari = useIsMobileSafariWithoutWallet();
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   // Holds the resolve fn of a pending connectWallet() promise
   const connectResolveRef = useRef<((addr: string | undefined) => void) | null>(null);
@@ -155,7 +162,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [wagmiAddress, claimCredits]);
 
-  // If modal closes without connecting, resolve the pending promise with undefined
+  // If RainbowKit modal closes without connecting, resolve the pending promise with undefined
   useEffect(() => {
     if (!connectModalOpen && connectResolveRef.current && !wagmiAddress) {
       const resolve = connectResolveRef.current;
@@ -163,6 +170,32 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       resolve(undefined);
     }
   }, [connectModalOpen, wagmiAddress]);
+
+  // Handle mobile sheet dismiss (backdrop tap / swipe down)
+  const handleMobileSheetChange = useCallback((open: boolean) => {
+    setMobileSheetOpen(open);
+    if (!open && connectResolveRef.current && !wagmiAddress) {
+      const resolve = connectResolveRef.current;
+      connectResolveRef.current = null;
+      resolve(undefined);
+    }
+  }, [wagmiAddress]);
+
+  const triggerCbwConnect = useCallback(() => {
+    const cbw = connectors.find((c) => c.id === "coinbaseWalletSDK");
+    if (cbw) {
+      connect({ connector: cbw });
+    } else {
+      // Fallback: open RainbowKit modal if CBW connector not found
+      openConnectModal?.();
+    }
+  }, [connectors, connect, openConnectModal]);
+
+  // Handle Coinbase Wallet tap — close sheet and trigger wagmi connector
+  const handleCbwTap = useCallback(() => {
+    setMobileSheetOpen(false);
+    triggerCbwConnect();
+  }, [triggerCbwConnect]);
 
   const connectWallet = useCallback(async (): Promise<string | undefined> => {
     // Already connected via wagmi
@@ -175,12 +208,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return wagmiAddress;
     }
 
-    // Open RainbowKit modal; resolve when wagmiAddress updates
+    // iOS Safari without injected wallet → custom 2-option sheet
+    if (isMobileSafari && !mobileSheetOpen) {
+      return new Promise<string | undefined>((resolve) => {
+        connectResolveRef.current = resolve;
+        setMobileSheetOpen(true);
+      });
+    }
+
+    // Desktop / Android / MetaMask in-app → RainbowKit modal
     return new Promise<string | undefined>((resolve) => {
       connectResolveRef.current = resolve;
       openConnectModal?.();
     });
-  }, [wagmiAddress, walletAddress, openConnectModal, claimCredits]);
+  }, [wagmiAddress, walletAddress, openConnectModal, claimCredits, isMobileSafari, mobileSheetOpen]);
 
   const disconnectWallet = useCallback(() => {
     disconnect();
@@ -231,6 +272,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <WalletContext.Provider value={{ walletAddress, balance, freeCallsRemaining, lastCreditEvent, clearCreditEvent, network, topUpOpen, setTopUpOpen, spendHistoryOpen, setSpendHistoryOpen, connectWallet, disconnectWallet, refreshBalance, sendUsdc, switchChain, updateFromMetadata, onTopUpCompleteRef, isRestoringSession }}>
       {children}
+      <MobileWalletSheet
+        open={mobileSheetOpen}
+        onOpenChange={handleMobileSheetChange}
+        onCoinbaseWallet={handleCbwTap}
+      />
     </WalletContext.Provider>
   );
 }
