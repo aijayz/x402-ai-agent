@@ -10,21 +10,21 @@
 
 ## Overview
 
-Four features that compound into a self-reinforcing growth flywheel:
+Three new features plus one small enhancement, compounding into a self-reinforcing growth flywheel:
 
 ```
 Digest cron generates data daily
   -> Smart Twitter post (drives followers)
   -> Token SEO pages updated (drives organic search)
   -> Telegram bot answers from cached data (drives group exposure)
-  -> Users share chat answers (drives social proof)
+  -> Existing share flow captures social proof (already built)
     -> All roads lead to obolai.xyz/chat
-      -> More usage -> more shared answers -> more visibility
+      -> More usage -> more shared reports -> more visibility
 ```
 
-**Build order:** 1 (Twitter) -> 2 (Shareable answers) -> 3 (Token pages) -> 4 (Telegram bot)
+**Build order:** 1 (Twitter) -> 2 (Token pages) -> 3 (Telegram bot)
 
-Quick wins first (1, 2 are small effort), then the larger features (3, 4).
+Plus a small enhancement to the existing share flow (widen eligibility).
 
 ---
 
@@ -130,83 +130,7 @@ Or ask Obol anything on-chain
 
 ---
 
-## Feature 2: Shareable Chat Answers
-
-**Effort:** Small-Medium | **Cost:** ~$0/day
-
-### Problem
-Great AI answers die in the chat session. No way for users to share individual answers as social proof.
-
-### Design
-
-Extend the existing report sharing pattern (`/r/[id]`) to individual chat answers. Any Obol response gets a share button that creates a standalone page at `/a/[id]`.
-
-**Share flow:**
-```
-User asks question -> gets answer -> clicks Share icon (hover/tap on message)
--> POST /api/answers (saves Q+A pair, returns id)
--> Share panel appears (same as /r/[id]: X, Farcaster, Copy Link, Preview)
--> Shared page at /a/[id] with OG card
-```
-
-**Shared answer page layout:**
-```
-obolai.xyz/a/abc123
-
-"Is PEPE safe to buy right now?"
-
-[Obol's answer rendered with full markdown/tool cards]
-
-Tools used: Token Security, Whale Tracker, Sentiment -- $0.04 total
-
-[Ask Obol your own question -> obolai.xyz/chat]
-
-Share: [X] [Farcaster] [Copy Link]
-
-Powered by Obol AI | x402 intelligence
-```
-
-**OG card (Satori):**
-```
-"Is PEPE safe to buy?"
-
-Security: 87/100
-Whales: +$3.2M inflow (7d)
-Sentiment: 71/100 bullish
-
-obolai.xyz          Powered by x402
-```
-
-**Key details:**
-- Share button appears on every Obol response (not user messages)
-- Save extracts the question (last user message) + the answer (assistant message with tool results)
-- Key metrics for OG card extracted from `tool_results` JSONB field at render time (not parsed from markdown text). The `POST /api/answers` endpoint saves structured tool outputs alongside the rendered answer. The Satori OG renderer reads scores/prices/flows directly from this structured data.
-- "Tools used: $0.04 total" in the page subtly communicates value proposition
-- Viewer's page has prominent CTA to ask their own question
-- Re-sharing: the shared page itself has share buttons (viral chain)
-
-### Implementation
-
-**Files to create:**
-- `src/app/a/[id]/page.tsx` — shared answer page
-- `src/app/a/[id]/opengraph-image.tsx` — Satori OG card
-- `src/app/a/[id]/not-found.tsx` — 404 for invalid IDs
-- `src/app/api/answers/route.ts` — POST to save Q+A pair, returns { id, url }
-- `src/lib/answers/answer-store.ts` — CRUD for shared answers (new `shared_answers` table — avoids extending `ReportStore`'s `"user" | "digest"` type union)
-
-**Files to modify:**
-- `src/components/ai-elements/message.tsx` — add share icon on Obol responses
-- `src/app/sitemap.ts` — include shared answer pages (optional, they're user-generated)
-- DB migration — `shared_answers` table (id, question, answer_content, metadata JSON, created_at)
-
-**Reusable patterns from existing /r/[id]:**
-- Satori OG image generation
-- Share panel component (X/Farcaster/Copy Link)
-- Report viewer rendering (markdown + tool cards)
-
----
-
-## Feature 3: Token-Specific SEO Pages
+## Feature 2: Token-Specific SEO Pages
 
 **Effort:** Medium | **Cost:** ~$0.55/day
 
@@ -281,7 +205,7 @@ After generating the daily digest, the same cron triggers token page generation 
 
 ---
 
-## Feature 4: Telegram Community Bot
+## Feature 3: Telegram Community Bot
 
 **Effort:** Medium-Large | **Cost:** ~$0.10/day
 
@@ -360,9 +284,33 @@ Key channels:
 
 ---
 
+## Enhancement: Widen Share Eligibility
+
+**Effort:** Tiny | **Cost:** $0
+
+### Problem
+The existing share flow (`message-actions.tsx` -> `ReportStore` -> `/r/[id]`) only shows the Share button when a response has structured markers (`[METRIC:...]`, `[VERDICT:...]`, `[SCORE:...]`) OR paid tool calls. Useful answers without markers can't be shared.
+
+### Fix
+In `src/components/ai-elements/message-actions.tsx` line 55, relax the gate condition:
+
+**Current:**
+```tsx
+if (totalCost === 0 && !hasMarkers) return null;
+```
+
+**New:**
+```tsx
+if (totalCost === 0 && !hasMarkers && textContent.length < 200) return null;
+```
+
+Any Obol response longer than ~200 characters becomes shareable, even without structured markers or paid tools. Short responses (greetings, clarifying questions) still hide the share button.
+
+---
+
 ## Database Changes Summary
 
-Two new tables (dedicated tables, not extending `reports` — keeps type safety clean):
+One new table:
 
 **token_snapshots:**
 - `id` (uuid, PK)
@@ -371,14 +319,6 @@ Two new tables (dedicated tables, not extending `reports` — keeps type safety 
 - `digest_date` (date — which digest generated this)
 - `created_at`, `updated_at`
 
-**shared_answers:**
-- `id` (nanoid, PK — short for URLs)
-- `question` (text)
-- `answer` (text — rendered markdown)
-- `tool_results` (jsonb — structured tool outputs for OG card)
-- `total_cost` (decimal — tools cost for display)
-- `created_at`
-
 ---
 
 ## Cost Summary
@@ -386,9 +326,9 @@ Two new tables (dedicated tables, not extending `reports` — keeps type safety 
 | # | Feature | Daily cost | Effort |
 |---|---------|-----------|--------|
 | 1 | Smart Twitter posts | $0 | Small |
-| 2 | Shareable chat answers | ~$0 | Small-Medium |
-| 3 | Token SEO pages | ~$0.55 | Medium |
-| 4 | Telegram community bot | ~$0.10 | Medium-Large |
+| 2 | Token SEO pages | ~$0.55 | Medium |
+| 3 | Telegram community bot | ~$0.10 | Medium-Large |
+| + | Widen share eligibility | $0 | Tiny |
 | | **Total** | **~$0.65/day** | |
 
 Monthly total: ~$20/month for a complete automated growth engine.
@@ -403,5 +343,5 @@ Monthly total: ~$20/month for a complete automated growth engine.
 | Daily organic visits (non-direct) | ~0 | 50+ |
 | Token pages indexed by Google | 0 | 15+ |
 | Telegram groups with bot | 0 | 5-10 |
-| Shared answers created | 0 | 20+ |
+| Shared reports created | 0 | 20+ |
 | Chat sessions / day | ? | 2x current |
