@@ -50,7 +50,9 @@ function parseMarkerMatch(match: RegExpExecArray): StructuredMarker {
   }
   // SCORE — normalize 0.x/1 to x/100
   const c = match[9]?.trim().toLowerCase();
-  const invert = c === "green" || c === "positive";
+  const label = match[6].trim();
+  // Default: higher = better for sentiment scores; explicit flag overrides
+  const invert = c === "green" || c === "positive" || /sentiment/i.test(label);
   let scoreVal = Number(match[7]);
   let scoreMax = Number(match[8]);
   if (scoreMax === 1 && scoreVal < 1) {
