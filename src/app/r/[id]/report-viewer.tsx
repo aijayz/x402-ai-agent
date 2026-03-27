@@ -199,28 +199,25 @@ export function ReportViewer({ report }: { report: Report }) {
 
         {/* Report body — tuned for readability */}
         <style>{`
-          /* Section headers: bold-only paragraphs get a top divider */
+          /* Section headers: bold-only paragraphs get a top divider.
+             The span is always :first-child:last-child (element-wise) even
+             when trailing text nodes exist, so we style the span as block
+             to force the text after it onto a new line. */
           .report-body p:has(> [data-streamdown="strong"]:first-child:last-child) {
             margin-top: 2rem;
             padding-top: 1.5rem;
             border-top: 1px solid hsl(var(--border) / 0.3);
-            font-size: 16px;
             color: hsl(var(--foreground));
+          }
+          .report-body p > [data-streamdown="strong"]:first-child:last-child {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 0.25rem;
           }
           .report-body > div:first-child p:first-child:has(> [data-streamdown="strong"]:first-child:last-child) {
             margin-top: 0;
             padding-top: 0;
             border-top: none;
-          }
-          /* Force bold labels to their own line when model puts text after them */
-          .report-body p > [data-streamdown="strong"]:first-child:not(:last-child) {
-            display: block;
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid hsl(var(--border) / 0.3);
-            font-size: 16px;
-            color: hsl(var(--foreground));
-            margin-bottom: 0.5rem;
           }
         `}</style>
         <div
