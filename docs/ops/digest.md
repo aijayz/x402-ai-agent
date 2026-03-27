@@ -36,7 +36,8 @@ vercel env pull .env.local
 source .env.local
 
 # Trigger digest generation
-curl -H "Authorization: Bearer $CRON_SECRET" https://obolai.xyz/api/digest/generate
+# IMPORTANT: use www.obolai.xyz — obolai.xyz 307-redirects to www, which strips the Auth header
+curl -H "Authorization: Bearer $CRON_SECRET" https://www.obolai.xyz/api/digest/generate
 ```
 
 Expected responses:
