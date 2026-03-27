@@ -43,6 +43,12 @@ export const env = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_CHAT_ID: z.string().optional(),
 
+    // Twitter/X auto-posting
+    TWITTER_API_KEY: z.string().optional(),
+    TWITTER_API_SECRET: z.string().optional(),
+    TWITTER_ACCESS_TOKEN: z.string().optional(),
+    TWITTER_ACCESS_SECRET: z.string().optional(),
+
     // Upstash Redis (Edge runtime compatible — used for rate limiting)
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
     UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
@@ -87,6 +93,10 @@ export const env = createEnv({
     COINGECKO_URL: process.env.COINGECKO_URL,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+    TWITTER_API_KEY: process.env.TWITTER_API_KEY,
+    TWITTER_API_SECRET: process.env.TWITTER_API_SECRET,
+    TWITTER_ACCESS_TOKEN: process.env.TWITTER_ACCESS_TOKEN,
+    TWITTER_ACCESS_SECRET: process.env.TWITTER_ACCESS_SECRET,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     DUNE_API_KEY: process.env.DUNE_API_KEY,

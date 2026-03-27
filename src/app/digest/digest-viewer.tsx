@@ -36,7 +36,7 @@ function ShareBar({ digestDate }: { digestDate: string }) {
   };
 
   const handleShareX = () => {
-    const text = encodeURIComponent("Today's crypto briefing from @ObolAI");
+    const text = encodeURIComponent("Today's crypto briefing from @ai_obol");
     const shareUrl = encodeURIComponent(url);
     window.open(`https://x.com/intent/tweet?text=${text}&url=${shareUrl}`, "_blank");
   };

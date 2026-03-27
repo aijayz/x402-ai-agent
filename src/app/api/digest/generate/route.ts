@@ -4,6 +4,7 @@ import { ReportStore } from "@/lib/reports/report-store";
 import { collectDigestData } from "@/lib/digest/collector";
 import { generateDigest } from "@/lib/digest/generator";
 import { sendTelegramAlert } from "@/lib/telegram";
+import { postTweet } from "@/lib/twitter";
 
 export const maxDuration = 120;
 
@@ -78,6 +79,24 @@ export async function GET(req: Request) {
 
     await sendTelegramAlert(telegramMsg).catch((err) => {
       console.error("[DIGEST] Telegram share failed:", err);
+    });
+
+    // Share digest to X (Twitter) — Premium allows 25k chars
+    const tweetText = [
+      `Daily Crypto Briefing — ${today}`,
+      "",
+      data.prices.slice(0, 6).map(p => {
+        const sign = p.change24h >= 0 ? "+" : "";
+        return `${p.symbol}  ${p.price.toLocaleString("en-US", { style: "currency", currency: "USD" })}  ${sign}${p.change24h.toFixed(1)}%`;
+      }).join("\n"),
+      verdictLine,
+      "",
+      `Full analysis on @ai_obol`,
+      digestUrl,
+    ].filter(Boolean).join("\n");
+
+    await postTweet(tweetText).catch((err) => {
+      console.error("[DIGEST] Twitter share failed:", err);
     });
 
     return NextResponse.json({ status: "created", id: report.id, date: today });
