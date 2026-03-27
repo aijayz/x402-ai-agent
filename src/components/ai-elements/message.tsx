@@ -4,9 +4,26 @@ import type { HTMLAttributes } from "react";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];
+  timestamp?: string;
 };
 
-export const Message = ({ className, from, ...props }: MessageProps) => (
+function formatTimestamp(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const isToday =
+    date.getDate() === now.getDate() &&
+    date.getMonth() === now.getMonth() &&
+    date.getFullYear() === now.getFullYear();
+
+  if (isToday) {
+    return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+    " " +
+    date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+export const Message = ({ className, from, timestamp, children, ...props }: MessageProps) => (
   <div
     className={cn(
       "group flex w-full items-end justify-end gap-2 py-3",
@@ -16,7 +33,14 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
       className,
     )}
     {...props}
-  />
+  >
+    {children}
+    {timestamp && (
+      <span className="hidden group-hover:block text-[10px] text-muted-foreground/40 self-center select-none whitespace-nowrap">
+        {formatTimestamp(timestamp)}
+      </span>
+    )}
+  </div>
 );
 
 export type MessageContentProps = HTMLAttributes<HTMLDivElement>;
@@ -42,4 +66,3 @@ export const MessageContent = ({
     {children}
   </div>
 );
-

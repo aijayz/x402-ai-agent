@@ -99,10 +99,15 @@ function ShareBar({ reportId }: { reportId: string }) {
 export function ReportViewer({ report }: { report: Report }) {
   const { cleanText } = parseReportActions(report.content);
   const segments = parseIntoSegments(cleanText);
-  const date = new Date(report.createdAt).toLocaleDateString("en-US", {
+  const reportDate = new Date(report.createdAt);
+  const date = reportDate.toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
+  });
+  const time = reportDate.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
   });
 
   return (
@@ -131,7 +136,7 @@ export function ReportViewer({ report }: { report: Report }) {
       <main className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-6">
           <h1 className="text-xl font-semibold text-foreground mb-1">{report.title}</h1>
-          <p className="text-xs text-muted-foreground">{date}</p>
+          <p className="text-xs text-muted-foreground">{date} at {time}</p>
         </div>
 
         <div className="prose-sm">

@@ -209,6 +209,7 @@ export const POST = async (request: Request) => {
           budgetRemaining: budget.remainingUsdc(),
           spendEvents: turnSpendEvents,
           freeCallsRemaining: walletAddress ? undefined : freeCallsRemaining,
+          timestamp: new Date().toISOString(),
         }),
         onStepFinish: async ({ toolResults }) => {
           for (const toolResult of toolResults ?? []) {

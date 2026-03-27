@@ -425,7 +425,11 @@ export function ChatPage() {
               </div>
             )}
             {messages.map((message) => (
-              <Message from={message.role} key={message.id}>
+              <Message
+                from={message.role}
+                key={message.id}
+                timestamp={(message.metadata as { timestamp?: string } | undefined)?.timestamp}
+              >
                 <MessageContent>
                   {message.parts.map((part, i) => {
                     if (part.type === "text") {
