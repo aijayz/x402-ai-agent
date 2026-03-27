@@ -349,7 +349,11 @@ export function ChatPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        await navigator.clipboard.writeText(data.url);
+        try {
+          await navigator.clipboard.writeText(data.url);
+        } catch {
+          // Clipboard API unavailable in some in-app browsers (MetaMask, etc.)
+        }
         track("report_shared", { messageId });
         return data.url;
       }
