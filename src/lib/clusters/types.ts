@@ -60,6 +60,60 @@ export function augurSupportsChain(chain: ClusterChain): boolean {
   return chain === "base";
 }
 
+/** Truncate service call data to fit within LLM context limits.
+ *  Serializes each call's data and truncates if over maxChars. */
+export function truncateServiceCalls(calls: ServiceCallResult[], maxCharsPerCall = 8_000): ServiceCallResult[] {
+  return calls.map((call) => {
+    const serialized = JSON.stringify(call.data);
+    if (serialized.length <= maxCharsPerCall) return call;
+    // Truncate: keep first portion + note
+    const truncated = serialized.slice(0, maxCharsPerCall);
+    return {
+      ...call,
+      data: {
+        _truncated: true,
+        _originalLength: serialized.length,
+        partial: JSON.parse(truncated.slice(0, truncated.lastIndexOf(",")) + "}") as unknown,
+      },
+    };
+  });
+}
+
+/** Safely truncate service calls — falls back to summary on parse error */
+export function safelyTruncateServiceCalls(calls: ServiceCallResult[], maxCharsPerCall = 8_000): ServiceCallResult[] {
+  return calls.map((call) => {
+    try {
+      const serialized = JSON.stringify(call.data);
+      if (serialized.length <= maxCharsPerCall) return call;
+      // For very large payloads, extract top-level keys and summarize
+      const data = call.data as Record<string, unknown>;
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        const summary: Record<string, unknown> = { _truncated: true, _originalChars: serialized.length };
+        for (const [key, val] of Object.entries(data)) {
+          const valStr = JSON.stringify(val);
+          if (valStr.length <= 2_000) {
+            summary[key] = val;
+          } else if (Array.isArray(val)) {
+            summary[key] = `[${val.length} items, truncated]`;
+            // Keep first 3 items as sample
+            summary[`${key}_sample`] = val.slice(0, 3);
+          } else {
+            summary[key] = valStr.slice(0, 500) + "…";
+          }
+        }
+        return { ...call, data: summary };
+      }
+      // Array or primitive — just slice
+      if (Array.isArray(data)) {
+        return { ...call, data: { _truncated: true, count: data.length, sample: data.slice(0, 5) } };
+      }
+      return { ...call, data: { _truncated: true, preview: serialized.slice(0, 2_000) } };
+    } catch {
+      return { ...call, data: { _truncated: true, error: "Data too large to serialize" } };
+    }
+  });
+}
+
 /** Log and alert on credit release failure (user overcharged). */
 export async function handleReleaseFailure(
   clusterName: string,

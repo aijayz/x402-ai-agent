@@ -1,8 +1,23 @@
+import { Redis } from "@upstash/redis";
 import { env } from "../../env";
 import { callWithPayment } from "../payment-handler";
 import type { X402ServiceAdapter, X402ServiceResponse, PaymentContext } from "../types";
 
 const MESSARI_BASE = env.MESSARI_URL ?? "https://api.messari.io";
+
+// ── Redis cache (same singleton pattern as dune.ts) ──────────────
+let redis: Redis | null = null;
+function getRedis(): Redis | null {
+  if (redis) return redis;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  redis = new Redis({ url, token });
+  return redis;
+}
+
+const ALLOCATIONS_CACHE_TTL_S = 86_400; // 24 hours
+const UNLOCKS_CACHE_TTL_S = 86_400; // 24 hours (asset catalog rarely changes)
 
 interface MessariTokenUnlocksInput {
   target: string; // token name, symbol, or slug
@@ -34,16 +49,31 @@ export const messariTokenUnlocksAdapter: X402ServiceAdapter<MessariTokenUnlocksI
   name: "Messari",
   estimatedCostMicroUsdc: 0,
   async call(input: MessariTokenUnlocksInput, _ctx: PaymentContext): Promise<X402ServiceResponse<MessariTokenUnlocksOutput>> {
-    const res = await fetch(`${MESSARI_BASE}/token-unlocks/v1/assets`, {
-      signal: AbortSignal.timeout(8000),
-    });
+    // Try Redis cache for full asset list
+    const r = getRedis();
+    const cacheKey = "messari:unlocks:assets";
+    let tokens: TokenUnlockEntry[] | null = null;
 
-    if (!res.ok) {
-      throw new Error(`Messari token-unlocks returned ${res.status}`);
+    if (r) {
+      try {
+        tokens = await r.get<TokenUnlockEntry[]>(cacheKey);
+      } catch { /* cache miss */ }
     }
 
-    const body = await res.json() as { data?: TokenUnlockEntry[] };
-    const tokens: TokenUnlockEntry[] = body.data ?? [];
+    if (!tokens) {
+      const res = await fetch(`${MESSARI_BASE}/token-unlocks/v1/assets`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) {
+        throw new Error(`Messari token-unlocks returned ${res.status}`);
+      }
+      const body = await res.json() as { data?: TokenUnlockEntry[] };
+      tokens = body.data ?? [];
+
+      if (r && tokens.length > 0) {
+        r.set(cacheKey, tokens, { ex: UNLOCKS_CACHE_TTL_S }).catch(() => {});
+      }
+    }
 
     // Case-insensitive match on symbol, name, or slug
     const search = input.target.toLowerCase().replace(/^0x[0-9a-f]+$/i, ""); // skip if raw address
@@ -84,12 +114,33 @@ export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInp
   name: "Messari Allocations",
   estimatedCostMicroUsdc: 250_000,
   async call(input: MessariAllocationsInput, ctx: PaymentContext): Promise<X402ServiceResponse<unknown>> {
+    const symbol = input.assetSymbol.toUpperCase();
+    const r = getRedis();
+    const cacheKey = `messari:alloc:${symbol}`;
+
+    // Check Redis cache first — saves $0.25 per cache hit
+    if (r) {
+      try {
+        const cached = await r.get<unknown>(cacheKey);
+        if (cached) {
+          // Cache saves us the x402 payment, but user still pays — this is our margin
+          return { data: cached, cost: 250_000, source: "Messari Allocations (cached)" };
+        }
+      } catch { /* cache miss */ }
+    }
+
     const result = await callWithPayment(
       `${MESSARI_BASE}/token-unlocks/v1/allocations?assetSymbol=${encodeURIComponent(input.assetSymbol)}`,
       undefined,
       ctx,
       { maxPaymentMicroUsdc: 500_000, expectedCostMicroUsdc: 250_000, timeoutMs: 15_000 },
     );
+
+    // Cache successful responses for 24h
+    if (r && result.data) {
+      r.set(cacheKey, result.data, { ex: ALLOCATIONS_CACHE_TTL_S }).catch(() => {});
+    }
+
     return { data: result.data, cost: result.costMicroUsdc, source: "Messari Allocations" };
   },
 };

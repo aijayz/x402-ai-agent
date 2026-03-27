@@ -5,7 +5,7 @@ import { CreditStore } from "../credits/credit-store";
 import { telemetry } from "../telemetry";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure, toQSChain, toSLAMaiChain } from "./types";
+import { applyMarkup, handleReleaseFailure, safelyTruncateServiceCalls, toQSChain, toSLAMaiChain } from "./types";
 import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 import { queryDune } from "../services/dune";
 import { getTemplate, isTemplateReady } from "../services/dune-templates";
@@ -115,7 +115,7 @@ export function createClusterBTools(deps: ClusterBDeps) {
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
             : `Whale Intelligence unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
-          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
+          return { summary, serviceCalls: safelyTruncateServiceCalls(calls), totalCostMicroUsdc: totalCost };
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);

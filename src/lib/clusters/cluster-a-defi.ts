@@ -7,7 +7,7 @@ import { telemetry } from "../telemetry";
 import { env } from "../env";
 import type { WalletClient } from "viem";
 import type { PaymentContext } from "../services/types";
-import { applyMarkup, handleReleaseFailure, augurSupportsChain, toQSChain } from "./types";
+import { applyMarkup, handleReleaseFailure, safelyTruncateServiceCalls, augurSupportsChain, toQSChain } from "./types";
 import type { ClusterResult, ServiceCallResult, ClusterChain } from "./types";
 import { queryDune } from "../services/dune";
 import { getTemplate, isTemplateReady } from "../services/dune-templates";
@@ -130,7 +130,7 @@ export function createClusterATools(deps: ClusterADeps) {
               (failedNames.length > 0 ? ` ${failedNames.join(", ")} temporarily unavailable.` : "")
             : `DeFi Safety Analysis unavailable — all services failed to respond. Errors: ${errors.join("; ")}`;
 
-          return { summary, serviceCalls: calls, totalCostMicroUsdc: totalCost };
+          return { summary, serviceCalls: safelyTruncateServiceCalls(calls), totalCostMicroUsdc: totalCost };
         } finally {
           if (reserved && deps.userWallet) {
             const totalCost = calls.reduce((sum, c) => sum + c.costMicroUsdc, 0);
