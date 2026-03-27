@@ -55,12 +55,28 @@ export async function GET(req: Request) {
       digestDate: today,
     });
 
-    // Alert if some sources failed
-    if (data.errors.length > 0) {
-      await sendTelegramAlert(
-        `*Digest Generated (Partial)*\n\n${today}\nID: ${report.id}\nFailed: ${data.errors.join(", ")}`,
-      ).catch(() => {});
-    }
+    // Share digest to Telegram
+    const digestUrl = `https://www.obolai.xyz/digest/${today}`;
+    const priceLines = data.prices.slice(0, 6).map(p => {
+      const sign = p.change24h >= 0 ? "+" : "";
+      return `${p.symbol} $${p.price.toLocaleString("en-US", { maximumFractionDigits: 2 })} (${sign}${p.change24h.toFixed(1)}%)`;
+    }).join("\n");
+
+    // Extract verdict text from content
+    const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
+    const verdictLine = verdictMatch ? `\n\n*${verdictMatch[1].trim()}*` : "";
+
+    const telegramMsg = [
+      `*Daily Briefing — ${today}*`,
+      "",
+      priceLines,
+      verdictLine,
+      "",
+      `[Read full briefing](${digestUrl})`,
+      data.errors.length > 0 ? `\n_Partial: ${data.errors.join(", ")}_` : "",
+    ].filter(Boolean).join("\n");
+
+    await sendTelegramAlert(telegramMsg).catch(() => {});
 
     return NextResponse.json({ status: "created", id: report.id, date: today });
   } catch (err) {

@@ -156,32 +156,66 @@ export function DigestViewer({ report }: { report: Report }) {
   });
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+      {/* Background atmosphere — matches landing page */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-15%] right-[-5%] w-[500px] h-[500px] rounded-full bg-blue-500/[0.06] blur-[120px]" />
+        <div className="absolute top-[40%] left-[-10%] w-[400px] h-[400px] rounded-full bg-purple-500/[0.04] blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[20%] w-[350px] h-[350px] rounded-full bg-cyan-500/[0.03] blur-[100px]" />
+        <div
+          className="absolute inset-0 opacity-[0.03]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, currentColor 0.5px, transparent 0)",
+            backgroundSize: "32px 32px",
+          }}
+        />
+      </div>
+
       {/* Header */}
-      <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-[680px] mx-auto px-6 py-3 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-foreground/80 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 32 32">
-              <defs>
-                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#8b5cf6" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#g)" strokeWidth="3.5" />
-              <line x1="4" y1="16" x2="28" y2="16" stroke="url(#g)" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-            Obol AI
+      <header className="relative border-b border-border/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-5xl mx-auto flex items-center justify-between py-3 px-6">
+          <a href="/" className="flex items-center gap-2.5 group">
+            <div className="relative flex items-center justify-center">
+              <svg className="w-8 h-8" viewBox="0 0 32 32">
+                <defs>
+                  <linearGradient id="obol-g" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
+                </defs>
+                <rect width="32" height="32" rx="7" fill="#09090b" />
+                <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#obol-g)" strokeWidth="3.5" />
+                <line x1="4" y1="16" x2="28" y2="16" stroke="url(#obol-g)" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md" />
+            </div>
+            <span className="text-sm font-bold text-foreground">Obol AI</span>
           </a>
-          <ShareBar digestDate={digestDate} />
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex">
+              <ShareBar digestDate={digestDate} />
+            </div>
+            <a
+              href="/chat"
+              className="group inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white
+                bg-gradient-to-r from-blue-500 to-purple-500
+                shadow-lg shadow-blue-500/20
+                hover:shadow-blue-500/30 hover:brightness-110
+                transition-all duration-300"
+            >
+              Launch App
+            </a>
+          </div>
         </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-[680px] mx-auto px-6 pt-10 pb-16">
-        {/* Title block with nav */}
-        <div className="mb-10">
-          <div className="flex items-center gap-1 mb-3">
+      <main className="relative max-w-[720px] mx-auto px-6 pt-12 pb-20">
+        {/* Title block */}
+        <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          {/* Date nav */}
+          <div className="flex items-center gap-1 mb-4">
             <a
               href={`/digest/${prevDate}`}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
@@ -189,7 +223,7 @@ export function DigestViewer({ report }: { report: Report }) {
             >
               <ChevronLeft className="size-4" />
             </a>
-            <span className="text-xs font-mono text-muted-foreground px-2">
+            <span className="text-xs font-mono text-muted-foreground/60 px-2 py-1 rounded-md bg-muted/20 border border-border/30">
               {digestDate}
             </span>
             {!isToday && (
@@ -202,26 +236,37 @@ export function DigestViewer({ report }: { report: Report }) {
               </a>
             )}
           </div>
-          <h1 className="text-2xl font-semibold text-foreground leading-snug mb-2">
-            Daily Briefing — {displayDate}
+
+          {/* Title */}
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground leading-tight mb-3">
+            Daily Briefing{" "}
+            <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
+              {displayDate.split(",")[0]}
+            </span>
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Generated at {generatedAt}
+          <p className="text-sm text-muted-foreground/60">
+            {displayDate} &middot; Generated at {generatedAt}
           </p>
         </div>
 
         {/* Report body */}
         <style>{`
           .report-body p:has(> [data-streamdown="strong"]:first-child:last-child) {
-            margin-top: 2rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid hsl(var(--border) / 0.3);
+            margin-top: 2.5rem;
+            padding-top: 2rem;
+            border-top: 1px solid hsl(var(--border) / 0.2);
             color: hsl(var(--foreground));
           }
           .report-body p > [data-streamdown="strong"]:first-child:last-child {
             display: block;
-            font-size: 16px;
-            margin-bottom: 0.25rem;
+            font-size: 17px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
           }
           .report-body > div:first-child p:first-child:has(> [data-streamdown="strong"]:first-child:last-child) {
             margin-top: 0;
@@ -229,24 +274,25 @@ export function DigestViewer({ report }: { report: Report }) {
             border-top: none;
           }
         `}</style>
+
         <div
           ref={bodyRef}
-          className="report-body space-y-1.5"
-          style={{ fontSize: "15px", lineHeight: "1.7" }}
+          className="report-body space-y-2 animate-in fade-in slide-in-from-bottom-3 duration-500"
+          style={{ fontSize: "15px", lineHeight: "1.75" }}
         >
           {segments.map((seg, i) =>
             seg.type === "text" ? (
               <div
                 key={i}
-                className="text-foreground/90
+                className="text-foreground/85
                   [&_strong]:text-foreground [&_strong]:font-semibold
-                  [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:text-foreground/80
-                  [&_p]:mb-1.5 [&_p:last-child]:mb-0"
+                  [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:text-foreground/75
+                  [&_p]:mb-2 [&_p:last-child]:mb-0"
               >
                 <InlineSegments segments={[seg]} tokenIcons={tokenIcons} />
               </div>
             ) : (
-              <div key={i} className="my-2">
+              <div key={i} className="my-3">
                 <InlineSegments segments={[seg]} tokenIcons={tokenIcons} />
               </div>
             )
@@ -254,27 +300,36 @@ export function DigestViewer({ report }: { report: Report }) {
         </div>
 
         {/* Footer */}
-        <div className="mt-16 pt-8 border-t border-border/40 space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Share this briefing
-            </p>
-            <ShareBar digestDate={digestDate} />
+        <div className="mt-20 pt-10 border-t border-border/30 space-y-8 animate-in fade-in duration-500">
+          {/* Share section */}
+          <div className="rounded-xl border border-border/40 bg-zinc-900/60 p-6 backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground mb-1">Share this briefing</p>
+                <p className="text-xs text-muted-foreground/60">Help others stay informed</p>
+              </div>
+              <ShareBar digestDate={digestDate} />
+            </div>
           </div>
 
-          <div className="flex flex-col items-center gap-3 pt-4">
-            <p className="text-xs text-muted-foreground/60">
+          {/* CTA */}
+          <div className="flex flex-col items-center gap-4 pt-4">
+            <p className="text-xs text-muted-foreground/50">
               Powered by Obol AI — an agent that pays for intelligence
             </p>
             <a
               href="/chat"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-medium
-                bg-gradient-to-r from-blue-500/20 to-cyan-400/20
-                border border-blue-500/30 hover:border-blue-500/50
-                text-foreground hover:from-blue-500/30 hover:to-cyan-400/30
-                transition-all duration-200"
+              className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white
+                bg-gradient-to-r from-blue-500 via-blue-400 to-purple-500
+                shadow-[0_0_24px_rgba(59,130,246,0.25)]
+                hover:shadow-[0_0_40px_rgba(59,130,246,0.4)]
+                hover:brightness-110
+                transition-all duration-500
+                overflow-hidden relative
+                before:absolute before:inset-0 before:rounded-xl before:bg-gradient-to-r before:from-transparent before:via-white/20 before:to-transparent
+                before:translate-x-[-200%] hover:before:translate-x-[200%] before:transition-transform before:duration-700"
             >
-              Try Obol AI <ExternalLink className="size-3.5" />
+              Try Obol AI <ExternalLink className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
             </a>
           </div>
         </div>

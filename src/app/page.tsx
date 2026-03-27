@@ -109,17 +109,26 @@ export default async function LandingPage() {
             </svg>
             <span className="text-sm font-bold text-foreground">Obol AI</span>
           </div>
-          <Link
-            href="/chat"
-            className="group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white
-              bg-gradient-to-r from-blue-500 to-purple-500
-              shadow-lg shadow-blue-500/20
-              hover:shadow-blue-500/30 hover:brightness-110
-              transition-all duration-300"
-          >
-            Launch App
-            <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/digest"
+              className="hidden sm:inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Newspaper className="size-3.5" />
+              Daily Briefing
+            </Link>
+            <Link
+              href="/chat"
+              className="group relative inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white
+                bg-gradient-to-r from-blue-500 to-purple-500
+                shadow-lg shadow-blue-500/20
+                hover:shadow-blue-500/30 hover:brightness-110
+                transition-all duration-300"
+            >
+              Launch App
+              <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+          </div>
         </div>
       </header>
 
