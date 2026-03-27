@@ -91,6 +91,32 @@ const migrations: [string, string][] = [
        END IF;
      END $$`,
   ],
+  [
+    "create token_snapshots table",
+    `CREATE TABLE IF NOT EXISTS token_snapshots (
+       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+       symbol VARCHAR(20) NOT NULL,
+       data JSONB NOT NULL,
+       digest_date DATE NOT NULL,
+       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+     )`,
+  ],
+  [
+    "create token_snapshots indexes",
+    `DO $$
+     BEGIN
+       IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_token_snapshots_symbol') THEN
+         CREATE INDEX idx_token_snapshots_symbol ON token_snapshots (symbol);
+       END IF;
+       IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_token_snapshots_date') THEN
+         CREATE INDEX idx_token_snapshots_date ON token_snapshots (digest_date);
+       END IF;
+       IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_token_snapshots_symbol_date') THEN
+         CREATE UNIQUE INDEX idx_token_snapshots_symbol_date ON token_snapshots (symbol, digest_date);
+       END IF;
+     END $$`,
+  ],
 ];
 
 async function main() {
