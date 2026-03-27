@@ -34,7 +34,7 @@ type Segment =
 
 /* ─── Parser — produces interleaved text + marker segments ─── */
 
-const MARKER_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]|\[VERDICT:([^|\]]+)\|(\w+)\]|\[SCORE:([^|\]]+)\|(\d+)\/(\d+)(?:\|(\w+))?\]/g;
+const MARKER_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]|\[VERDICT:([^|\]]+)\|(\w+)\]|\[SCORE:([^|\]]+)\|([\d.]+)\/([\d.]+)(?:\|(\w+))?\]/g;
 
 function parseMarkerMatch(match: RegExpExecArray): StructuredMarker {
   // METRIC
@@ -47,10 +47,16 @@ function parseMarkerMatch(match: RegExpExecArray): StructuredMarker {
     const validColor = (c === "green" || c === "amber" || c === "red") ? c : "neutral";
     return { type: "verdict", text: match[4].trim(), color: validColor as Verdict["color"] };
   }
-  // SCORE
+  // SCORE — normalize 0.x/1 to x/100
   const c = match[9]?.trim().toLowerCase();
   const invert = c === "green" || c === "positive";
-  return { type: "score", label: match[6].trim(), value: Number(match[7]), max: Number(match[8]), invert };
+  let scoreVal = Number(match[7]);
+  let scoreMax = Number(match[8]);
+  if (scoreMax === 1 && scoreVal < 1) {
+    scoreVal = Math.round(scoreVal * 100);
+    scoreMax = 100;
+  }
+  return { type: "score", label: match[6].trim(), value: scoreVal, max: scoreMax, invert };
 }
 
 export function parseIntoSegments(text: string): Segment[] {
