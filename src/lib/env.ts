@@ -48,6 +48,7 @@ export const env = createEnv({
     TWITTER_API_SECRET: z.string().optional(),
     TWITTER_ACCESS_TOKEN: z.string().optional(),
     TWITTER_ACCESS_SECRET: z.string().optional(),
+    TWITTER_THREAD_MODE: z.enum(["single", "pair", "thread"]).optional().default("single"),
 
     // Upstash Redis (Edge runtime compatible — used for rate limiting)
     UPSTASH_REDIS_REST_URL: z.string().url().optional(),
@@ -102,6 +103,7 @@ export const env = createEnv({
     TWITTER_API_SECRET: process.env.TWITTER_API_SECRET,
     TWITTER_ACCESS_TOKEN: process.env.TWITTER_ACCESS_TOKEN,
     TWITTER_ACCESS_SECRET: process.env.TWITTER_ACCESS_SECRET,
+    TWITTER_THREAD_MODE: process.env.TWITTER_THREAD_MODE,
     UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
     UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
     DUNE_API_KEY: process.env.DUNE_API_KEY,
