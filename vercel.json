@@ -3,6 +3,10 @@
     {
       "path": "/api/credits/check-topups",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/digest/generate",
+      "schedule": "0 8 * * *"
     }
   ]
 }

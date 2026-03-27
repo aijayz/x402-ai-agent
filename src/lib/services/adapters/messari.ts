@@ -110,21 +110,37 @@ interface MessariAllocationsInput {
  * Returns detailed token allocation breakdowns: investor, team,
  * foundation, ecosystem, community splits with vesting schedules.
  */
+/** Extract a single token's allocation from the full Messari response. */
+function extractAllocation(fullResponse: Record<string, unknown>, symbol: string): Record<string, unknown> | null {
+  const data = fullResponse?.data;
+  if (!Array.isArray(data)) return null;
+  const upper = symbol.toUpperCase();
+  const match = data.find((item: Record<string, unknown>) => {
+    const asset = item?.asset as Record<string, unknown> | undefined;
+    return asset?.symbol?.toString().toUpperCase() === upper;
+  }) as Record<string, unknown> | undefined;
+  return match ?? null;
+}
+
 export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInput, unknown> = {
   name: "Messari Allocations",
   estimatedCostMicroUsdc: 250_000,
   async call(input: MessariAllocationsInput, ctx: PaymentContext): Promise<X402ServiceResponse<unknown>> {
     const symbol = input.assetSymbol.toUpperCase();
     const r = getRedis();
-    const cacheKey = `messari:alloc:${symbol}`;
+    const globalCacheKey = "messari:alloc:all";
 
-    // Check Redis cache first — saves $0.25 per cache hit
+    // Check Redis for the full allocations dataset (one $0.25 call serves all tokens for 24h)
     if (r) {
       try {
-        const cached = await r.get<unknown>(cacheKey);
+        const cached = await r.get<Record<string, unknown>>(globalCacheKey);
         if (cached) {
-          // Cache saves us the x402 payment, but user still pays — this is our margin
-          return { data: cached, cost: 250_000, source: "Messari Allocations (cached)" };
+          const match = extractAllocation(cached, symbol);
+          return {
+            data: match ?? { found: false, symbol, message: "No allocation data available for this token" },
+            cost: 250_000, // user still pays — cache saves us the x402 payment
+            source: "Messari Allocations (cached)",
+          };
         }
       } catch { /* cache miss */ }
     }
@@ -136,11 +152,18 @@ export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInp
       { maxPaymentMicroUsdc: 500_000, expectedCostMicroUsdc: 250_000, timeoutMs: 15_000 },
     );
 
-    // Cache successful responses for 24h
-    if (r && result.data) {
-      r.set(cacheKey, result.data, { ex: ALLOCATIONS_CACHE_TTL_S }).catch(() => {});
+    // Cache the FULL response (all 253 tokens) under one key — next query for any token is free for us
+    const fullData = result.data as Record<string, unknown> | undefined;
+    if (r && fullData) {
+      r.set(globalCacheKey, fullData, { ex: ALLOCATIONS_CACHE_TTL_S }).catch(() => {});
     }
 
-    return { data: result.data, cost: result.costMicroUsdc, source: "Messari Allocations" };
+    // Return only the matched token to keep LLM context small
+    const match = fullData ? extractAllocation(fullData, symbol) : null;
+    return {
+      data: match ?? fullData,
+      cost: result.costMicroUsdc,
+      source: "Messari Allocations",
+    };
   },
 };

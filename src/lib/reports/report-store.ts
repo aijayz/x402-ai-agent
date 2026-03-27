@@ -22,7 +22,11 @@ function mapRow(row: Record<string, unknown>): Report {
     markers: row.markers as unknown[] | null,
     metadata: row.metadata as Record<string, unknown> | null,
     type: (row.type as string) as "user" | "digest",
-    digestDate: row.digest_date ? String(row.digest_date) : null,
+    digestDate: row.digest_date
+      ? row.digest_date instanceof Date
+        ? `${row.digest_date.getFullYear()}-${String(row.digest_date.getMonth() + 1).padStart(2, "0")}-${String(row.digest_date.getDate()).padStart(2, "0")}`
+        : String(row.digest_date).slice(0, 10)
+      : null,
     createdAt: String(row.created_at),
     expiresAt: row.expires_at ? String(row.expires_at) : null,
   };
@@ -74,6 +78,13 @@ export const ReportStore = {
   async getLatestDigest(): Promise<Report | null> {
     const rows = await sql`
       SELECT * FROM reports WHERE type = 'digest' ORDER BY created_at DESC LIMIT 1
+    `;
+    return rows.length > 0 ? mapRow(rows[0]) : null;
+  },
+
+  async getDigestByDate(date: string): Promise<Report | null> {
+    const rows = await sql`
+      SELECT * FROM reports WHERE type = 'digest' AND digest_date = ${date} LIMIT 1
     `;
     return rows.length > 0 ? mapRow(rows[0]) : null;
   },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ReportStore } from "@/lib/reports/report-store";
-import { cookies } from "next/headers";
+import { extractMarkers, extractTitle } from "@/lib/reports/parse-markers";
+import { getVerifiedWallet } from "@/lib/wallet-auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,21 +12,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
     }
 
-    // Get wallet from auth cookie (optional — anon users can share too)
-    const cookieStore = await cookies();
-    const walletCookie = cookieStore.get("wallet_auth");
-    let walletAddress: string | null = null;
-    if (walletCookie?.value) {
-      try {
-        const parsed = JSON.parse(walletCookie.value);
-        walletAddress = parsed.address ?? null;
-      } catch { /* ignore */ }
-    }
+    // Get wallet from signed auth cookie (optional — anon users can share too)
+    const walletAddress = getVerifiedWallet(req);
 
     const report = await ReportStore.create({
       walletAddress,
       title: title || extractTitle(content),
       content,
+      markers: extractMarkers(content),
       metadata: metadata ?? undefined,
     });
 
@@ -35,18 +29,4 @@ export async function POST(req: NextRequest) {
     console.error("[REPORTS] Create error", err);
     return NextResponse.json({ error: "Failed to save report" }, { status: 500 });
   }
-}
-
-/** Extract a title from report content */
-function extractTitle(content: string): string {
-  // Try VERDICT marker
-  const verdictMatch = content.match(/\[VERDICT:([^|]+)\|/);
-  if (verdictMatch) return verdictMatch[1].trim().slice(0, 100);
-
-  // Try first bold line
-  const boldMatch = content.match(/\*\*([^*]+)\*\*/);
-  if (boldMatch) return boldMatch[1].trim().slice(0, 100);
-
-  // Fallback
-  return `Obol Analysis — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 }

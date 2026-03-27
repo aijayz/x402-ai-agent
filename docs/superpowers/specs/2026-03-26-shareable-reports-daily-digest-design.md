@@ -174,12 +174,14 @@ A scheduled job runs Obol's existing tools against a watchlist, synthesizes the 
 **Global digest** — one digest for all users, covering major tokens + macro signals. No per-user customization in v1.
 
 **Signals to include:**
-1. **Top 10 crypto prices** — CoinGecko: BTC, ETH, SOL, AERO, VIRTUAL, DEGEN, + top 4 by 24h change on Base
-2. **Whale flow summary** — Dune `whale_net_flow_7d` for BTC, ETH, top 3 Base tokens
+1. **Top 10 crypto prices** — CoinGecko: 6 fixed majors (BTC, ETH, SOL, BNB, XRP, ADA) + top 4 gainers from top 100 by market cap (rotates daily, filters out the fixed 6)
+2. **Whale flow summary** — Dune `whale_net_flow_7d` for BTC, ETH
 3. **CEX net flows** — Dune `cex_net_flow_7d` for ETH, BTC (exchange outflow = bullish signal)
 4. **Stablecoin supply** — Dune `stablecoin_supply_trend` for Base + Ethereum
-5. **Upcoming unlocks** — Messari unlocks for tokens with events in next 7 days
-6. **Sentiment snapshot** — GenVox for BTC, ETH, and 1-2 trending tokens
+5. **Sentiment snapshot** — GenVox for BTC, ETH, and 1-2 top movers (with 30-min Redis cache)
+
+**Dropped from v1:**
+- Messari unlocks — free endpoint is catalog-only (no actual unlock dates/amounts), paid allocations is $0.25/call. If unlock data is needed later, use a Dune query on vesting contract claims.
 
 **Not in v1:** per-user watchlists, custom alerts, Telegram delivery, real-time monitoring
 
@@ -188,24 +190,23 @@ A scheduled job runs Obol's existing tools against a watchlist, synthesizes the 
 **Cron job** — `/api/digest/generate` runs daily at 08:00 UTC via Vercel cron.
 
 **Execution flow:**
-1. Cron triggers → fetch all data sources in parallel (no credit cost — this is a system job)
-2. CoinGecko: batch price fetch for 10 tokens
-3. Dune: 5-6 queries (most will hit Redis cache if any user asked recently)
-4. Messari: upcoming unlocks
-5. GenVox: 2-3 sentiment queries
-6. Collect all results → build a structured data payload
-7. Pass payload to AI (single `generateText` call) with a digest-specific prompt
-8. AI produces markdown with visual markers (METRIC, SCORE, VERDICT)
-9. Save as a report in the `reports` table (type = "digest")
-10. Serve at `/digest` (latest) and `/digest/[date]` (archive)
+1. Cron triggers → Phase 1: CoinGecko batch price fetch (picks top 4 movers for sentiment)
+2. Phase 2: fetch remaining sources in parallel — Dune (whale, CEX, stablecoin), GenVox sentiment
+3. **Reduce** each raw response to headline numbers (~100-200 bytes each) — solves context overflow
+4. Build compact ~3KB structured data payload
+5. Pass reduced payload to AI (single `generateText` call) with digest-specific prompt
+6. AI produces markdown with visual markers (METRIC, SCORE, VERDICT)
+7. Save as a report in the `reports` table (type = "digest")
+8. Serve at `/digest` (latest) and `/digest/[date]` (archive)
+
+**Pre-reduction is critical:** Raw Dune responses can be 50KB+ per query (hundreds of transaction rows). Without reduction, the total payload can hit 300K+ tokens — already caused context overflow errors in production. Each source has a dedicated reducer that extracts just the headline numbers (net flow, supply change, sentiment score).
 
 **Cost per digest:**
 - CoinGecko: free (batch endpoint)
-- Dune: 5-6 queries × $0 (likely cached) or ~$0.30 if all miss cache
-- Messari unlocks: free
-- GenVox: 3 × $0.03 = $0.09
-- AI generation: ~$0.01 (single call, structured input)
-- **Total: ~$0.10-$0.40/day worst case**
+- Dune: 6 queries × $0 (likely cached) or ~$0.30 if all miss cache
+- GenVox: 3-4 × $0.03 = $0.09-$0.12 (with 30-min Redis cache, often $0)
+- AI generation: ~$0.01 (single call, compact structured input)
+- **Total: $0.01 (best, all cached) to ~$0.43/day (worst, all fresh)**
 
 **Prompt structure for AI synthesis:**
 ```
@@ -213,11 +214,10 @@ You are Obol's market analyst. Generate a daily crypto briefing from the data be
 
 Structure:
 1. Market Overview — prices + 24h changes as METRIC cards
-2. Whale Signals — net flows, CEX flows, notable moves
-3. Liquidity & Macro — stablecoin supply, bridge flows, DEX volume
-4. Upcoming Events — token unlocks in next 7 days
-5. Sentiment Pulse — social mood for major tokens
-6. Daily Verdict — one-sentence synthesis
+2. Whale & Exchange Signals — net flows, CEX flows (outflow = accumulation signal)
+3. Liquidity & Macro — stablecoin supply changes (growing = buying power)
+4. Sentiment Pulse — social mood for major tokens
+5. Daily Verdict — one-sentence synthesis
 
 Use [METRIC:...], [SCORE:...], [VERDICT:...] markers throughout.
 Be concise. No filler. Every sentence should convey a signal.

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Github, Database } from "lucide-react";
+import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Github, Database, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReportStore } from "@/lib/reports/report-store";
 
 const clusters = [
   {
@@ -55,7 +56,24 @@ const tools = [
   { icon: Fish, title: "Whale Tracker", cost: "~$0.02", description: "Smart money accumulation signals", prompt: "Are whales accumulating ETH right now?" },
 ];
 
-export default function LandingPage() {
+function extractPreviewMetrics(content: string) {
+  const metrics: { label: string; value: string; change?: string }[] = [];
+  const re = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?]/g;
+  let m;
+  while ((m = re.exec(content)) !== null && metrics.length < 3) {
+    metrics.push({ label: m[1].trim(), value: m[2].trim(), change: m[3]?.trim() || undefined });
+  }
+  return metrics;
+}
+
+function extractPreviewVerdict(content: string) {
+  const m = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
+  if (!m) return null;
+  return { text: m[1].trim(), color: m[2].trim().toLowerCase() };
+}
+
+export default async function LandingPage() {
+  const latestDigest = await ReportStore.getLatestDigest().catch(() => null);
   return (
     <div className="min-h-full bg-background relative overflow-hidden">
       {/* Background atmosphere */}
@@ -188,6 +206,66 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Daily Digest Preview */}
+      {latestDigest && (() => {
+        const digestDate = latestDigest.digestDate ?? latestDigest.createdAt.slice(0, 10);
+        const displayDate = new Date(digestDate + "T00:00:00Z").toLocaleDateString("en-US", {
+          month: "short", day: "numeric", year: "numeric",
+        });
+        const metrics = extractPreviewMetrics(latestDigest.content);
+        const verdict = extractPreviewVerdict(latestDigest.content);
+        const verdictColorMap: Record<string, string> = {
+          green: "text-green-400 border-green-500/30 bg-green-500/10",
+          amber: "text-amber-400 border-amber-500/30 bg-amber-500/10",
+          red: "text-red-400 border-red-500/30 bg-red-500/10",
+        };
+        const vc = verdict ? (verdictColorMap[verdict.color] ?? verdictColorMap.green) : null;
+
+        return (
+          <section className="relative py-16 px-6 border-t border-border/50">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <h2 className="text-2xl font-semibold text-foreground mb-2">Daily Briefing</h2>
+                <p className="text-sm text-muted-foreground">{displayDate} — AI-synthesized market intelligence</p>
+              </div>
+
+              <Link
+                href="/digest"
+                className="group block rounded-xl border border-border/50 hover:border-border bg-zinc-900/80 p-6 space-y-4 transition-all duration-300 hover:translate-y-[-2px] animate-in fade-in slide-in-from-bottom-3 duration-500"
+              >
+                {metrics.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {metrics.map((m, i) => {
+                      const changeColor = m.change?.startsWith("+") ? "text-green-400" : m.change?.startsWith("-") ? "text-red-400" : "text-muted-foreground";
+                      return (
+                        <div key={i} className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1">
+                          <span className="text-[11px] uppercase tracking-wider text-muted-foreground/60">{m.label}</span>
+                          <div className="flex items-baseline gap-2">
+                            <span className="text-lg font-bold text-foreground">{m.value}</span>
+                            {m.change && <span className={`text-xs font-semibold ${changeColor}`}>{m.change}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {verdict && vc && (
+                  <div className={`rounded-lg border px-4 py-2.5 text-sm font-medium ${vc}`}>
+                    {verdict.text.length > 150 ? verdict.text.slice(0, 147) + "..." : verdict.text}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors pt-1">
+                  Read full briefing
+                  <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </Link>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Research Clusters */}
       <section className="relative py-16 px-6 border-t border-border/50">
