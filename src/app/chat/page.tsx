@@ -314,6 +314,22 @@ export function ChatPage() {
     sendMessage({ text: prompt }, { headers });
   }, [sendMessage, headers, isRestoringSession, messages.length]);
 
+  // Randomly pick 3 prompts from 3 different categories for mobile (stable per mount)
+  const [mobilePrompts, setMobilePrompts] = useState<
+    Array<{ icon: typeof TrendingUp; title: string; featured: boolean; prompt: string }>
+  >([]);
+  useEffect(() => {
+    const shuffled = [...capabilities].sort(() => Math.random() - 0.5).slice(0, 3);
+    setMobilePrompts(
+      shuffled.map((cap) => ({
+        icon: cap.icon,
+        title: cap.title,
+        featured: !!("featured" in cap && cap.featured),
+        prompt: cap.prompts[Math.floor(Math.random() * cap.prompts.length)],
+      }))
+    );
+  }, []);
+
   // Determine if a message is the currently-streaming one
   const lastAssistantId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
@@ -377,55 +393,25 @@ export function ChatPage() {
                   <div className="mb-4 sm:mb-6" />
                 )}
 
-                {/* Mobile: compact horizontal scroll with quick-tap prompts */}
-                <div className="sm:hidden w-full space-y-3">
-                  {/* Quick prompts — horizontal scrollable pills */}
-                  <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-none"
-                    style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
-                    {capabilities.flatMap(cap =>
-                      cap.prompts.map(prompt => (
-                        <button
-                          key={prompt}
-                          onClick={() => handlePromptClick(prompt)}
-                          className="shrink-0 px-3 py-2 rounded-lg text-xs font-medium
-                            bg-muted/40 border border-border/60
-                            text-foreground/80 hover:text-foreground hover:bg-muted/60 hover:border-muted-foreground/30
-                            active:scale-[0.97] transition-all duration-150 max-w-[200px] truncate"
-                        >
-                          {prompt}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                  {/* Category chips — tappable to reveal prompts */}
-                  <div className="flex flex-wrap gap-1.5 justify-center px-1">
-                    {capabilities.map((cap) => (
-                      <details key={cap.title} className="group">
-                        <summary className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium cursor-pointer
-                          list-none [&::-webkit-details-marker]:hidden
-                          transition-all duration-150
-                          ${("featured" in cap && cap.featured)
-                            ? "bg-blue-500/10 border border-blue-500/25 text-blue-300"
-                            : "bg-muted/30 border border-border/50 text-muted-foreground hover:text-foreground"
-                          }`}>
-                          <cap.icon className="size-3" />
-                          {cap.title}
-                        </summary>
-                        <div className="flex flex-col gap-1 mt-1.5 ml-1">
-                          {cap.prompts.map((prompt) => (
-                            <button
-                              key={prompt}
-                              onClick={() => handlePromptClick(prompt)}
-                              className="text-left text-xs text-blue-300/70 hover:text-blue-200
-                                px-2.5 py-1.5 rounded-md hover:bg-muted/50 transition-colors truncate"
-                            >
-                              {prompt}
-                            </button>
-                          ))}
-                        </div>
-                      </details>
-                    ))}
-                  </div>
+                {/* Mobile: 3 random prompts from different categories */}
+                <div className="sm:hidden w-full space-y-2 px-1">
+                  {mobilePrompts.map((item) => (
+                    <button
+                      key={item.title}
+                      onClick={() => handlePromptClick(item.prompt)}
+                      className={`flex items-start gap-3 w-full text-left px-3.5 py-2.5 rounded-lg
+                        transition-all duration-150 active:scale-[0.98]
+                        ${item.featured
+                          ? "bg-blue-500/[0.06] border border-blue-500/20"
+                          : "bg-muted/20 border border-border/30"
+                        }`}
+                    >
+                      <item.icon className={`size-4 mt-0.5 shrink-0 ${
+                        item.featured ? "text-blue-400" : "text-muted-foreground"
+                      }`} />
+                      <span className="text-sm leading-snug text-foreground/80">{item.prompt}</span>
+                    </button>
+                  ))}
                 </div>
 
                 {/* Desktop: full card grid */}
