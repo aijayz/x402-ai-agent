@@ -138,7 +138,7 @@ export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInp
           const match = extractAllocation(cached, symbol);
           return {
             data: match ?? { found: false, symbol, message: "No allocation data available for this token" },
-            cost: 250_000, // user still pays — cache saves us the x402 payment
+            cost: match ? 250_000 : 0, // charge only if we returned useful data
             source: "Messari Allocations (cached)",
           };
         }
@@ -161,8 +161,8 @@ export const messariAllocationsAdapter: X402ServiceAdapter<MessariAllocationsInp
     // Return only the matched token to keep LLM context small
     const match = fullData ? extractAllocation(fullData, symbol) : null;
     return {
-      data: match ?? fullData,
-      cost: result.costMicroUsdc,
+      data: match ?? { found: false, symbol, message: "No allocation data available for this token" },
+      cost: match ? result.costMicroUsdc : 0, // don't charge user if no useful data returned
       source: "Messari Allocations",
     };
   },
