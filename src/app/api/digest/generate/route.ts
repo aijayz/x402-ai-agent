@@ -4,7 +4,8 @@ import { ReportStore } from "@/lib/reports/report-store";
 import { collectDigestData } from "@/lib/digest/collector";
 import { generateDigest } from "@/lib/digest/generator";
 import { sendTelegramAlert } from "@/lib/telegram";
-import { postTweet } from "@/lib/twitter";
+import { formatDigestTweets } from "@/lib/digest/tweet-formatter";
+import { postThread } from "@/lib/twitter";
 
 export const maxDuration = 120;
 
@@ -104,25 +105,8 @@ export async function GET(req: Request) {
     });
 
     // ── X / Twitter ──
-    const xPrices = top6.map(p => {
-      const g = glyph(p.symbol);
-      const label = g ? `${g} ${p.symbol}` : p.symbol;
-      const arrow = p.up ? "\u25B3" : "\u25BD";
-      return `${label}  ${p.price}  ${arrow} ${p.change}`;
-    }).join("\n");
-
-    const tweetText = [
-      `Obol AI \u2014 Daily Briefing`,
-      displayDate,
-      "",
-      xPrices,
-      "",
-      verdictText ? `\u25B8 ${verdictText}` : "",
-      "",
-      digestUrl,
-    ].filter(Boolean).join("\n");
-
-    await postTweet(tweetText).catch((err) => {
+    const tweets = formatDigestTweets(data, today, content);
+    await postThread(tweets).catch((err) => {
       console.error("[DIGEST] Twitter share failed:", err);
     });
 
