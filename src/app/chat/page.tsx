@@ -360,7 +360,7 @@ export function ChatPage() {
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="min-h-full flex flex-col justify-end">
             {messages.length === 0 && status === "ready" && (
-              <div className="flex flex-col items-center justify-center py-10 animate-in fade-in duration-500">
+              <div className="flex flex-col items-center justify-center py-6 sm:py-10 animate-in fade-in duration-500">
                 <h2 className="text-lg font-semibold text-foreground mb-1">
                   What can I help you with?
                 </h2>
@@ -368,15 +368,68 @@ export function ChatPage() {
                   Institutional-grade crypto intelligence powered by paid on-chain services.
                 </p>
                 {!walletAddress && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 mb-6 animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 border border-blue-500/20 text-blue-400 mb-4 sm:mb-6 animate-in fade-in slide-in-from-bottom-1 duration-300">
                     <Zap className="size-3" />
                     2 free queries — no wallet needed
                   </span>
                 )}
                 {walletAddress && (
-                  <div className="mb-6" />
+                  <div className="mb-4 sm:mb-6" />
                 )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+
+                {/* Mobile: compact horizontal scroll with quick-tap prompts */}
+                <div className="sm:hidden w-full space-y-3">
+                  {/* Quick prompts — horizontal scrollable pills */}
+                  <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-none"
+                    style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+                    {capabilities.flatMap(cap =>
+                      cap.prompts.map(prompt => (
+                        <button
+                          key={prompt}
+                          onClick={() => handlePromptClick(prompt)}
+                          className="shrink-0 px-3 py-2 rounded-lg text-xs font-medium
+                            bg-muted/40 border border-border/60
+                            text-foreground/80 hover:text-foreground hover:bg-muted/60 hover:border-muted-foreground/30
+                            active:scale-[0.97] transition-all duration-150 max-w-[200px] truncate"
+                        >
+                          {prompt}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  {/* Category chips — tappable to reveal prompts */}
+                  <div className="flex flex-wrap gap-1.5 justify-center px-1">
+                    {capabilities.map((cap) => (
+                      <details key={cap.title} className="group">
+                        <summary className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium cursor-pointer
+                          list-none [&::-webkit-details-marker]:hidden
+                          transition-all duration-150
+                          ${("featured" in cap && cap.featured)
+                            ? "bg-blue-500/10 border border-blue-500/25 text-blue-300"
+                            : "bg-muted/30 border border-border/50 text-muted-foreground hover:text-foreground"
+                          }`}>
+                          <cap.icon className="size-3" />
+                          {cap.title}
+                        </summary>
+                        <div className="flex flex-col gap-1 mt-1.5 ml-1">
+                          {cap.prompts.map((prompt) => (
+                            <button
+                              key={prompt}
+                              onClick={() => handlePromptClick(prompt)}
+                              className="text-left text-xs text-blue-300/70 hover:text-blue-200
+                                px-2.5 py-1.5 rounded-md hover:bg-muted/50 transition-colors truncate"
+                            >
+                              {prompt}
+                            </button>
+                          ))}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Desktop: full card grid */}
+                <div className="hidden sm:grid grid-cols-2 gap-3 w-full max-w-2xl">
                   {capabilities.map((cap, idx) => (
                     <div
                       key={cap.title}
@@ -412,7 +465,7 @@ export function ChatPage() {
                 {!walletAddress && (
                   <button
                     onClick={() => connectWallet()}
-                    className="group flex items-center gap-3 mt-8 w-full max-w-sm mx-auto animate-in fade-in duration-700"
+                    className="group flex items-center gap-3 mt-6 sm:mt-8 w-full max-w-sm mx-auto animate-in fade-in duration-700"
                   >
                     <span className="flex-1 h-px border-t border-dashed border-muted-foreground/15 group-hover:border-muted-foreground/30 transition-colors" />
                     <span className="flex items-center gap-1.5 text-[11px] tracking-wide text-muted-foreground/40 group-hover:text-blue-400/70 transition-colors">
