@@ -57,7 +57,7 @@ export async function GET(req: Request) {
     });
 
     // Shared data for social posts
-    const digestUrl = `https://obolai.app/digest/${today}`;
+    const digestUrl = `${env.URL}/digest/${today}`;
     const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
     const verdictText = verdictMatch ? verdictMatch[1].trim() : "";
 
