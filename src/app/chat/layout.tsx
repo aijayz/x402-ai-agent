@@ -25,7 +25,7 @@ export default function ChatLayout({
             />
           </div>
 
-          <div className="relative flex flex-row gap-4 items-center justify-between py-3 px-4 min-w-0 overflow-hidden">
+          <div className="relative flex flex-row gap-2 sm:gap-4 items-center justify-between py-3 px-3 sm:px-4 min-w-0 overflow-hidden">
             {/* Logo mark */}
             <Link
               href="/"

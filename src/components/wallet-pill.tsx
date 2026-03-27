@@ -31,7 +31,8 @@ export function WalletPill() {
       bg-muted/50 border border-border">
       <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
       <span className="font-mono text-xs">
-        {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+        <span className="sm:hidden">{walletAddress.slice(0, 4)}...{walletAddress.slice(-3)}</span>
+        <span className="hidden sm:inline">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
       </span>
       <span className="hidden sm:inline text-muted-foreground">|</span>
       <span className="hidden sm:inline text-xs text-muted-foreground">{networkLabel}</span>
