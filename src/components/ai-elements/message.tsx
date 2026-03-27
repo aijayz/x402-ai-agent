@@ -12,7 +12,7 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
       "group flex w-full items-end justify-end gap-2 py-3",
       "animate-in slide-in-from-bottom-2 fade-in duration-300",
       from === "user" ? "is-user" : "is-assistant flex-row-reverse justify-end",
-      "[&>div]:max-w-[80%]",
+      "[&>div]:max-w-[95%] [&>div]:sm:max-w-[80%]",
       className,
     )}
     {...props}
