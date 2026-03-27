@@ -215,7 +215,7 @@ export default async function LandingPage() {
       })()}
 
       {/* Hero */}
-      <section className="relative py-24 px-6">
+      <section className="relative pt-12 pb-24 px-6">
         <div className="max-w-3xl mx-auto text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
           {/* Value badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border/60 bg-muted/30 backdrop-blur-sm text-xs text-muted-foreground animate-in fade-in duration-1000">
