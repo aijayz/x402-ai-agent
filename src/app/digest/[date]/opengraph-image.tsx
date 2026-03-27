@@ -108,7 +108,7 @@ export default async function OgImage({ params }: { params: Promise<{ date: stri
               <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#g)" strokeWidth="3.5" />
               <line x1="4" y1="16" x2="28" y2="16" stroke="url(#g)" strokeWidth="3" strokeLinecap="round" />
             </svg>
-            <span style={{ fontSize: 18, color: "#71717a", letterSpacing: "0.05em" }}>obolai.xyz</span>
+            <span style={{ fontSize: 18, color: "#71717a", letterSpacing: "0.05em" }}>obolai.app</span>
           </div>
 
           <div style={{ fontSize: 44, fontWeight: 700, color: "#fafafa", letterSpacing: "-0.02em", lineHeight: 1.2 }}>

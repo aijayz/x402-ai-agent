@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { ReportStore } from "@/lib/reports/report-store";
 import { collectDigestData } from "@/lib/digest/collector";
 import { generateDigest } from "@/lib/digest/generator";
-import { sendTelegramAlert } from "@/lib/telegram";
+import { sendTelegramAlert, sendTelegramPhoto } from "@/lib/telegram";
 import { postTweet } from "@/lib/twitter";
 
 export const maxDuration = 120;
@@ -56,46 +56,75 @@ export async function GET(req: Request) {
       digestDate: today,
     });
 
-    // Share digest to Telegram
-    const digestUrl = `https://www.obolai.xyz/digest/${today}`;
-    const priceLines = data.prices.slice(0, 6).map(p => {
+    // Shared data for social posts
+    const digestUrl = `https://obolai.app/digest/${today}`;
+    const ogImageUrl = `https://obolai.app/digest/${today}/opengraph-image`;
+    const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
+    const verdictText = verdictMatch ? verdictMatch[1].trim() : "";
+    const verdictColor = verdictMatch?.[2] ?? "";
+
+    const fmt = (p: typeof data.prices[0]) => {
       const sign = p.change24h >= 0 ? "+" : "";
-      return `${p.symbol}  ${p.price.toLocaleString("en-US", { style: "currency", currency: "USD" })}  ${sign}${p.change24h.toFixed(1)}%`;
+      const price = p.price.toLocaleString("en-US", { style: "currency", currency: "USD" });
+      return { symbol: p.symbol, price, change: `${sign}${p.change24h.toFixed(1)}%`, up: p.change24h >= 0 };
+    };
+    const top6 = data.prices.slice(0, 6).map(fmt);
+
+    // Only use widely recognized coin symbols
+    const coinGlyph: Record<string, string> = {
+      BTC: "\u20BF", // ₿
+      ETH: "\u039E", // Ξ
+    };
+    const glyph = (sym: string) => coinGlyph[sym] ?? "";
+
+    const displayDate = new Date(today + "T00:00:00Z").toLocaleDateString("en-US", {
+      weekday: "long", month: "short", day: "numeric", year: "numeric",
+    });
+
+    // ── Telegram (HTML) ──
+    const tgPrices = top6.map(p => {
+      const g = glyph(p.symbol);
+      const label = g ? `${g} <b>${p.symbol}</b>` : `<b>${p.symbol}</b>`;
+      const arrow = p.up ? "\u25B2" : "\u25BC";
+      return `  ${label}  ${p.price}  ${arrow} ${p.change}`;
     }).join("\n");
 
-    // Extract verdict text from content
-    const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
-    const verdictLine = verdictMatch ? `\n${verdictMatch[1].trim()}` : "";
-
     const telegramMsg = [
-      `Daily Briefing — ${today}`,
+      `<b>Obol AI \u2014 Daily Briefing</b>`,
+      `<i>${displayDate}</i>`,
       "",
-      priceLines,
-      verdictLine,
+      tgPrices,
       "",
-      digestUrl,
-      data.errors.length > 0 ? `\nPartial: ${data.errors.join(", ")}` : "",
+      verdictText ? `\u25B8 ${verdictText}` : "",
+      "",
+      `<a href="${digestUrl}">Read the full analysis \u2192</a>`,
+      data.errors.length > 0 ? `\n<i>Partial data: ${data.errors.join(", ")}</i>` : "",
     ].filter(Boolean).join("\n");
 
-    await sendTelegramAlert(telegramMsg).catch((err) => {
+    await sendTelegramPhoto(ogImageUrl, telegramMsg, "HTML").catch((err) => {
       console.error("[DIGEST] Telegram share failed:", err);
     });
 
-    // Share digest to X (Twitter) — Premium allows 25k chars
+    // ── X / Twitter ──
+    const xPrices = top6.map(p => {
+      const g = glyph(p.symbol);
+      const label = g ? `${g} ${p.symbol}` : p.symbol;
+      const arrow = p.up ? "\u25B3" : "\u25BD";
+      return `${label}  ${p.price}  ${arrow} ${p.change}`;
+    }).join("\n");
+
     const tweetText = [
-      `Daily Crypto Briefing — ${today}`,
+      `Obol AI \u2014 Daily Briefing`,
+      displayDate,
       "",
-      data.prices.slice(0, 6).map(p => {
-        const sign = p.change24h >= 0 ? "+" : "";
-        return `${p.symbol}  ${p.price.toLocaleString("en-US", { style: "currency", currency: "USD" })}  ${sign}${p.change24h.toFixed(1)}%`;
-      }).join("\n"),
-      verdictLine,
+      xPrices,
       "",
-      `Full analysis on @ai_obol`,
+      verdictText ? `\u25B8 ${verdictText}` : "",
+      "",
       digestUrl,
     ].filter(Boolean).join("\n");
 
-    await postTweet(tweetText).catch((err) => {
+    await postTweet(tweetText, ogImageUrl).catch((err) => {
       console.error("[DIGEST] Twitter share failed:", err);
     });
 
@@ -103,7 +132,7 @@ export async function GET(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[DIGEST] Generation failed", msg);
-    await sendTelegramAlert(`*Digest Generation Failed*\n\n${today}\n${msg}`, true).catch(() => {});
+    await sendTelegramAlert(`<b>Digest Generation Failed</b>\n\n${today}\n${msg}`, "HTML").catch(() => {});
     return NextResponse.json({ error: "Generation failed", detail: msg }, { status: 500 });
   }
 }
