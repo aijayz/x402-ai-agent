@@ -6,6 +6,7 @@ import { generateDigest } from "@/lib/digest/generator";
 import { sendTelegramAlert } from "@/lib/telegram";
 import { formatDigestTweets } from "@/lib/digest/tweet-formatter";
 import { postThread } from "@/lib/twitter";
+import { generateTokenSnapshots } from "@/lib/token-pages/generator";
 
 export const maxDuration = 120;
 
@@ -108,6 +109,11 @@ export async function GET(req: Request) {
     const tweets = formatDigestTweets(data, today, content);
     await postThread(tweets).catch((err) => {
       console.error("[DIGEST] Twitter share failed:", err);
+    });
+
+    // ── Token SEO pages ──
+    await generateTokenSnapshots(data, today).catch((err) => {
+      console.error("[DIGEST] Token snapshot generation failed:", err);
     });
 
     return NextResponse.json({ status: "created", id: report.id, date: today });
