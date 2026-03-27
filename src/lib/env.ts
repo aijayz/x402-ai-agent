@@ -43,6 +43,10 @@ export const env = createEnv({
     TELEGRAM_BOT_TOKEN: z.string().optional(),
     TELEGRAM_CHAT_ID: z.string().optional(),
 
+    // Telegram group bot
+    TELEGRAM_GROUP_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_BOT_WEBHOOK_SECRET: z.string().optional(),
+
     // Twitter/X auto-posting
     TWITTER_API_KEY: z.string().optional(),
     TWITTER_API_SECRET: z.string().optional(),
@@ -99,6 +103,8 @@ export const env = createEnv({
     COINGECKO_URL: process.env.COINGECKO_URL,
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID,
+    TELEGRAM_GROUP_BOT_TOKEN: process.env.TELEGRAM_GROUP_BOT_TOKEN,
+    TELEGRAM_BOT_WEBHOOK_SECRET: process.env.TELEGRAM_BOT_WEBHOOK_SECRET,
     TWITTER_API_KEY: process.env.TWITTER_API_KEY,
     TWITTER_API_SECRET: process.env.TWITTER_API_SECRET,
     TWITTER_ACCESS_TOKEN: process.env.TWITTER_ACCESS_TOKEN,
