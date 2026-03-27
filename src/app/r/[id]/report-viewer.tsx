@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { parseIntoSegments, InlineSegments } from "@/components/ai-elements/structured-markers";
 import type { Report } from "@/lib/reports/report-store";
@@ -95,9 +95,61 @@ function ShareBar({ reportId }: { reportId: string }) {
   );
 }
 
+/** Make 0x addresses in rendered HTML copiable with click */
+function useAddressLinks(ref: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const ADDRESS_RE = /0x[a-fA-F0-9]{4,}(?:\.\.\.[a-fA-F0-9]+)?/g;
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const replacements: { node: Text; frag: DocumentFragment }[] = [];
+
+    while (walker.nextNode()) {
+      const textNode = walker.currentNode as Text;
+      const text = textNode.textContent ?? "";
+      if (!ADDRESS_RE.test(text)) continue;
+      ADDRESS_RE.lastIndex = 0;
+
+      const frag = document.createDocumentFragment();
+      let lastIdx = 0;
+      let match: RegExpExecArray | null;
+      while ((match = ADDRESS_RE.exec(text)) !== null) {
+        if (match.index > lastIdx) {
+          frag.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
+        }
+        const addr = match[0];
+        const btn = document.createElement("button");
+        btn.className = "font-mono text-blue-400/80 hover:text-blue-300 cursor-pointer transition-colors";
+        btn.textContent = addr;
+        btn.title = "Click to copy";
+        btn.addEventListener("click", async () => {
+          await navigator.clipboard.writeText(addr);
+          const orig = btn.textContent;
+          btn.textContent = "Copied!";
+          btn.classList.add("text-green-400");
+          setTimeout(() => { btn.textContent = orig; btn.classList.remove("text-green-400"); }, 1500);
+        });
+        frag.appendChild(btn);
+        lastIdx = match.index + addr.length;
+      }
+      if (lastIdx < text.length) {
+        frag.appendChild(document.createTextNode(text.slice(lastIdx)));
+      }
+      replacements.push({ node: textNode, frag });
+    }
+
+    for (const { node, frag } of replacements) {
+      node.parentNode?.replaceChild(frag, node);
+    }
+  }, [ref]);
+}
+
 export function ReportViewer({ report }: { report: Report }) {
   const { cleanText } = parseReportActions(report.content);
   const segments = parseIntoSegments(cleanText);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  useAddressLinks(bodyRef);
   const reportDate = new Date(report.createdAt);
   const date = reportDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -147,6 +199,7 @@ export function ReportViewer({ report }: { report: Report }) {
 
         {/* Report body — tuned for readability */}
         <style>{`
+          /* Section headers: bold-only paragraphs get a top divider */
           .report-body p:has(> [data-streamdown="strong"]:first-child:last-child) {
             margin-top: 2rem;
             padding-top: 1.5rem;
@@ -159,8 +212,19 @@ export function ReportViewer({ report }: { report: Report }) {
             padding-top: 0;
             border-top: none;
           }
+          /* Force bold labels to their own line when model puts text after them */
+          .report-body p > [data-streamdown="strong"]:first-child:not(:last-child) {
+            display: block;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid hsl(var(--border) / 0.3);
+            font-size: 16px;
+            color: hsl(var(--foreground));
+            margin-bottom: 0.5rem;
+          }
         `}</style>
         <div
+          ref={bodyRef}
           className="report-body space-y-1.5"
           style={{ fontSize: "15px", lineHeight: "1.7" }}
         >
