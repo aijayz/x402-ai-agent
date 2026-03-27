@@ -47,7 +47,6 @@ export function MobileWalletSheet({
           <a
             href={open ? getMetaMaskDeepLink() : "#"}
             className="flex items-center gap-4 rounded-xl border border-border bg-card p-4 transition-colors active:bg-muted"
-            onClick={() => onOpenChange(false)}
           >
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#F6851B]/10">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
