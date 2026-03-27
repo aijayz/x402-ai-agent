@@ -22,11 +22,15 @@ Digest cron generates data daily
       -> More usage -> more shared answers -> more visibility
 ```
 
-**Build order:** 1 (Twitter) -> 4 (Shareable answers) -> 2 (Token pages) -> 3 (Telegram bot)
+**Build order:** 1 (Twitter) -> 2 (Shareable answers) -> 3 (Token pages) -> 4 (Telegram bot)
+
+Quick wins first (1, 2 are small effort), then the larger features (3, 4).
 
 ---
 
 ## Feature 1: Smart Twitter Posts
+
+**Effort:** Small | **Cost:** $0/day
 
 ### Problem
 Current digest posts a single tweet that gets truncated or ignored. New @ai_obol account needs to build credibility before going high-volume.
@@ -120,11 +124,87 @@ Or ask Obol anything on-chain
 
 **Data sources:** All data already available from digest collector output. Zero additional API calls.
 
-**Cost:** $0 incremental.
+---
+
+## Feature 2: Shareable Chat Answers
+
+**Effort:** Small-Medium | **Cost:** ~$0/day
+
+### Problem
+Great AI answers die in the chat session. No way for users to share individual answers as social proof.
+
+### Design
+
+Extend the existing report sharing pattern (`/r/[id]`) to individual chat answers. Any Obol response gets a share button that creates a standalone page at `/a/[id]`.
+
+**Share flow:**
+```
+User asks question -> gets answer -> clicks Share icon (hover/tap on message)
+-> POST /api/answers (saves Q+A pair, returns id)
+-> Share panel appears (same as /r/[id]: X, Farcaster, Copy Link, Preview)
+-> Shared page at /a/[id] with OG card
+```
+
+**Shared answer page layout:**
+```
+obolai.xyz/a/abc123
+
+"Is PEPE safe to buy right now?"
+
+[Obol's answer rendered with full markdown/tool cards]
+
+Tools used: Token Security, Whale Tracker, Sentiment -- $0.04 total
+
+[Ask Obol your own question -> obolai.xyz/chat]
+
+Share: [X] [Farcaster] [Copy Link]
+
+Powered by Obol AI | x402 intelligence
+```
+
+**OG card (Satori):**
+```
+"Is PEPE safe to buy?"
+
+Security: 87/100
+Whales: +$3.2M inflow (7d)
+Sentiment: 71/100 bullish
+
+obolai.xyz          Powered by x402
+```
+
+**Key details:**
+- Share button appears on every Obol response (not user messages)
+- Save extracts the question (last user message) + the answer (assistant message with tool results)
+- Key metrics for OG card extracted from `tool_results` JSONB field at render time (not parsed from markdown text). The `POST /api/answers` endpoint saves structured tool outputs alongside the rendered answer. The Satori OG renderer reads scores/prices/flows directly from this structured data.
+- "Tools used: $0.04 total" in the page subtly communicates value proposition
+- Viewer's page has prominent CTA to ask their own question
+- Re-sharing: the shared page itself has share buttons (viral chain)
+
+### Implementation
+
+**Files to create:**
+- `src/app/a/[id]/page.tsx` — shared answer page
+- `src/app/a/[id]/opengraph-image.tsx` — Satori OG card
+- `src/app/a/[id]/not-found.tsx` — 404 for invalid IDs
+- `src/app/api/answers/route.ts` — POST to save Q+A pair, returns { id, url }
+- `src/lib/answers/answer-store.ts` — CRUD for shared answers (new `shared_answers` table — avoids extending `ReportStore`'s `"user" | "digest"` type union)
+
+**Files to modify:**
+- `src/components/ai-elements/message.tsx` — add share icon on Obol responses
+- `src/app/sitemap.ts` — include shared answer pages (optional, they're user-generated)
+- DB migration — `shared_answers` table (id, question, answer_content, metadata JSON, created_at)
+
+**Reusable patterns from existing /r/[id]:**
+- Satori OG image generation
+- Share panel component (X/Farcaster/Copy Link)
+- Report viewer rendering (markdown + tool cards)
 
 ---
 
-## Feature 2: Token-Specific SEO Pages
+## Feature 3: Token-Specific SEO Pages
+
+**Effort:** Medium | **Cost:** ~$0.55/day
 
 ### Problem
 No organic search presence. People searching "ETH whale activity today" or "PEPE token security" land on CoinGecko or Twitter, not Obol.
@@ -174,7 +254,7 @@ Over time the catalog grows organically to 50-100+ tokens as different tokens ro
 
 **Generation strategy: Piggyback on digest cron (Option 1)**
 
-After generating the daily digest, the same cron triggers token page generation for the ~15 tokens covered that day. No extra cron, no extra scheduling. Data is already fetched.
+After generating the daily digest, the same cron triggers token page generation for the ~17 tokens covered that day. No extra cron, no extra scheduling. Data is already fetched for the 6 majors + 4 gainers; the extra 4 fixed tokens and 3 losers are fetched independently.
 
 ### SEO mechanics
 - `generateMetadata()` with title: "ETH On-Chain Intelligence -- Whale Activity, Security, Sentiment | Obol AI"
@@ -195,11 +275,11 @@ After generating the daily digest, the same cron triggers token page generation 
 - `src/app/api/digest/generate/route.ts` — after digest completes, trigger token page generation
 - DB migration — `token_snapshots` table (symbol, data JSON, updated_at, created_at)
 
-**Cost:** ~$0.03-0.05 per token per day (GenVox + QS). For ~17 tokens (10 fixed + 4 gainers + 3 losers) = ~$0.55/day. Dune and CoinGecko are free/cached.
-
 ---
 
-## Feature 3: Telegram Community Bot
+## Feature 4: Telegram Community Bot
+
+**Effort:** Medium-Large | **Cost:** ~$0.10/day
 
 ### Problem
 Current Telegram integration is one-way (Obol -> channel). The audience lives in crypto Telegram groups but has no way to interact with Obol there.
@@ -274,84 +354,6 @@ Key channels:
 - Separate bot token from existing alert bot (different bot, different purpose)
 - Upstash Redis for rate limiting (same instance as existing rate limiter)
 
-**Cost:** ~$0.10/day for subsidized /safe commands (assuming ~100 queries/day). Free commands use only cached data.
-
----
-
-## Feature 4: Shareable Chat Answers
-
-### Problem
-Great AI answers die in the chat session. No way for users to share individual answers as social proof.
-
-### Design
-
-Extend the existing report sharing pattern (`/r/[id]`) to individual chat answers. Any Obol response gets a share button that creates a standalone page at `/a/[id]`.
-
-**Share flow:**
-```
-User asks question -> gets answer -> clicks Share icon (hover/tap on message)
--> POST /api/answers (saves Q+A pair, returns id)
--> Share panel appears (same as /r/[id]: X, Farcaster, Copy Link, Preview)
--> Shared page at /a/[id] with OG card
-```
-
-**Shared answer page layout:**
-```
-obolai.xyz/a/abc123
-
-"Is PEPE safe to buy right now?"
-
-[Obol's answer rendered with full markdown/tool cards]
-
-Tools used: Token Security, Whale Tracker, Sentiment -- $0.04 total
-
-[Ask Obol your own question -> obolai.xyz/chat]
-
-Share: [X] [Farcaster] [Copy Link]
-
-Powered by Obol AI | x402 intelligence
-```
-
-**OG card (Satori):**
-```
-"Is PEPE safe to buy?"
-
-Security: 87/100
-Whales: +$3.2M inflow (7d)
-Sentiment: 71/100 bullish
-
-obolai.xyz          Powered by x402
-```
-
-**Key details:**
-- Share button appears on every Obol response (not user messages)
-- Save extracts the question (last user message) + the answer (assistant message with tool results)
-- Key metrics for OG card extracted from `tool_results` JSONB field at render time (not parsed from markdown text). The `POST /api/answers` endpoint saves structured tool outputs alongside the rendered answer. The Satori OG renderer reads scores/prices/flows directly from this structured data.
-- "Tools used: $0.04 total" in the page subtly communicates value proposition
-- Viewer's page has prominent CTA to ask their own question
-- Re-sharing: the shared page itself has share buttons (viral chain)
-
-### Implementation
-
-**Files to create:**
-- `src/app/a/[id]/page.tsx` — shared answer page
-- `src/app/a/[id]/opengraph-image.tsx` — Satori OG card
-- `src/app/a/[id]/not-found.tsx` — 404 for invalid IDs
-- `src/app/api/answers/route.ts` — POST to save Q+A pair, returns { id, url }
-- `src/lib/answers/answer-store.ts` — CRUD for shared answers (new `shared_answers` table — avoids extending `ReportStore`'s `"user" | "digest"` type union)
-
-**Files to modify:**
-- `src/components/ai-elements/message.tsx` — add share icon on Obol responses
-- `src/app/sitemap.ts` — include shared answer pages (optional, they're user-generated)
-- DB migration — `shared_answers` table (id, question, answer_content, metadata JSON, created_at)
-
-**Reusable patterns from existing /r/[id]:**
-- Satori OG image generation
-- Share panel component (X/Farcaster/Copy Link)
-- Report viewer rendering (markdown + tool cards)
-
-**Cost:** Near-zero. One DB row per shared answer + Satori render on first view (cached after).
-
 ---
 
 ## Database Changes Summary
@@ -377,13 +379,13 @@ Two new tables (dedicated tables, not extending `reports` — keeps type safety 
 
 ## Cost Summary
 
-| Feature | Daily cost | One-time effort |
-|---------|-----------|-----------------|
-| Smart Twitter posts | $0 | Small |
-| Token SEO pages | ~$0.55 | Medium |
-| Telegram community bot | ~$0.10 | Medium-Large |
-| Shareable chat answers | ~$0 | Small-Medium |
-| **Total** | **~$0.65/day** | |
+| # | Feature | Daily cost | Effort |
+|---|---------|-----------|--------|
+| 1 | Smart Twitter posts | $0 | Small |
+| 2 | Shareable chat answers | ~$0 | Small-Medium |
+| 3 | Token SEO pages | ~$0.55 | Medium |
+| 4 | Telegram community bot | ~$0.10 | Medium-Large |
+| | **Total** | **~$0.65/day** | |
 
 Monthly total: ~$20/month for a complete automated growth engine.
 
