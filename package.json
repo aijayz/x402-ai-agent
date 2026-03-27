@@ -34,7 +34,9 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
+    "@rainbow-me/rainbowkit": "^2.2.10",
     "@t3-oss/env-nextjs": "^0.13.8",
+    "@tanstack/react-query": "^5.95.2",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
@@ -57,6 +59,7 @@
     "twitter-api-v2": "^1.29.0",
     "use-stick-to-bottom": "^1.1.1",
     "viem": "^2.37.3",
+    "wagmi": "^2.16.9",
     "x402": "^1.1.0",
     "x402-mcp": "0.1.1",
     "zod": "^3.25.76"

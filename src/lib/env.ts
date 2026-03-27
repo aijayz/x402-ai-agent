@@ -61,6 +61,10 @@ export const env = createEnv({
     NEXT_PUBLIC_NETWORK: z.enum(["base-sepolia", "base"]).default("base-sepolia"),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
+    // WalletConnect project ID — free at https://cloud.walletconnect.com
+    // Optional: without it, WalletConnect relay wallets are disabled
+    // but MetaMask extension and Coinbase Smart Wallet still work.
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string().optional(),
   },
 
   /**
@@ -71,6 +75,7 @@ export const env = createEnv({
     NEXT_PUBLIC_NETWORK: process.env.NEXT_PUBLIC_NETWORK,
     NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
     NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID,
     CDP_WALLET_SECRET: process.env.CDP_WALLET_SECRET,
     CDP_API_KEY_ID: process.env.CDP_API_KEY_ID,
     CDP_API_KEY_SECRET: process.env.CDP_API_KEY_SECRET,

@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useAccount, useDisconnect, useSwitchChain, useWalletClient } from "wagmi";
+import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { track, identifyUser, resetUser } from "@/lib/analytics";
 
 const USDC_ADDRESS: Record<string, string> = {
@@ -11,24 +13,7 @@ const USDC_ADDRESS: Record<string, string> = {
 // ERC-20 transfer(address,uint256) function selector
 const TRANSFER_SELECTOR = "0xa9059cbb";
 
-const CHAIN_CONFIG = {
-  "base-sepolia": {
-    chainId: "0x14a34", // 84532
-    chainName: "Base Sepolia",
-    rpcUrls: ["https://sepolia.base.org"],
-    blockExplorerUrls: ["https://sepolia.basescan.org"],
-    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  },
-  base: {
-    chainId: "0x2105", // 8453
-    chainName: "Base",
-    rpcUrls: ["https://mainnet.base.org"],
-    blockExplorerUrls: ["https://basescan.org"],
-    nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-  },
-} as const;
-
-type NetworkId = keyof typeof CHAIN_CONFIG;
+type NetworkId = "base" | "base-sepolia";
 
 function getTargetNetwork(): NetworkId {
   const env = process.env.NEXT_PUBLIC_NETWORK;
@@ -77,6 +62,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const network = getTargetNetwork();
   const [isRestoringSession, setIsRestoringSession] = useState(true);
 
+  // Wagmi hooks — replace raw window.ethereum calls
+  const { address: wagmiAddress } = useAccount();
+  const { disconnect } = useDisconnect();
+  const { switchChainAsync } = useSwitchChain();
+  const { data: walletClient } = useWalletClient();
+  const { openConnectModal, connectModalOpen } = useConnectModal();
+
+  // Holds the resolve fn of a pending connectWallet() promise
+  const connectResolveRef = useRef<((addr: string | undefined) => void) | null>(null);
+
   // Restore wallet session from HttpOnly cookie on mount
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +87,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           identifyUser(data.walletAddress);
         }
       } catch {
-        // Silent — user will just appear anonymous
+        // Silent — user will appear anonymous
       } finally {
         if (!cancelled) setIsRestoringSession(false);
       }
@@ -113,126 +108,95 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [walletAddress]);
 
-  const isConnectingRef = useRef(false);
-
-  const connectWallet = useCallback(async (): Promise<string | undefined> => {
-    if (isConnectingRef.current) return undefined;
-    if (typeof window === "undefined") return undefined;
-
-    // If no injected provider, try deep-linking into MetaMask mobile app
-    if (typeof window.ethereum === "undefined") {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      if (isMobile) {
-        // MetaMask deep link opens the current page inside MetaMask's in-app browser
-        const mmUrl = `https://metamask.app.link/dapp/${window.location.host}${window.location.pathname}`;
-        window.location.href = mmUrl;
-        return undefined;
-      }
-      alert("Please install MetaMask or another EVM wallet");
-      return undefined;
-    }
-
-    isConnectingRef.current = true;
+  // Claim free credits after connecting; falls back to a direct balance fetch on error
+  const claimCredits = useCallback(async (address: string) => {
     try {
-      // Force MetaMask to show the account picker (not just return the cached account)
-      // wallet_requestPermissions re-prompts the user to select an account
-      try {
-        await window.ethereum.request({
-          method: "wallet_requestPermissions",
-          params: [{ eth_accounts: {} }],
-        });
-      } catch {
-        // Some wallets don't support wallet_requestPermissions — fall through
-      }
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts",
-      }) as string[];
-      const address = accounts[0];
-
-      // Switch to target chain
-      const chain = CHAIN_CONFIG[network];
-      try {
-        await window.ethereum.request({
-          method: "wallet_switchEthereumChain",
-          params: [{ chainId: chain.chainId }],
-        });
-      } catch (switchError: unknown) {
-        // Chain not added to wallet — add it
-        if ((switchError as { code?: number })?.code === 4902) {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [{
-              chainId: chain.chainId,
-              chainName: chain.chainName,
-              rpcUrls: chain.rpcUrls,
-              blockExplorerUrls: chain.blockExplorerUrls,
-              nativeCurrency: chain.nativeCurrency,
-            }],
-          });
-        } else {
-          throw switchError;
-        }
-      }
-
-      setWalletAddress(address);
-      identifyUser(address);
-      track("wallet_connected");
-
-      // Claim free credits
-      try {
-        const res = await fetch("/api/credits/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ walletAddress: address }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-          const amount = data.granted ?? data.balance ?? 0;
-          setBalance(amount);
-          if (amount > 0) {
-            setLastCreditEvent({ type: "claimed", amountMicroUsdc: amount });
-            track("credits_claimed", { amountUsdc: amount / 1_000_000 });
-          }
-        } else if (res.status === 409) {
-          // Already claimed — just set balance, no event
-          setBalance(data.balance ?? 0);
-        } else {
-          console.error("[WALLET] Failed to claim free credits", { status: res.status, data });
-          await refreshBalance();
-        }
-      } catch (err) {
-        console.error("[WALLET] Network error during free credits claim", err);
-        await refreshBalance();
-      }
-
-      return address;
-    } catch (err) {
-      // User rejected or wallet error — return undefined silently
-      if ((err as { code?: number })?.code === 4001) return undefined;
-      console.error("[WALLET] Connection failed", err);
-      return undefined;
-    } finally {
-      isConnectingRef.current = false;
-    }
-  }, [network, refreshBalance]);
-
-  const switchChain = useCallback(async (chainId: number) => {
-    if (typeof window.ethereum === "undefined") throw new Error("No wallet");
-    const hexChainId = `0x${chainId.toString(16)}`;
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: hexChainId }],
+      const res = await fetch("/api/credits/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ walletAddress: address }),
       });
-    } catch (switchError: unknown) {
-      // 4902 = chain not added. For well-known networks (Ethereum, Arbitrum,
-      // Optimism) MetaMask already knows them, so 4902 is unlikely. Re-throw.
-      throw switchError;
+      const data = await res.json();
+      if (res.ok) {
+        const amount = data.granted ?? data.balance ?? 0;
+        setBalance(amount);
+        if (amount > 0) {
+          setLastCreditEvent({ type: "claimed", amountMicroUsdc: amount });
+          track("credits_claimed", { amountUsdc: amount / 1_000_000 });
+        }
+      } else if (res.status === 409) {
+        // Already claimed — just sync balance
+        setBalance(data.balance ?? 0);
+      } else {
+        console.error("[WALLET] Failed to claim free credits", { status: res.status, data });
+        const balRes = await fetch(`/api/credits/balance?wallet=${address}`);
+        if (balRes.ok) {
+          const balData = await balRes.json();
+          setBalance(balData.balanceMicroUsdc);
+        }
+      }
+    } catch (err) {
+      console.error("[WALLET] Network error during free credits claim", err);
     }
   }, []);
 
+  // When wagmi connects, sync walletAddress and resolve any pending connectWallet() promise
+  useEffect(() => {
+    if (!wagmiAddress) return;
+    setWalletAddress(wagmiAddress);
+
+    if (connectResolveRef.current) {
+      // Active connect flow — user went through the modal
+      const resolve = connectResolveRef.current;
+      connectResolveRef.current = null;
+      identifyUser(wagmiAddress);
+      track("wallet_connected");
+      claimCredits(wagmiAddress).then(() => resolve(wagmiAddress));
+    }
+  }, [wagmiAddress, claimCredits]);
+
+  // If modal closes without connecting, resolve the pending promise with undefined
+  useEffect(() => {
+    if (!connectModalOpen && connectResolveRef.current && !wagmiAddress) {
+      const resolve = connectResolveRef.current;
+      connectResolveRef.current = null;
+      resolve(undefined);
+    }
+  }, [connectModalOpen, wagmiAddress]);
+
+  const connectWallet = useCallback(async (): Promise<string | undefined> => {
+    // Already connected via wagmi
+    if (wagmiAddress) {
+      if (!walletAddress) {
+        setWalletAddress(wagmiAddress);
+        identifyUser(wagmiAddress);
+        await claimCredits(wagmiAddress);
+      }
+      return wagmiAddress;
+    }
+
+    // Open RainbowKit modal; resolve when wagmiAddress updates
+    return new Promise<string | undefined>((resolve) => {
+      connectResolveRef.current = resolve;
+      openConnectModal?.();
+    });
+  }, [wagmiAddress, walletAddress, openConnectModal, claimCredits]);
+
+  const disconnectWallet = useCallback(() => {
+    disconnect();
+    setWalletAddress(null);
+    setBalance(null);
+    setFreeCallsRemaining(null);
+    resetUser();
+    document.cookie = "wallet_auth=; path=/; max-age=0";
+  }, [disconnect]);
+
+  const switchChain = useCallback(async (chainId: number) => {
+    await switchChainAsync({ chainId });
+  }, [switchChainAsync]);
+
   const sendUsdc = useCallback(async (to: string, amountUsdc: number, usdcAddress?: string): Promise<string> => {
-    if (!walletAddress || typeof window.ethereum === "undefined") {
+    if (!walletAddress || !walletClient) {
       throw new Error("Wallet not connected");
     }
 
@@ -243,28 +207,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     // Encode transfer(address, uint256) calldata
     const paddedTo = to.slice(2).toLowerCase().padStart(64, "0");
     const paddedAmount = amountRaw.toString(16).padStart(64, "0");
-    const data = `${TRANSFER_SELECTOR}${paddedTo}${paddedAmount}`;
+    const data = `${TRANSFER_SELECTOR}${paddedTo}${paddedAmount}` as `0x${string}`;
 
-    const txHash = await window.ethereum.request({
-      method: "eth_sendTransaction",
-      params: [{
-        from: walletAddress,
-        to: usdcContract,
-        data,
-      }],
-    }) as string;
+    const txHash = await walletClient.sendTransaction({
+      to: usdcContract as `0x${string}`,
+      data,
+      account: walletAddress as `0x${string}`,
+    });
 
     return txHash;
-  }, [walletAddress, network]);
-
-  const disconnectWallet = useCallback(() => {
-    setWalletAddress(null);
-    setBalance(null);
-    setFreeCallsRemaining(null);
-    resetUser();
-    // Clear wallet auth cookie
-    document.cookie = "wallet_auth=; path=/; max-age=0";
-  }, []);
+  }, [walletAddress, walletClient, network]);
 
   const updateFromMetadata = useCallback((meta: { budgetRemaining?: number; freeCallsRemaining?: number }) => {
     if (meta.budgetRemaining != null && walletAddress) {
