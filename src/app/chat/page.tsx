@@ -17,7 +17,8 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { Response } from "@/components/ai-elements/response";
-import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart, Share2, Check, Copy } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUpRight, Wallet, Sparkles, Shield, TrendingUp, MessageCircle, Zap, PieChart } from "lucide-react";
+import { MessageActions } from "@/components/ai-elements/message-actions";
 import { Button } from "@/components/ui/button";
 import { ConversationSidebar } from "@/components/conversation-sidebar";
 import { useConversations } from "@/hooks/use-conversations";
@@ -30,7 +31,7 @@ import {
   ReasoningTrigger,
 } from "@/components/ai-elements/reasoning";
 import { Loader } from "@/components/ai-elements/loader";
-import { SessionReceipt } from "@/components/ai-elements/session-receipt";
+// SessionReceipt replaced by MessageActions (cost + share in one action bar)
 import {
   Tool,
   ToolContent,
@@ -322,13 +323,8 @@ export function ChatPage() {
   }, [messages]);
   const isLastAssistantMessage = (msgId: string) => lastAssistantId === msgId;
 
-  // Share report state
-  const [sharingMessageId, setSharingMessageId] = useState<string | null>(null);
-  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
-
-  const handleShare = useCallback(async (messageId: string, content: string) => {
-    setSharingMessageId(messageId);
-    setSharedUrl(null);
+  // Share report handler — returns URL on success, null on failure
+  const handleShare = useCallback(async (messageId: string, content: string): Promise<string | null> => {
     try {
       const res = await fetch("/api/reports", {
         method: "POST",
@@ -337,18 +333,14 @@ export function ChatPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setSharedUrl(data.url);
         await navigator.clipboard.writeText(data.url);
         track("report_shared", { messageId });
+        return data.url;
       }
     } catch {
       // silently fail
     }
-  }, []);
-
-  const handleDismissShare = useCallback(() => {
-    setSharingMessageId(null);
-    setSharedUrl(null);
+    return null;
   }, []);
 
   return (
@@ -522,60 +514,24 @@ export function ChatPage() {
                       return null;
                     }
                   })}
+                  {/* Action bar: cost + share — inside message bubble */}
+                  {message.role === "assistant" && status !== "streaming" && (() => {
+                    const textContent = message.parts
+                      .filter((p): p is { type: "text"; text: string } => p.type === "text")
+                      .map(p => p.text)
+                      .join("");
+                    const meta = message.metadata as { spendEvents?: Array<{ toolName: string; amountUsdc: number }> } | undefined;
+                    return (
+                      <MessageActions
+                        messageId={message.id}
+                        textContent={textContent}
+                        spendEvents={meta?.spendEvents}
+                        isAnonymous={!walletAddress}
+                        onShare={handleShare}
+                      />
+                    );
+                  })()}
                 </MessageContent>
-                {message.role === "assistant" && (() => {
-                  const meta = message.metadata as { spendEvents?: Array<{ toolName: string; amountUsdc: number }> } | undefined;
-                  if (meta?.spendEvents?.length) {
-                    return <SessionReceipt items={meta.spendEvents} isAnonymous={!walletAddress} />;
-                  }
-                  return null;
-                })()}
-                {/* Share button — show on completed assistant messages with markers */}
-                {message.role === "assistant" && status !== "streaming" && (() => {
-                  const textContent = message.parts
-                    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-                    .map(p => p.text)
-                    .join("");
-                  const hasMarkers = /\[(METRIC|VERDICT|SCORE):/.test(textContent);
-                  if (!hasMarkers) return null;
-                  const isSharing = sharingMessageId === message.id;
-                  const hasShared = isSharing && sharedUrl;
-                  return (
-                    <div className="flex items-center gap-2 mt-1 ml-1">
-                      {hasShared ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 text-[11px] text-green-400">
-                            <Check className="size-3" /> Link copied
-                          </span>
-                          <button
-                            onClick={() => {
-                              const text = encodeURIComponent("Check out this analysis from @ObolAI");
-                              const url = encodeURIComponent(sharedUrl!);
-                              window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, "_blank");
-                            }}
-                            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            Share on X
-                          </button>
-                          <button
-                            onClick={handleDismissShare}
-                            className="text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors ml-1"
-                          >
-                            Dismiss
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          onClick={() => handleShare(message.id, textContent)}
-                          disabled={isSharing}
-                          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors disabled:opacity-50"
-                        >
-                          <Share2 className="size-3" /> {isSharing ? "Saving..." : "Share"}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
               </Message>
             ))}
             {status === "submitted" && !isRetrying && <Loader />}

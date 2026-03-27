@@ -70,25 +70,29 @@ const ToolOutputSchema = z
   })
   .optional();
 
-/** Extract what the user is charged for a tool call (with 30% markup applied). */
+/** Extract what the user is charged for a tool call (with 30% markup applied).
+ *  For cluster tools, prefer the canonical price from TOOL_PRICES so the tool card
+ *  matches the receipt (which uses the same canonical price).
+ */
 function extractToolCost(part: ToolUIPart | DynamicToolUIPart): number | null {
   if (part.state !== "output-available") return null;
 
   const toolName = part.type === "dynamic-tool" ? part.toolName : part.type.slice(5);
 
-  // MCP tools: check payment metadata or known prices
+  // MCP tools: check payment metadata first
   const output = part.output as Record<string, unknown> | undefined;
   const meta = output?._meta as Record<string, unknown> | undefined;
   const paymentResponse = meta?.["x402/payment-response"] as { amount?: number } | undefined;
   if (paymentResponse?.amount != null) {
     return withMarkup(Number(paymentResponse.amount) / 1e6);
   }
+
+  // Known tool prices (MCP tools + cluster tools) — canonical user-facing price
   if (TOOL_PRICES[toolName]) {
     return withMarkup(TOOL_PRICES[toolName]);
   }
 
-  // Cluster tools: check for totalCostMicroUsdc in output
-  // Native AI SDK tools return ClusterResult directly as the output object
+  // Fallback: cluster tools without a TOOL_PRICES entry — use totalCostMicroUsdc
   if (output && typeof (output as Record<string, unknown>).totalCostMicroUsdc === "number") {
     const cost = (output as Record<string, unknown>).totalCostMicroUsdc as number;
     if (cost > 0) return withMarkup(cost / 1_000_000);
