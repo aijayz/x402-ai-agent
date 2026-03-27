@@ -118,7 +118,11 @@ Or ask Obol anything on-chain
 - `src/app/api/digest/generate/route.ts` — after digest generation, call tweet formatter and post.
 
 **Config:**
-- `TWITTER_THREAD_ENABLED` env var — add to `src/lib/env.ts` as `z.enum(["true","false"]).optional()` (t3-env requires Zod string coercion, not native boolean). When absent or "false", posts single tweet (Phase 1). When "true", posts full thread (Phase 3).
+- `TWITTER_THREAD_MODE` env var — add to `src/lib/env.ts` as `z.enum(["single","pair","thread"]).optional().default("single")`.
+  - `"single"` (default) — Phase 1: one tweet with the best data nugget + digest link
+  - `"pair"` — Phase 2: hook tweet + one data tweet (2-tweet reply chain). The formatter picks the hook (narrative sentence) and the strongest data block (price table OR whale watch OR sentiment — whichever has the most dramatic numbers that day).
+  - `"thread"` — Phase 3: full 4-5 tweet thread as designed above
+- The `postThread(tweets: string[])` function handles all three modes — Phase 1 is just a thread of length 1, Phase 2 is length 2. No separate code paths needed.
 
 **Bug fix (prerequisite):** `src/app/api/digest/generate/route.ts` hardcodes `obolai.app` in tweet/Telegram URLs. Change to use `env.URL` so links point to the correct production domain (`obolai.xyz`).
 
