@@ -69,23 +69,41 @@ export function MessageActions({
 
   const handleCopyLink = async () => {
     if (!sharedUrl) return;
-    await navigator.clipboard.writeText(sharedUrl);
+    try {
+      await navigator.clipboard.writeText(sharedUrl);
+    } catch {
+      // Fallback for in-app browsers (MetaMask, etc.) that lack Clipboard API
+      const ta = document.createElement("textarea");
+      ta.value = sharedUrl;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 3000);
+  };
+
+  const openUrl = (href: string) => {
+    // window.open is blocked in some in-app browsers (MetaMask, etc.)
+    const w = window.open(href, "_blank");
+    if (!w) window.location.assign(href);
   };
 
   const shareOnX = () => {
     if (!sharedUrl) return;
     const text = encodeURIComponent("Check out this analysis from @ObolAI");
     const url = encodeURIComponent(sharedUrl);
-    window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, "_blank");
+    openUrl(`https://x.com/intent/tweet?text=${text}&url=${url}`);
   };
 
   const shareOnFarcaster = () => {
     if (!sharedUrl) return;
     const text = encodeURIComponent("Check out this analysis from Obol AI");
     const url = encodeURIComponent(sharedUrl);
-    window.open(`https://warpcast.com/~/compose?text=${text}&embeds[]=${url}`, "_blank");
+    openUrl(`https://warpcast.com/~/compose?text=${text}&embeds[]=${url}`);
   };
 
   const hasMultipleCosts = spendEvents && spendEvents.length > 1;

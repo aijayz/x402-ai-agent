@@ -125,11 +125,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
       const data = await res.json();
       if (res.ok) {
-        const amount = data.granted ?? data.balance ?? 0;
-        setBalance(amount);
-        if (amount > 0) {
-          setLastCreditEvent({ type: "claimed", amountMicroUsdc: amount });
-          track("credits_claimed", { amountUsdc: amount / 1_000_000 });
+        const granted = data.granted ?? 0;
+        const currentBalance = data.balance ?? granted;
+        setBalance(currentBalance);
+        if (granted > 0) {
+          setLastCreditEvent({ type: "claimed", amountMicroUsdc: granted });
+          track("credits_claimed", { amountUsdc: granted / 1_000_000 });
         }
       } else if (res.status === 409) {
         // Already claimed — just sync balance
