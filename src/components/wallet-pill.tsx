@@ -27,14 +27,14 @@ export function WalletPill() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm
+    <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full text-sm
       bg-muted/50 border border-border">
-      <div className="w-2 h-2 rounded-full bg-green-500" />
+      <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
       <span className="font-mono text-xs">
         {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
       </span>
-      <span className="text-muted-foreground">|</span>
-      <span className="text-xs text-muted-foreground">{networkLabel}</span>
+      <span className="hidden sm:inline text-muted-foreground">|</span>
+      <span className="hidden sm:inline text-xs text-muted-foreground">{networkLabel}</span>
       <button
         onClick={disconnectWallet}
         className="ml-1 p-0.5 rounded hover:bg-muted transition-colors"
@@ -81,7 +81,7 @@ export function CreditBadge() {
           transition-all duration-200"
       >
         <ArrowUpRight className="size-3" />
-        Top Up
+        <span className="hidden sm:inline">Top Up</span>
       </button>
     </div>
   );

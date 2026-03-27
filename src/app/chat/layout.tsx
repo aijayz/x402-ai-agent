@@ -25,7 +25,7 @@ export default function ChatLayout({
             />
           </div>
 
-          <div className="relative flex flex-row gap-4 items-center justify-between py-3 px-4">
+          <div className="relative flex flex-row gap-4 items-center justify-between py-3 px-4 min-w-0 overflow-hidden">
             {/* Logo mark */}
             <Link
               href="/"
@@ -76,7 +76,7 @@ export default function ChatLayout({
             </div>
 
             {/* Right: Credits + Wallet */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <CreditBadge />
               <WalletPill />
             </div>
