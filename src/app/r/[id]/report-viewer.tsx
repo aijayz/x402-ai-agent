@@ -146,20 +146,37 @@ export function ReportViewer({ report }: { report: Report }) {
         </div>
 
         {/* Report body — tuned for readability */}
+        <style>{`
+          .report-body p:has(> strong:first-child:last-child) {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid hsl(var(--border) / 0.3);
+            font-size: 16px;
+            color: hsl(var(--foreground));
+          }
+          .report-body > div:first-child p:first-child:has(> strong:first-child:last-child) {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+          }
+        `}</style>
         <div
-          className="space-y-6"
+          className="report-body space-y-1.5"
           style={{ fontSize: "15px", lineHeight: "1.7" }}
         >
           {segments.map((seg, i) =>
             seg.type === "text" ? (
               <div
                 key={i}
-                className="text-foreground/90 [&_strong]:text-foreground [&_strong]:font-semibold [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:text-foreground/80 [&_p]:mb-3 [&_p:last-child]:mb-0"
+                className="text-foreground/90
+                  [&_strong]:text-foreground [&_strong]:font-semibold
+                  [&_ul]:mt-1 [&_ul]:space-y-0.5 [&_li]:text-foreground/80
+                  [&_p]:mb-1.5 [&_p:last-child]:mb-0"
               >
                 <InlineSegments segments={[seg]} />
               </div>
             ) : (
-              <div key={i} className="my-6">
+              <div key={i} className="my-2">
                 <InlineSegments segments={[seg]} />
               </div>
             )
