@@ -5,7 +5,7 @@ import {
   ConversationContent,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
-import { Message, MessageContent } from "@/components/ai-elements/message";
+import { Message, MessageContent, DateDivider } from "@/components/ai-elements/message";
 import {
   PromptInput,
   PromptInputSubmit,
@@ -424,12 +424,27 @@ export function ChatPage() {
                 )}
               </div>
             )}
-            {messages.map((message) => (
-              <Message
-                from={message.role}
-                key={message.id}
-                timestamp={(message.metadata as { timestamp?: string } | undefined)?.timestamp}
-              >
+            {messages.map((message, msgIndex) => {
+              // Date divider: show between messages when the date changes
+              const meta = message.metadata as { timestamp?: string } | undefined;
+              const ts = meta?.timestamp;
+              let showDivider = false;
+              if (ts && msgIndex > 0) {
+                const prevMeta = messages[msgIndex - 1].metadata as { timestamp?: string } | undefined;
+                const prevTs = prevMeta?.timestamp;
+                if (prevTs) {
+                  const cur = new Date(ts).toDateString();
+                  const prev = new Date(prevTs).toDateString();
+                  showDivider = cur !== prev;
+                }
+              }
+              // Show divider for the very first message that has a timestamp
+              if (ts && msgIndex === 0) showDivider = true;
+
+              return (
+                <div key={message.id}>
+                  {showDivider && ts && <DateDivider date={ts} />}
+                  <Message from={message.role}>
                 <MessageContent>
                   {message.parts.map((part, i) => {
                     if (part.type === "text") {
@@ -537,7 +552,9 @@ export function ChatPage() {
                   })()}
                 </MessageContent>
               </Message>
-            ))}
+                </div>
+              );
+            })}
             {status === "submitted" && !isRetrying && <Loader />}
             {status === "error" && lastError?.message === "RATE_LIMITED" && (
               <div className="flex flex-col items-center justify-center p-6 mx-auto max-w-md">
