@@ -279,9 +279,10 @@ export const POST = async (request: Request) => {
               });
 
               if (walletAddress) {
-                // 1. Record spend event FIRST (audit trail before deduction)
+                // 1. Idempotent spend event — ON CONFLICT DO NOTHING prevents double-deduction
+                let isNew = false;
                 try {
-                  await SpendEventStore.record({
+                  isNew = await SpendEventStore.recordIfNew({
                     walletAddress,
                     toolName: toolResult.toolName,
                     serviceCostMicroUsdc: serviceCostMicro,
@@ -290,44 +291,35 @@ export const POST = async (request: Request) => {
                     txHash,
                   });
                 } catch (err) {
-                  console.error("[PAYMENT] Failed to record spend event", { walletAddress, txHash, err });
+                  console.error("[PAYMENT] Spend event insert failed", { walletAddress, txHash, err });
                   await sendTelegramAlert(
-                    `*Spend Event Failed*\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\`\nError: ${err instanceof Error ? err.message : String(err)}`
+                    `*Spend Event Failed*\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\``
                   ).catch(() => {});
+                  isNew = true; // Proceed with deduction attempt
                 }
 
-                // 2. Deduct credits — try normal deduct, then force deduct on failure
+                if (!isNew) {
+                  console.warn("[PAYMENT] Duplicate txHash, skipping deduction", { walletAddress, txHash });
+                  continue;
+                }
+
+                // 2. Deduct credits — if insufficient balance, absorb the loss (no forceDeduct)
                 try {
                   const result = await CreditStore.deduct(walletAddress, chargedMicro);
                   if (!result.success) {
-                    // Balance race condition — force deduct (allows negative balance)
-                    console.warn("[PAYMENT] Normal deduct failed (insufficient balance race), force-deducting", {
+                    console.warn("[PAYMENT] Insufficient balance — absorbing loss (on-chain payment already settled)", {
                       walletAddress, chargedMicro, txHash,
                     });
-                    const forced = await CreditStore.forceDeduct(walletAddress, chargedMicro);
-                    if (!forced.success) {
-                      // Account doesn't exist at all — should never happen
-                      console.error("[PAYMENT] Force deduct failed — no account", { walletAddress, txHash });
-                      await sendTelegramAlert(
-                        `*Force Deduct Failed*\n\nNo account found.\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\``
-                      ).catch(() => {});
-                    } else {
-                      await sendTelegramAlert(
-                        `*Balance Race — Force Deducted*\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nNew balance: $${((forced.newBalanceMicroUsdc ?? 0) / 1_000_000).toFixed(4)}\nTx: \`${txHash}\``
-                      ).catch(() => {});
-                    }
-                  }
-                } catch (err) {
-                  // DB error — retry once
-                  console.error("[PAYMENT] Deduct threw, retrying once", { walletAddress, txHash, err });
-                  try {
-                    await CreditStore.forceDeduct(walletAddress, chargedMicro);
-                  } catch (retryErr) {
-                    console.error("[PAYMENT] Retry deduct also failed — UNRECOVERED", { walletAddress, txHash, retryErr });
                     await sendTelegramAlert(
-                      `*CRITICAL: Unrecovered Payment*\n\nOn-chain payment succeeded but credit deduction failed after retry.\n\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\`\nError: ${retryErr instanceof Error ? retryErr.message : String(retryErr)}`
+                      `*Credit Shortfall (Absorbed)*\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\`\nOn-chain payment settled but user has insufficient credits. No negative balance created.`
                     ).catch(() => {});
                   }
+                } catch (err) {
+                  // DB error — do NOT retry (spend event is the audit trail)
+                  console.error("[PAYMENT] Deduct DB error — NOT retrying", { walletAddress, txHash, err });
+                  await sendTelegramAlert(
+                    `*Deduct Failed (No Retry)*\nWallet: \`${walletAddress}\`\nTool: ${toolResult.toolName}\nAmount: $${(chargedMicro / 1_000_000).toFixed(4)}\nTx: \`${txHash}\``
+                  ).catch(() => {});
                 }
               }
             }

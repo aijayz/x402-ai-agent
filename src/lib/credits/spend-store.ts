@@ -35,6 +35,32 @@ export const SpendEventStore = {
     `;
   },
 
+  /** Insert spend event idempotently — returns true if new, false if duplicate (ON CONFLICT DO NOTHING) */
+  async recordIfNew(event: {
+    walletAddress: string;
+    toolName: string;
+    serviceCostMicroUsdc: number;
+    chargedAmountMicroUsdc: number;
+    markupBps: number;
+    txHash: string;
+    sourceChain?: string;
+  }): Promise<boolean> {
+    const rows = await sql`
+      INSERT INTO spend_events (
+        wallet_address, tool_name,
+        service_cost_micro_usdc, charged_amount_micro_usdc,
+        markup_bps, tx_hash, source_chain
+      ) VALUES (
+        ${event.walletAddress}, ${event.toolName},
+        ${event.serviceCostMicroUsdc}, ${event.chargedAmountMicroUsdc},
+        ${event.markupBps}, ${event.txHash}, ${event.sourceChain ?? "base"}
+      )
+      ON CONFLICT (tx_hash, source_chain) DO NOTHING
+      RETURNING id
+    `;
+    return rows.length > 0;
+  },
+
   async existsByTxHashAndChain(txHash: string, sourceChain: string): Promise<boolean> {
     const rows = await sql`
       SELECT 1 FROM spend_events WHERE tx_hash = ${txHash} AND source_chain = ${sourceChain} LIMIT 1
