@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useAccount, useConnect, useDisconnect, useSwitchChain, useWalletClient } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { track, identifyUser, resetUser } from "@/lib/analytics";
-import { useIsMobileSafariWithoutWallet } from "@/hooks/use-mobile-wallet";
+import { useIsMobileWithoutWallet } from "@/hooks/use-mobile-wallet";
 import { MobileWalletSheet } from "@/components/mobile-wallet-sheet";
 
 const USDC_ADDRESS: Record<string, string> = {
@@ -73,7 +73,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const { openConnectModal, connectModalOpen } = useConnectModal();
 
   // Mobile: bypass RainbowKit modal on iOS Safari without injected wallet
-  const isMobileSafari = useIsMobileSafariWithoutWallet();
+  const isMobile = useIsMobileWithoutWallet();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   // Holds the resolve fn of a pending connectWallet() promise
@@ -209,7 +209,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     // iOS Safari without injected wallet → custom 2-option sheet
-    if (isMobileSafari && !mobileSheetOpen) {
+    if (isMobile && !mobileSheetOpen) {
       return new Promise<string | undefined>((resolve) => {
         connectResolveRef.current = resolve;
         setMobileSheetOpen(true);
@@ -221,7 +221,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connectResolveRef.current = resolve;
       openConnectModal?.();
     });
-  }, [wagmiAddress, walletAddress, openConnectModal, claimCredits, isMobileSafari, mobileSheetOpen]);
+  }, [wagmiAddress, walletAddress, openConnectModal, claimCredits, isMobile, mobileSheetOpen]);
 
   const disconnectWallet = useCallback(() => {
     disconnect();
