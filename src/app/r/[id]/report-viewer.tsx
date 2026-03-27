@@ -7,10 +7,22 @@ import type { Report } from "@/lib/reports/report-store";
 
 function parseReportActions(text: string): { cleanText: string } {
   // Strip [ACTION:...], [SUGGEST:...] markers — they're interactive chat elements, not for reports
-  const cleanText = text
+  let cleanText = text
     .replace(/\[ACTION:[^\]]+\]/g, "")
     .replace(/\[SUGGEST:[^\]]+\]/g, "")
     .trim();
+
+  // Strip agent narration before the actual analysis.
+  // The real content starts at the first structured marker or bold section header.
+  const contentStart = cleanText.search(/\[(METRIC|VERDICT|SCORE):|^\*\*[A-Z]/m);
+  if (contentStart > 0) {
+    // Only strip if the preamble looks like agent narration (contains phrases like "let me", "I'll", "I need to")
+    const preamble = cleanText.slice(0, contentStart);
+    if (/\b(let me|I'll|I need to|I see|I will|First,|Now let me)\b/i.test(preamble)) {
+      cleanText = cleanText.slice(contentStart).trim();
+    }
+  }
+
   return { cleanText };
 }
 
