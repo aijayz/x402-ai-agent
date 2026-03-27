@@ -239,13 +239,10 @@ export function DigestViewer({ report }: { report: Report }) {
 
           {/* Title */}
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground leading-tight mb-3">
-            Daily Briefing{" "}
-            <span className="bg-gradient-to-r from-blue-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              {displayDate.split(",")[0]}
-            </span>
+            Daily Briefing — {displayDate}
           </h1>
           <p className="text-sm text-muted-foreground/60">
-            {displayDate} &middot; Generated at {generatedAt}
+            Generated at {generatedAt}
           </p>
         </div>
 

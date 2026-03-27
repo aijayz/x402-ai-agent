@@ -60,7 +60,7 @@ function extractPreviewMetrics(content: string) {
   const metrics: { label: string; value: string; change?: string }[] = [];
   const re = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?]/g;
   let m;
-  while ((m = re.exec(content)) !== null && metrics.length < 3) {
+  while ((m = re.exec(content)) !== null) {
     metrics.push({ label: m[1].trim(), value: m[2].trim(), change: m[3]?.trim() || undefined });
   }
   return metrics;
@@ -112,9 +112,13 @@ export default async function LandingPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/digest"
-              className="hidden sm:inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                text-foreground/90 hover:text-foreground
+                border border-border/50 hover:border-border
+                bg-muted/20 hover:bg-muted/40
+                transition-all duration-200"
             >
-              <Newspaper className="size-3.5" />
+              <Newspaper className="size-3.5 text-blue-400" />
               Daily Briefing
             </Link>
             <Link
@@ -131,6 +135,84 @@ export default async function LandingPage() {
           </div>
         </div>
       </header>
+
+      {/* Daily Briefing Preview */}
+      {latestDigest && (() => {
+        const metrics = extractPreviewMetrics(latestDigest.content);
+        const verdict = extractPreviewVerdict(latestDigest.content);
+        const tokenIcons = (latestDigest.metadata as Record<string, unknown>)?.tokenIcons as Record<string, string> | undefined;
+        const digestDate = latestDigest.digestDate ?? latestDigest.createdAt.slice(0, 10);
+        const displayDate = new Date(digestDate + "T00:00:00Z").toLocaleDateString("en-US", {
+          month: "short", day: "numeric",
+        });
+        const verdictColorMap: Record<string, string> = {
+          green: "text-green-300 border-green-500/25 bg-green-500/8",
+          amber: "text-amber-300 border-amber-500/25 bg-amber-500/8",
+          red: "text-red-300 border-red-500/25 bg-red-500/8",
+        };
+        const vc = verdict ? (verdictColorMap[verdict.color] ?? verdictColorMap.amber) : null;
+
+        return (
+          <Link
+            href="/digest"
+            className="group relative block border-b border-border/30 bg-zinc-950/50 backdrop-blur-sm
+              hover:bg-zinc-900/50 transition-all duration-300"
+          >
+            <div className="max-w-5xl mx-auto px-6 py-4 space-y-3">
+              {/* Top row: label + date */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Newspaper className="size-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-foreground">Daily Briefing</span>
+                  <span className="text-xs text-muted-foreground/50">{displayDate}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50 group-hover:text-foreground/70 transition-colors">
+                  Read full analysis
+                  <ArrowRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+
+              {/* Price grid */}
+              {metrics.length > 0 && (
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {metrics.slice(0, 6).map((m, i) => {
+                    const isUp = m.change?.startsWith("+");
+                    const isDown = m.change?.startsWith("-");
+                    const changeColor = isUp ? "text-green-400" : isDown ? "text-red-400" : "text-muted-foreground/60";
+                    const icon = tokenIcons?.[m.label];
+                    return (
+                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border/30 bg-white/[0.02] px-2.5 py-2">
+                        {icon ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={icon} alt="" className="size-5 rounded-full shrink-0" />
+                        ) : (
+                          <div className="size-5 rounded-full bg-muted/40 shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-foreground truncate">{m.label}</div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-mono text-foreground/80">{m.value}</span>
+                            {m.change && (
+                              <span className={`text-[10px] font-mono font-medium ${changeColor}`}>{m.change}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Verdict */}
+              {verdict && vc && (
+                <div className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${vc}`}>
+                  {verdict.text}
+                </div>
+              )}
+            </div>
+          </Link>
+        );
+      })()}
 
       {/* Hero */}
       <section className="relative py-24 px-6">
@@ -216,65 +298,7 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Daily Digest Preview */}
-      {latestDigest && (() => {
-        const digestDate = latestDigest.digestDate ?? latestDigest.createdAt.slice(0, 10);
-        const displayDate = new Date(digestDate + "T00:00:00Z").toLocaleDateString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-        });
-        const metrics = extractPreviewMetrics(latestDigest.content);
-        const verdict = extractPreviewVerdict(latestDigest.content);
-        const verdictColorMap: Record<string, string> = {
-          green: "text-green-400 border-green-500/30 bg-green-500/10",
-          amber: "text-amber-400 border-amber-500/30 bg-amber-500/10",
-          red: "text-red-400 border-red-500/30 bg-red-500/10",
-        };
-        const vc = verdict ? (verdictColorMap[verdict.color] ?? verdictColorMap.green) : null;
-
-        return (
-          <section className="relative py-16 px-6 border-t border-border/50">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <h2 className="text-2xl font-semibold text-foreground mb-2">Daily Briefing</h2>
-                <p className="text-sm text-muted-foreground">{displayDate} — AI-synthesized market intelligence</p>
-              </div>
-
-              <Link
-                href="/digest"
-                className="group block rounded-xl border border-border/50 hover:border-border bg-zinc-900/80 p-6 space-y-4 transition-all duration-300 hover:translate-y-[-2px] animate-in fade-in slide-in-from-bottom-3 duration-500"
-              >
-                {metrics.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {metrics.map((m, i) => {
-                      const changeColor = m.change?.startsWith("+") ? "text-green-400" : m.change?.startsWith("-") ? "text-red-400" : "text-muted-foreground";
-                      return (
-                        <div key={i} className="rounded-lg border border-border/40 bg-muted/20 p-3 space-y-1">
-                          <span className="text-[11px] uppercase tracking-wider text-muted-foreground/60">{m.label}</span>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-lg font-bold text-foreground">{m.value}</span>
-                            {m.change && <span className={`text-xs font-semibold ${changeColor}`}>{m.change}</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {verdict && vc && (
-                  <div className={`rounded-lg border px-4 py-2.5 text-sm font-medium ${vc}`}>
-                    {verdict.text.length > 150 ? verdict.text.slice(0, 147) + "..." : verdict.text}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground group-hover:text-foreground transition-colors pt-1">
-                  Read full briefing
-                  <ArrowRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </Link>
-            </div>
-          </section>
-        );
-      })()}
+      {/* Daily Digest Preview — moved to ticker strip above hero */}
 
       {/* Research Clusters */}
       <section className="relative py-16 px-6 border-t border-border/50">
