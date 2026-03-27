@@ -2,30 +2,16 @@
 
 import "@rainbow-me/rainbowkit/styles.css";
 import type { ReactNode } from "react";
-import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { base, baseSepolia } from "wagmi/chains";
-import { coinbaseWallet, injected, walletConnect } from "wagmi/connectors";
+import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
+import { WagmiProvider } from "wagmi";
+import { base, baseSepolia, mainnet, arbitrum, optimism } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WalletProvider } from "./wallet-provider";
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
-
-// Use raw wagmi connectors to avoid RainbowKit wallet objects that eagerly
-// import WalletConnect (which throws at module evaluation if projectId is empty).
-const wagmiConfig = createConfig({
-  connectors: [
-    injected(),
-    coinbaseWallet({ appName: "Obol AI" }),
-    // WalletConnect enables MetaMask mobile (stays in Safari) + 300 other wallets.
-    // Get a free project ID at https://cloud.walletconnect.com
-    ...(projectId ? [walletConnect({ projectId })] : []),
-  ],
-  chains: [base, baseSepolia],
-  transports: {
-    [base.id]: http(),
-    [baseSepolia.id]: http(),
-  },
+const wagmiConfig = getDefaultConfig({
+  appName: "Obol AI",
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+  chains: [base, mainnet, arbitrum, optimism, baseSepolia],
   ssr: true,
 });
 
