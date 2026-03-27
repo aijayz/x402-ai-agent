@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Share2, Check, Copy, ExternalLink, Zap } from "lucide-react";
+import { Share2, Check, Copy, ExternalLink, Zap, ChevronDown, ChevronUp } from "lucide-react";
 
 interface SpendEvent {
   toolName: string;
@@ -46,6 +46,7 @@ export function MessageActions({
   const [shareState, setShareState] = useState<"idle" | "saving" | "shared">("idle");
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [costExpanded, setCostExpanded] = useState(false);
 
   const totalCost = spendEvents?.reduce((sum, e) => sum + e.amountUsdc, 0) ?? 0;
   const hasMarkers = /\[(METRIC|VERDICT|SCORE):/.test(textContent);
@@ -60,7 +61,6 @@ export function MessageActions({
       setSharedUrl(url);
       setShareState("shared");
       setLinkCopied(true);
-      // Reset "copied" indicator after 3s but keep panel open
       setTimeout(() => setLinkCopied(false), 3000);
     } else {
       setShareState("idle");
@@ -88,49 +88,56 @@ export function MessageActions({
     window.open(`https://warpcast.com/~/compose?text=${text}&embeds[]=${url}`, "_blank");
   };
 
+  const hasMultipleCosts = spendEvents && spendEvents.length > 1;
+
   return (
-    <div className="mt-4 pt-3 border-t border-border/30 space-y-3">
+    <div className="mt-4 pt-3 border-t border-border/30 space-y-2">
       {/* Action bar: cost + share */}
       <div className="flex items-center justify-between">
-        {/* Cost indicator */}
+        {/* Cost indicator — click to expand breakdown */}
         {totalCost > 0 && (
-          <div className="group relative">
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Zap className="size-3 text-amber-500" />
-              <span className="font-mono">${totalCost.toFixed(3)}</span>
-              <span className="text-muted-foreground/50">via x402</span>
-            </span>
-            {/* Hover tooltip with breakdown */}
-            {spendEvents && spendEvents.length > 1 && (
-              <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-10">
-                <div className="bg-popover border border-border rounded-lg shadow-lg p-2.5 text-xs font-mono space-y-1 min-w-[180px]">
-                  {spendEvents.map((e, i) => (
-                    <div key={i} className="flex justify-between gap-4">
-                      <span className="text-muted-foreground">{e.toolName.replace(/_/g, " ")}</span>
-                      <span>${e.amountUsdc.toFixed(3)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+          <button
+            onClick={hasMultipleCosts ? () => setCostExpanded(!costExpanded) : undefined}
+            className={`inline-flex items-center gap-1.5 text-xs ${hasMultipleCosts ? "cursor-pointer" : "cursor-default"}`}
+          >
+            <Zap className="size-3 text-amber-500" />
+            <span className="font-mono text-foreground/70">${totalCost.toFixed(3)}</span>
+            <span className="text-foreground/40">via x402</span>
+            {hasMultipleCosts && (
+              costExpanded
+                ? <ChevronUp className="size-3 text-foreground/40" />
+                : <ChevronDown className="size-3 text-foreground/40" />
             )}
-          </div>
+          </button>
         )}
 
         {/* Share button */}
         {hasMarkers && shareState === "idle" && (
           <button
             onClick={handleShareClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30 transition-colors ml-auto"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium rounded-md bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 hover:text-amber-200 transition-colors ml-auto"
           >
-            <Share2 className="size-3.5" /> Share report
+            <Share2 className="size-3.5" /> Share this analysis
           </button>
         )}
         {hasMarkers && shareState === "saving" && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground ml-auto">
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-amber-300/70 ml-auto">
             <Share2 className="size-3.5 animate-pulse" /> Saving...
           </span>
         )}
       </div>
+
+      {/* Cost breakdown — inline, no overlap */}
+      {costExpanded && hasMultipleCosts && (
+        <div className="ml-5 space-y-0.5">
+          {spendEvents.map((e, i) => (
+            <div key={i} className="flex justify-between gap-4 text-xs font-mono max-w-[200px]">
+              <span className="text-foreground/50">{e.toolName.replace(/_/g, " ")}</span>
+              <span className="text-foreground/70">${e.amountUsdc.toFixed(3)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Share panel — appears after report is saved */}
       {shareState === "shared" && sharedUrl && (
