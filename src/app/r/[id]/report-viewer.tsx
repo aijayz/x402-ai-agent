@@ -147,14 +147,14 @@ export function ReportViewer({ report }: { report: Report }) {
 
         {/* Report body — tuned for readability */}
         <style>{`
-          .report-body p:has(> strong:first-child:last-child) {
+          .report-body p:has(> [data-streamdown="strong"]:first-child:last-child) {
             margin-top: 2rem;
             padding-top: 1.5rem;
             border-top: 1px solid hsl(var(--border) / 0.3);
             font-size: 16px;
             color: hsl(var(--foreground));
           }
-          .report-body > div:first-child p:first-child:has(> strong:first-child:last-child) {
+          .report-body > div:first-child p:first-child:has(> [data-streamdown="strong"]:first-child:last-child) {
             margin-top: 0;
             padding-top: 0;
             border-top: none;
