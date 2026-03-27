@@ -24,9 +24,9 @@ export async function sendTelegramAlert(message: string, parseMode?: "Markdown" 
   }
 }
 
-/** Send a photo with caption to the configured Telegram chat. */
-export async function sendTelegramPhoto(photoUrl: string, caption: string, parseMode?: "Markdown" | "HTML") {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
+/** Send a photo with caption. Returns true on success, false on failure. */
+export async function sendTelegramPhoto(photoUrl: string, caption: string, parseMode?: "Markdown" | "HTML"): Promise<boolean> {
+  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return false;
   try {
     const body: Record<string, unknown> = {
       chat_id: env.TELEGRAM_CHAT_ID,
@@ -42,8 +42,11 @@ export async function sendTelegramPhoto(photoUrl: string, caption: string, parse
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.error(`[TELEGRAM] sendPhoto error ${res.status}: ${detail}`);
+      return false;
     }
+    return true;
   } catch (err) {
     console.error("[TELEGRAM] Failed to send photo", err);
+    return false;
   }
 }

@@ -3,7 +3,7 @@ import { env } from "@/lib/env";
 import { ReportStore } from "@/lib/reports/report-store";
 import { collectDigestData } from "@/lib/digest/collector";
 import { generateDigest } from "@/lib/digest/generator";
-import { sendTelegramAlert, sendTelegramPhoto } from "@/lib/telegram";
+import { sendTelegramAlert } from "@/lib/telegram";
 import { postTweet } from "@/lib/twitter";
 
 export const maxDuration = 120;
@@ -58,10 +58,8 @@ export async function GET(req: Request) {
 
     // Shared data for social posts
     const digestUrl = `https://obolai.app/digest/${today}`;
-    const ogImageUrl = `https://obolai.app/digest/${today}/opengraph-image`;
     const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
     const verdictText = verdictMatch ? verdictMatch[1].trim() : "";
-    const verdictColor = verdictMatch?.[2] ?? "";
 
     const fmt = (p: typeof data.prices[0]) => {
       const sign = p.change24h >= 0 ? "+" : "";
@@ -101,7 +99,7 @@ export async function GET(req: Request) {
       data.errors.length > 0 ? `\n<i>Partial data: ${data.errors.join(", ")}</i>` : "",
     ].filter(Boolean).join("\n");
 
-    await sendTelegramPhoto(ogImageUrl, telegramMsg, "HTML").catch((err) => {
+    await sendTelegramAlert(telegramMsg, "HTML").catch((err) => {
       console.error("[DIGEST] Telegram share failed:", err);
     });
 
@@ -124,7 +122,7 @@ export async function GET(req: Request) {
       digestUrl,
     ].filter(Boolean).join("\n");
 
-    await postTweet(tweetText, ogImageUrl).catch((err) => {
+    await postTweet(tweetText).catch((err) => {
       console.error("[DIGEST] Twitter share failed:", err);
     });
 
