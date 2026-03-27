@@ -59,30 +59,32 @@ export async function GET(req: Request) {
     const digestUrl = `https://www.obolai.xyz/digest/${today}`;
     const priceLines = data.prices.slice(0, 6).map(p => {
       const sign = p.change24h >= 0 ? "+" : "";
-      return `${p.symbol} $${p.price.toLocaleString("en-US", { maximumFractionDigits: 2 })} (${sign}${p.change24h.toFixed(1)}%)`;
+      return `${p.symbol}  ${p.price.toLocaleString("en-US", { style: "currency", currency: "USD" })}  ${sign}${p.change24h.toFixed(1)}%`;
     }).join("\n");
 
     // Extract verdict text from content
     const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
-    const verdictLine = verdictMatch ? `\n\n*${verdictMatch[1].trim()}*` : "";
+    const verdictLine = verdictMatch ? `\n${verdictMatch[1].trim()}` : "";
 
     const telegramMsg = [
-      `*Daily Briefing — ${today}*`,
+      `Daily Briefing — ${today}`,
       "",
       priceLines,
       verdictLine,
       "",
-      `[Read full briefing](${digestUrl})`,
-      data.errors.length > 0 ? `\n_Partial: ${data.errors.join(", ")}_` : "",
+      digestUrl,
+      data.errors.length > 0 ? `\nPartial: ${data.errors.join(", ")}` : "",
     ].filter(Boolean).join("\n");
 
-    await sendTelegramAlert(telegramMsg).catch(() => {});
+    await sendTelegramAlert(telegramMsg).catch((err) => {
+      console.error("[DIGEST] Telegram share failed:", err);
+    });
 
     return NextResponse.json({ status: "created", id: report.id, date: today });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[DIGEST] Generation failed", msg);
-    await sendTelegramAlert(`*Digest Generation Failed*\n\n${today}\n${msg}`).catch(() => {});
+    await sendTelegramAlert(`*Digest Generation Failed*\n\n${today}\n${msg}`, true).catch(() => {});
     return NextResponse.json({ error: "Generation failed", detail: msg }, { status: 500 });
   }
 }
