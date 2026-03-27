@@ -360,7 +360,7 @@ export function ChatPage() {
   }, []);
 
   return (
-    <div className="w-full h-[calc(100vh-60px)] flex relative">
+    <div className="w-full h-[calc(100vh-60px)] flex relative overflow-x-hidden">
       {walletAddress && (
         <ConversationSidebar
           conversations={conversations}
@@ -372,7 +372,7 @@ export function ChatPage() {
           onSearch={searchConversations}
         />
       )}
-      <div className="flex-1 flex flex-col h-full max-w-4xl mx-auto p-4 md:p-6">
+      <div className="flex-1 min-w-0 flex flex-col h-full max-w-4xl mx-auto p-4 md:p-6">
         <Conversation className="flex-1 min-h-0">
           <ConversationContent className="min-h-full flex flex-col justify-end">
             {messages.length === 0 && status === "ready" && (
