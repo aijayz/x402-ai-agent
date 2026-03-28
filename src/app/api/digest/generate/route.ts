@@ -81,6 +81,9 @@ export async function GET(req: Request) {
       weekday: "long", month: "short", day: "numeric", year: "numeric",
     });
 
+    // HTML-escape dynamic text to prevent broken Telegram messages
+    const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
     // ── Telegram (HTML) ──
     const tgPrices = top6.map(p => {
       const g = glyph(p.symbol);
@@ -95,11 +98,11 @@ export async function GET(req: Request) {
       "",
       tgPrices,
       "",
-      verdictText ? `\u25B8 ${verdictText}` : "",
+      verdictText ? `\u25B8 ${escHtml(verdictText)}` : null,
       "",
-      `<a href="${digestUrl}">Read the full analysis \u2192</a>`,
-      data.errors.length > 0 ? `\n<i>Partial data: ${data.errors.join(", ")}</i>` : "",
-    ].filter(Boolean).join("\n");
+      `<a href="${digestUrl}">Read the full briefing \u2192</a>`,
+      data.errors.length > 0 ? `\n<i>Partial data: ${escHtml(data.errors.join(", "))}</i>` : null,
+    ].filter((line) => line !== null).join("\n");
 
     await sendTelegramAlert(telegramMsg, "HTML").catch((err) => {
       console.error("[DIGEST] Telegram share failed:", err);

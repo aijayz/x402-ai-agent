@@ -70,8 +70,9 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
       "",
       verdict || undefined,
       "",
-      `Full daily brief -> ${digestUrl}`,
-    ].filter(Boolean) as string[];
+      `Full daily brief`,
+      digestUrl,
+    ].filter((line) => line !== undefined) as string[];
 
     return [parts.join("\n")];
   }
@@ -84,11 +85,12 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
       "",
       verdict || undefined,
       "",
-      `Full brief -> ${digestUrl}`,
-    ].filter(Boolean) as string[];
+      `Full brief`,
+      digestUrl,
+    ].filter((line) => line !== undefined) as string[];
 
     const secondBlock = pickStrongestBlock(data) ?? priceBlock(data);
-    const second = [secondBlock, "", `Ask Obol anything -> ${env.URL}/chat`].join("\n");
+    const second = [secondBlock, "", `Ask Obol anything`, `${env.URL}/chat`].join("\n");
 
     return [hook.join("\n"), second];
   }
@@ -129,10 +131,10 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
 
   const tweetCta = [
     `Full briefing with sources`,
-    `-> ${digestUrl}`,
+    digestUrl,
     "",
     `Or ask Obol anything on-chain`,
-    `-> ${env.URL}/chat`,
+    `${env.URL}/chat`,
   ].join("\n");
 
   return [tweet1, tweet2, tweet3, tweet4, tweetCta].filter(Boolean) as string[];
