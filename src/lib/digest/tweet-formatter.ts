@@ -32,6 +32,60 @@ function priceBlock(data: DigestData): string {
   return `Top movers today\n\n${lines.join("\n")}`;
 }
 
+function longDate(date: string): string {
+  const d = new Date(date + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+}
+
+const coinGlyph: Record<string, string> = { BTC: "\u20BF", ETH: "\u039E" };
+
+function buildPriceSectionPlain(data: DigestData): string {
+  const top6 = data.prices.slice(0, 6);
+  return top6
+    .map((p) => {
+      const g = coinGlyph[p.symbol] ?? "";
+      const label = g ? `${g} ${p.symbol}` : p.symbol;
+      const price = p.price >= 1
+        ? p.price.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
+        : `$${p.price.toPrecision(3)}`;
+      const sign = p.change24h >= 0 ? "+" : "";
+      const arrow = p.change24h >= 0 ? "\u25B2" : "\u25BC";
+      return `  ${label}  ${price}  ${arrow} ${sign}${p.change24h.toFixed(1)}%`;
+    })
+    .join("\n");
+}
+
+function buildWhaleSectionPlain(flows: DigestData["whaleFlows"]): string | null {
+  const entries: string[] = [];
+  for (const w of flows) {
+    if (entries.length >= 3) break;
+    if (w.hasExchangeSplit && (w.inflowUsd > 0 || w.outflowUsd > 0)) {
+      const dir = w.netFlowUsd > 0 ? "inflow to exchanges" : "outflow from exchanges";
+      entries.push(`> ${fmtUsd(Math.abs(w.netFlowUsd))} ${w.token} net ${dir}`);
+    } else if (w.totalVolumeUsd > 0) {
+      entries.push(`> ${fmtUsd(w.totalVolumeUsd)} ${w.token} whale volume (7d)`);
+    }
+  }
+  if (entries.length === 0) return null;
+  return `Whale Signals\n${entries.join("\n")}`;
+}
+
+function buildSentimentSectionPlain(sentiment: DigestData["sentiment"]): string | null {
+  const entries = sentiment.filter((s) => s.score !== null && s.label !== null).slice(0, 3);
+  if (entries.length === 0) return null;
+  return `Sentiment\n${entries.map((s) => `> ${s.token}: ${s.label} (${s.score}/100)`).join("\n")}`;
+}
+
+function buildStablecoinSectionPlain(supply: DigestData["stablecoinSupply"]): string | null {
+  const sig = supply.filter((s) => Math.abs(s.change30dUsd) > 50_000_000);
+  if (sig.length === 0) return null;
+  const lines = sig.slice(0, 2).map((s) => {
+    const dir = s.change30dUsd > 0 ? "up" : "down";
+    return `> ${s.chain} stablecoin supply ${dir} ${fmtUsd(Math.abs(s.change30dUsd))} (30d)`;
+  });
+  return `Stablecoin Flow\n${lines.join("\n")}`;
+}
+
 // ── Narrative data nuggets ───────────────────────────────────
 
 interface DataNugget {
@@ -174,15 +228,25 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
   const nugget = selectBestDataNugget(data);
 
   if (mode === "single") {
-    const parts: string[] = [
-      `${short} -- ${nugget.headline}`,
-    ];
-    if (nugget.detail) {
-      parts.push("", nugget.detail);
-    }
-    parts.push("", digestUrl);
+    // Rich long-form post (premium X — no 280-char limit)
+    const verdictMatch = digestContent.match(/\[VERDICT:([^|]+)\|(\w+)]/);
+    const verdictText = verdictMatch ? verdictMatch[1].trim() : "";
 
-    return [truncateToFit(parts)];
+    const sections: (string | null)[] = [
+      `Obol AI -- Daily Briefing`,
+      longDate(date),
+      "",
+      buildPriceSectionPlain(data),
+      "",
+      buildWhaleSectionPlain(data.whaleFlows),
+      buildSentimentSectionPlain(data.sentiment),
+      buildStablecoinSectionPlain(data.stablecoinSupply),
+      verdictText ? `> ${verdictText}` : null,
+      "",
+      digestUrl,
+    ];
+
+    return [sections.filter((s) => s !== null).join("\n")];
   }
 
   if (mode === "pair") {
