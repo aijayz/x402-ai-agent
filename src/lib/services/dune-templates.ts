@@ -17,24 +17,34 @@ export interface DuneTemplate {
 export const DUNE_TEMPLATES: Record<string, DuneTemplate> = {
   // ── Tier 1: Core ──────────────────────────────────────────────
 
-  whale_net_flow_7d: {
-    id: "whale_net_flow_7d",
+  whale_flow_ethereum: {
+    id: "whale_flow_ethereum",
     duneQueryId: 6909847,
-    description: "Net large transfers (>$100k) for a token over 7 days — shows accumulation or distribution trend",
+    description: "Consolidated whale + CEX flow for multiple ERC-20 tokens on Ethereum (7 days) — one row per token with inflow/outflow split",
     params: [
-      { name: "token_address", type: "string", required: true },
-      { name: "chain", type: "string", required: true },
+      { name: "token_addresses", type: "string", required: true },
     ],
   },
 
-  cex_net_flow_7d: {
-    id: "cex_net_flow_7d",
-    duneQueryId: 6909858,
-    description: "Net token flow into/out of centralized exchanges over 7 days — exchange outflow suggests accumulation",
-    params: [
-      { name: "token_address", type: "string", required: true },
-      { name: "chain", type: "string", required: true },
-    ],
+  whale_flow_bitcoin: {
+    id: "whale_flow_bitcoin",
+    duneQueryId: 6918793,
+    description: "BTC native whale flow — large transactions (>$100k) over 7 days",
+    params: [],
+  },
+
+  whale_flow_solana: {
+    id: "whale_flow_solana",
+    duneQueryId: 6918837,
+    description: "SOL native whale flow — large transactions (>$100k) over 7 days",
+    params: [],
+  },
+
+  whale_flow_bnb: {
+    id: "whale_flow_bnb",
+    duneQueryId: 6918857,
+    description: "BNB native whale flow on BSC — large transactions (>$100k) over 7 days",
+    params: [],
   },
 
   top_holder_changes_7d: {

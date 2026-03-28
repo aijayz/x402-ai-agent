@@ -6,8 +6,8 @@ import { getTemplate, isTemplateReady } from "@/lib/services/dune-templates";
 import { env } from "@/lib/env";
 import { getDigestTokens } from "./tokens";
 import {
-  reduceWhaleFlow,
-  reduceCexFlow,
+  reduceWhaleFlowWithSplit,
+  reduceWhaleFlowVolumeOnly,
   reduceStablecoinSupply,
   reduceSentiment,
 } from "./reducers";
@@ -15,20 +15,26 @@ import type {
   DigestData,
   TokenPrice,
   ReducedWhaleFlow,
-  ReducedCexFlow,
   ReducedStablecoinSupply,
   ReducedSentiment,
 } from "./types";
 
-// ── Well-known token addresses ──────────────────────────────
+// ── ERC-20 token addresses on Ethereum ──────────────────────
 
-const WETH_ETHEREUM = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
-const WBTC_ETHEREUM = "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599";
+/** symbol → Ethereum contract address (for the consolidated whale_flow_ethereum query) */
+const ETHEREUM_TOKEN_ADDRESSES: Record<string, string> = {
+  ETH: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",   // WETH (also catches native ETH via traces)
+  BTC: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",   // WBTC (Ethereum-wrapped)
+  LINK: "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+  AAVE: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9",
+  AVAX: "0x85f138bfEE4ef8e540890CFb48F620571d67Eda3",  // Wrapped AVAX on Ethereum
+  POL:  "0x455e53CBB86018Ac2B8092FdCd39d8444aFFC3F6",  // POL (ex-MATIC) on Ethereum
+};
 
-const DUNE_TOKENS = [
-  { token: "ETH", address: WETH_ETHEREUM, chain: "ethereum" },
-  { token: "BTC", address: WBTC_ETHEREUM, chain: "ethereum" },
-] as const;
+/** Reverse lookup: lowercase contract_address → symbol */
+const ADDRESS_TO_SYMBOL: Record<string, string> = Object.fromEntries(
+  Object.entries(ETHEREUM_TOKEN_ADDRESSES).map(([sym, addr]) => [addr.toLowerCase(), sym]),
+);
 
 // ── Redis for GenVox sentiment cache ────────────────────────
 
@@ -71,19 +77,28 @@ export async function collectDigestData(): Promise<DigestData> {
   const sentimentTokens = ["BTC", "ETH", ...dynamicMovers];
 
   // Phase 2: Everything else in parallel
-  const [whaleResult, cexResult, stableResult, sentimentResult] =
+  const [whaleEthResult, whaleBtcResult, whaleSolResult, whaleBnbResult, stableResult, sentimentResult] =
     await Promise.allSettled([
-      collectWhaleFlows(),
-      collectCexFlows(),
+      collectEthereumWhaleFlows(),
+      collectNativeWhaleFlow("whale_flow_bitcoin", "BTC", "bitcoin"),
+      collectNativeWhaleFlow("whale_flow_solana", "SOL", "solana"),
+      collectNativeWhaleFlow("whale_flow_bnb", "BNB", "bnb"),
       collectStablecoinSupply(),
       collectSentiment(sentimentTokens),
     ]);
 
+  // Merge all whale flows into one array
+  const whaleFlows: ReducedWhaleFlow[] = [
+    ...extractSettled(whaleEthResult, errors, "whale_ethereum"),
+    ...extractSettledSingle(whaleBtcResult, errors, "whale_bitcoin"),
+    ...extractSettledSingle(whaleSolResult, errors, "whale_solana"),
+    ...extractSettledSingle(whaleBnbResult, errors, "whale_bnb"),
+  ];
+
   return {
     date: today,
     prices,
-    whaleFlows: extractSettled(whaleResult, errors, "whale_flows"),
-    cexFlows: extractSettled(cexResult, errors, "cex_flows"),
+    whaleFlows,
     stablecoinSupply: extractSettled(stableResult, errors, "stablecoin_supply"),
     sentiment: extractSettled(sentimentResult, errors, "sentiment"),
     errors,
@@ -92,36 +107,56 @@ export async function collectDigestData(): Promise<DigestData> {
 
 // ── Sub-collectors ──────────────────────────────────────────
 
-async function collectWhaleFlows(): Promise<ReducedWhaleFlow[]> {
-  const tpl = getTemplate("whale_net_flow_7d");
+/**
+ * Consolidated Ethereum whale flow: one query for ALL ERC-20 tokens.
+ * Returns one ReducedWhaleFlow per token found in the response.
+ */
+async function collectEthereumWhaleFlows(): Promise<ReducedWhaleFlow[]> {
+  const tpl = getTemplate("whale_flow_ethereum");
   if (!tpl || !isTemplateReady(tpl)) return [];
 
-  const results = await Promise.all(
-    DUNE_TOKENS.map(async ({ token, address, chain }) => {
-      const raw = await queryDune("whale_net_flow_7d", tpl.duneQueryId, {
-        token_address: address,
-        chain,
-      }).catch(() => null);
-      return reduceWhaleFlow(token, chain, raw);
-    }),
+  // Build comma-separated hex address list for the SQL IN clause
+  const addresses = Object.values(ETHEREUM_TOKEN_ADDRESSES);
+  const tokenAddresses = addresses.join(",");
+
+  const raw = await queryDune("whale_flow_ethereum", tpl.duneQueryId, {
+    token_addresses: tokenAddresses,
+  }, { fastPathOnly: true }).catch(() => null);
+
+  if (!raw?.rows?.length) return [];
+
+  // Group rows by contract_address → symbol
+  const byToken: Record<string, Record<string, unknown>[]> = {};
+  for (const row of raw.rows) {
+    const addr = String(row.contract_address ?? "").toLowerCase();
+    const symbol = ADDRESS_TO_SYMBOL[addr];
+    if (symbol) {
+      if (!byToken[symbol]) byToken[symbol] = [];
+      byToken[symbol].push(row);
+    }
+  }
+
+  // Reduce each token's rows
+  return Object.entries(byToken).map(([symbol, rows]) =>
+    reduceWhaleFlowWithSplit(symbol, "ethereum", rows),
   );
-  return results;
 }
 
-async function collectCexFlows(): Promise<ReducedCexFlow[]> {
-  const tpl = getTemplate("cex_net_flow_7d");
-  if (!tpl || !isTemplateReady(tpl)) return [];
+/**
+ * Native chain whale flow (BTC, SOL, BNB) — volume-only, no exchange split.
+ */
+async function collectNativeWhaleFlow(
+  templateName: string,
+  token: string,
+  chain: string,
+): Promise<ReducedWhaleFlow> {
+  const tpl = getTemplate(templateName);
+  if (!tpl || !isTemplateReady(tpl)) {
+    return { token, chain, netFlowUsd: 0, inflowUsd: 0, outflowUsd: 0, largeTxCount: 0, totalVolumeUsd: 0, hasExchangeSplit: false };
+  }
 
-  const results = await Promise.all(
-    DUNE_TOKENS.map(async ({ token, address, chain }) => {
-      const raw = await queryDune("cex_net_flow_7d", tpl.duneQueryId, {
-        token_address: address,
-        chain,
-      }).catch(() => null);
-      return reduceCexFlow(token, chain, raw);
-    }),
-  );
-  return results;
+  const raw = await queryDune(templateName, tpl.duneQueryId, {}, { fastPathOnly: true }).catch(() => null);
+  return reduceWhaleFlowVolumeOnly(token, chain, raw);
 }
 
 async function collectStablecoinSupply(): Promise<ReducedStablecoinSupply[]> {
@@ -133,7 +168,7 @@ async function collectStablecoinSupply(): Promise<ReducedStablecoinSupply[]> {
     chains.map(async (chain) => {
       const raw = await queryDune("stablecoin_supply_trend", tpl.duneQueryId, {
         chain,
-      }).catch(() => null);
+      }, { fastPathOnly: true }).catch(() => null);
       return reduceStablecoinSupply(chain, raw);
     }),
   );
@@ -207,6 +242,16 @@ function extractSettled<T>(
   label: string,
 ): T[] {
   if (result.status === "fulfilled") return result.value;
+  errors.push(`${label}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
+  return [];
+}
+
+function extractSettledSingle<T>(
+  result: PromiseSettledResult<T>,
+  errors: string[],
+  label: string,
+): T[] {
+  if (result.status === "fulfilled") return [result.value];
   errors.push(`${label}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
   return [];
 }

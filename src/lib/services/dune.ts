@@ -6,7 +6,7 @@ import { telemetry } from "@/lib/telemetry";
 const DUNE_BASE = "https://api.dune.com/api/v1";
 const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 30_000;
-const CACHE_TTL_S = 900; // 15 minutes
+const CACHE_TTL_S = 21600; // 6 hours
 const FRESHNESS_THRESHOLD_MS = 15 * 60 * 1000; // 15 minutes
 
 // ── Redis singleton (same pattern as rate-limit.ts) ──────────────
@@ -45,21 +45,40 @@ interface DuneResult {
 }
 
 /** Try the fast path: get latest cached result from Dune (no credits consumed). */
-async function getLatestResult(queryId: number, params: Record<string, unknown>): Promise<DuneResult | null> {
+async function getLatestResult(queryId: number, params: Record<string, unknown>, maxAgeMs = FRESHNESS_THRESHOLD_MS): Promise<DuneResult | null> {
   const qp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     // Dune results endpoint requires "params." prefix to match by parameters
     qp.set(`params.${k}`, String(v));
   }
   const url = `${DUNE_BASE}/query/${queryId}/results?${qp.toString()}`;
-  const res = await fetch(url, { headers: duneHeaders() });
+  const res = await fetch(url, { headers: duneHeaders(), signal: AbortSignal.timeout(8000) });
   if (!res.ok) return null;
   const data = await res.json();
   // Check if the execution is recent enough
   const executedAt = data.execution_ended_at ? new Date(data.execution_ended_at).getTime() : 0;
-  if (Date.now() - executedAt > FRESHNESS_THRESHOLD_MS) return null;
+  if (Date.now() - executedAt > maxAgeMs) return null;
   if (!data.result?.rows) return null;
   return { rows: data.result.rows, metadata: data.result.metadata };
+}
+
+/**
+ * Fire a Dune query execution without waiting for results.
+ * Used by the pre-warm cron so the digest can use the fast path 30 min later.
+ */
+export async function triggerExecution(queryId: number, params: Record<string, unknown>): Promise<boolean> {
+  if (!env.DUNE_API_KEY) return false;
+  try {
+    const res = await fetch(`${DUNE_BASE}/query/${queryId}/execute`, {
+      method: "POST",
+      headers: duneHeaders(),
+      body: JSON.stringify({ query_parameters: params }),
+      signal: AbortSignal.timeout(8000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** Execute a query and poll for results. Consumes Dune credits. */
@@ -69,6 +88,7 @@ async function executeAndPoll(queryId: number, params: Record<string, unknown>):
     method: "POST",
     headers: duneHeaders(),
     body: JSON.stringify({ query_parameters: params }),
+    signal: AbortSignal.timeout(8000),
   });
 
   if (execRes.status === 402) {
@@ -94,6 +114,7 @@ async function executeAndPoll(queryId: number, params: Record<string, unknown>):
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     const pollRes = await fetch(`${DUNE_BASE}/execution/${execution_id}/results`, {
       headers: duneHeaders(),
+      signal: AbortSignal.timeout(8000),
     });
     if (!pollRes.ok) continue;
     const pollData = await pollRes.json();
@@ -122,11 +143,15 @@ export interface DuneCacheResult {
 /**
  * Get Dune query results with Redis caching.
  * Returns null if DUNE_API_KEY is not set, Dune is unavailable, or the query times out.
+ *
+ * fastPathOnly: skip executeAndPoll — return null on cache/fast-path miss.
+ * Use this in the digest so it never blocks on a 30s poll; pre-warm handles execution.
  */
 export async function queryDune(
   template: string,
   queryId: number,
   params: Record<string, unknown>,
+  options?: { fastPathOnly?: boolean },
 ): Promise<DuneCacheResult | null> {
   if (!env.DUNE_API_KEY) {
     console.log("[DUNE] Skipped — no API key");
@@ -135,6 +160,9 @@ export async function queryDune(
 
   const key = cacheKey(template, params);
   const start = Date.now();
+  const fastPathOnly = options?.fastPathOnly ?? false;
+  // Digest uses 48h window so pre-warmed data (even from yesterday) is accepted
+  const maxAgeMs = fastPathOnly ? 48 * 60 * 60 * 1000 : FRESHNESS_THRESHOLD_MS;
 
   // 1. Check Redis cache
   try {
@@ -152,7 +180,7 @@ export async function queryDune(
 
   // 2. Try Dune fast path (latest cached result, no credits)
   try {
-    const latest = await getLatestResult(queryId, params);
+    const latest = await getLatestResult(queryId, params, maxAgeMs);
     if (latest) {
       telemetry.duneQuery({ template, cacheHit: false, durationMs: Date.now() - start, rowCount: latest.rows.length });
       // Cache in Redis
@@ -161,6 +189,12 @@ export async function queryDune(
     }
   } catch (err) {
     console.warn("[DUNE] Fast path failed, falling back to execute", err);
+  }
+
+  if (fastPathOnly) {
+    console.log(`[DUNE] Fast-path miss for ${template} — skipping execute (pre-warm not ready yet)`);
+    telemetry.duneQuery({ template, cacheHit: false, durationMs: Date.now() - start, rowCount: null, error: "fast_path_miss" });
+    return null;
   }
 
   // 3. Execute + poll (consumes credits)

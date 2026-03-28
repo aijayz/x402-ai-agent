@@ -198,7 +198,7 @@ Bullish overall despite recent pullback.
 NATIVE ASSETS vs WRAPPED TOKENS — CRITICAL:
 - When users ask about "ETH", "BTC", or other native assets, they care about the NATIVE asset — not the wrapped token (WETH, WBTC).
 - Do NOT use identify_address to resolve ETH to a WETH contract address for whale tracking. WETH holder distribution is irrelevant to ETH whale movements.
-- For native ETH whale activity: use query_onchain_data with Dune templates (whale_net_flow_7d, cex_net_flow_7d, smart_money_moves_7d) on chain="ethereum". These track actual ETH transfers between whales and exchanges.
+- For native ETH whale activity: use query_onchain_data with Dune templates (whale_flow_ethereum, smart_money_moves_7d). These track actual ETH transfers between whales and exchanges.
 - For native ETH price: use get_crypto_price with "ethereum" (the CoinGecko ID).
 - Only use identify_address when the user provides an actual 0x address you don't recognize, or when they ask about a specific ERC-20 token.
 

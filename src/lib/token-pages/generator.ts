@@ -80,7 +80,6 @@ function buildSnapshotData(
 ): TokenSnapshotData {
   const sym = price.symbol.toUpperCase();
   const whale = digestData.whaleFlows.find((w) => w.token.toUpperCase() === sym) ?? null;
-  const cex = digestData.cexFlows.find((c) => c.token.toUpperCase() === sym) ?? null;
   const sent = digestData.sentiment.find((s) => s.token.toUpperCase() === sym) ?? null;
 
   return {
@@ -89,10 +88,15 @@ function buildSnapshotData(
     change24h: price.change24h,
     marketCap: price.marketCap,
     iconUrl: price.iconUrl,
-    whaleFlow: whale ? { netFlowUsd: whale.netFlowUsd, largeTxCount: whale.largeTxCount } : null,
-    cexFlow: cex ? { netFlowUsd: cex.netFlowUsd, direction: cex.direction } : null,
+    whaleFlow: whale ? {
+      netFlowUsd: whale.netFlowUsd,
+      largeTxCount: whale.largeTxCount,
+      totalVolumeUsd: whale.totalVolumeUsd,
+      hasExchangeSplit: whale.hasExchangeSplit,
+    } : null,
+    cexFlow: null, // Merged into whaleFlow (exchange split is part of whale_flow_ethereum)
     sentiment: sent ? { score: sent.score, label: sent.label, summary: sent.summary } : null,
-    security: null, // Intentionally deferred — QuantumShield calls add latency + cost per token. Will add in a follow-up when token pages prove traction.
+    security: null,
     unlocks: null,
     intelligence: [],
   };

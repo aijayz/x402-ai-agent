@@ -17,7 +17,7 @@ export interface TokenSnapshotData {
   marketCap: number;
   iconUrl?: string;
   security?: { score: number; details?: string } | null;
-  whaleFlow?: { netFlowUsd: number; largeTxCount: number } | null;
+  whaleFlow?: { netFlowUsd: number; largeTxCount: number; totalVolumeUsd?: number; hasExchangeSplit?: boolean } | null;
   cexFlow?: { netFlowUsd: number; direction: string } | null;
   sentiment?: { score: number | null; label: string | null; summary: string | null } | null;
   unlocks?: { nextUnlockDate?: string; nextUnlockPercent?: number } | null;

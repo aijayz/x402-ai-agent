@@ -12,12 +12,19 @@ function fmtPrice(p: { symbol: string; price: number; change24h: number }): stri
 
 /** Pick the most dramatic data block for pair mode */
 function pickStrongestBlock(data: DigestData): string | null {
-  // Whale flows with large net movement
-  const bigWhale = data.whaleFlows.find((w) => Math.abs(w.netFlowUsd) > 10_000_000);
+  // Whale flows with large net movement or volume
+  const bigWhale = data.whaleFlows.find((w) =>
+    (w.hasExchangeSplit && Math.abs(w.netFlowUsd) > 10_000_000) ||
+    (!w.hasExchangeSplit && w.totalVolumeUsd > 50_000_000)
+  );
   if (bigWhale) {
-    const dir = bigWhale.netFlowUsd > 0 ? "inflow" : "outflow";
-    const amt = `$${Math.abs(bigWhale.netFlowUsd / 1e6).toFixed(0)}M`;
-    return `Whale watch\n\n-> ${amt} ${bigWhale.token} net ${dir} (7d)`;
+    if (bigWhale.hasExchangeSplit) {
+      const dir = bigWhale.netFlowUsd > 0 ? "inflow" : "outflow";
+      const amt = `$${Math.abs(bigWhale.netFlowUsd / 1e6).toFixed(0)}M`;
+      return `Whale watch\n\n-> ${amt} ${bigWhale.token} net ${dir} (7d)`;
+    }
+    const amt = `$${(bigWhale.totalVolumeUsd / 1e6).toFixed(0)}M`;
+    return `Whale watch\n\n-> ${amt} ${bigWhale.token} whale volume (7d)`;
   }
 
   // Sentiment with extreme readings
@@ -106,10 +113,17 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
 
   // Whale tweet
   const whaleLines = data.whaleFlows.slice(0, 3).map((w) => {
-    const dir = w.netFlowUsd > 0 ? "inflow" : "outflow";
-    const amt = `$${Math.abs(w.netFlowUsd / 1e6).toFixed(0)}M`;
-    return `-> ${amt} ${w.token} net ${dir}`;
-  });
+    if (w.hasExchangeSplit && (w.inflowUsd > 0 || w.outflowUsd > 0)) {
+      const dir = w.netFlowUsd > 0 ? "inflow" : "outflow";
+      const amt = `$${Math.abs(w.netFlowUsd / 1e6).toFixed(0)}M`;
+      return `-> ${amt} ${w.token} net ${dir}`;
+    }
+    if (w.totalVolumeUsd > 0) {
+      const amt = `$${(w.totalVolumeUsd / 1e6).toFixed(0)}M`;
+      return `-> ${amt} ${w.token} whale volume`;
+    }
+    return null;
+  }).filter(Boolean) as string[];
   const tweet3 = whaleLines.length > 0
     ? `Whale watch\n\n${whaleLines.join("\n")}`
     : null;

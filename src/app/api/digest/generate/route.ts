@@ -50,7 +50,7 @@ export async function GET(req: Request) {
         type: "daily_digest",
         date: today,
         tokenCount: data.prices.length,
-        sourcesOk: ["prices", "whale_flows", "cex_flows", "stablecoin_supply", "sentiment"].length - data.errors.length,
+        sourcesOk: ["prices", "whale_flows", "stablecoin_supply", "sentiment"].length - data.errors.length,
         sourcesFailed: data.errors,
         tokenIcons,
       },

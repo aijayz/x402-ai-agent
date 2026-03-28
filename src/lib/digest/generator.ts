@@ -10,7 +10,7 @@ Structure your briefing with these sections (skip any section where the data is 
 
 1. **Market Overview** — prices + 24h changes. Use [METRIC:symbol|$price|+X.X%] for each of the 10 tokens. Put the 6 fixed majors first, then the 4 top movers with a "Today's Top Movers" sub-header.
 
-2. **Whale & Exchange Signals** — net flows, CEX flows. Negative CEX flow = exchange outflow = bullish accumulation signal. Positive = selling pressure. Use actual USD figures.
+2. **Whale & Exchange Signals** — whale flows across chains. For Ethereum tokens: inflow (from exchanges, bullish) vs outflow (to exchanges, bearish). For BTC/SOL/BNB: total large-tx volume. Use actual USD figures.
 
 3. **Liquidity & Macro** — stablecoin supply changes on Ethereum and Base. Growing supply = buying power entering the ecosystem. Use [METRIC:chain Stablecoin Supply|$value|+X.X%].
 

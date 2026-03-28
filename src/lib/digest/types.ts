@@ -14,19 +14,14 @@ export interface TokenPrice {
 // ── Reduced types (headline numbers passed to AI) ────────────
 
 export interface ReducedWhaleFlow {
-  token: string; // "ETH"
-  chain: string; // "ethereum"
-  netFlowUsd: number; // negative = outflow (accumulation)
-  inflowUsd: number;
-  outflowUsd: number;
+  token: string; // "ETH", "BTC", "SOL", "BNB", "LINK", etc.
+  chain: string; // "ethereum", "bitcoin", "solana", "bnb"
+  netFlowUsd: number; // inflow - outflow (positive = bullish accumulation)
+  inflowUsd: number; // tokens leaving exchanges → wallets
+  outflowUsd: number; // tokens going to exchanges
   largeTxCount: number; // transfers > $100k
-}
-
-export interface ReducedCexFlow {
-  token: string;
-  chain: string;
-  netFlowUsd: number; // negative = exchange outflow (bullish)
-  direction: "inflow" | "outflow" | "neutral";
+  totalVolumeUsd: number; // total large-tx volume (used when no inflow/outflow split)
+  hasExchangeSplit: boolean; // true if inflow/outflow available, false if volume-only (BTC/SOL/BNB)
 }
 
 export interface ReducedStablecoinSupply {
@@ -49,7 +44,6 @@ export interface DigestData {
   date: string; // "2026-03-27"
   prices: TokenPrice[];
   whaleFlows: ReducedWhaleFlow[];
-  cexFlows: ReducedCexFlow[];
   stablecoinSupply: ReducedStablecoinSupply[];
   sentiment: ReducedSentiment[];
   errors: string[]; // sources that failed (for metadata tracking)

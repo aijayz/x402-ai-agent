@@ -61,7 +61,10 @@ export default async function TokenPage({ params }: Props) {
   const mcapStr = d.marketCap > 0 ? `$${(d.marketCap / 1e9).toFixed(1)}B` : "N/A";
 
   const securityScore = d.security?.score;
-  const whaleNet = d.whaleFlow?.netFlowUsd;
+  const whaleFlow = d.whaleFlow;
+  const hasExchangeSplit = whaleFlow?.hasExchangeSplit !== false;
+  const whaleNet = whaleFlow?.netFlowUsd;
+  const whaleVolume = whaleFlow?.totalVolumeUsd;
   const sentimentScore = d.sentiment?.score;
 
   const updatedDate = new Date(snap.updatedAt).toLocaleDateString("en-US", {
@@ -157,23 +160,35 @@ export default async function TokenPage({ params }: Props) {
             }
           />
           <ScoreCard
-            label="Whale Flow (7d)"
+            label={hasExchangeSplit ? "Whale Flow (7d)" : "Whale Volume (7d)"}
             value={
-              whaleNet != null ? `$${(Math.abs(whaleNet) / 1e6).toFixed(1)}M` : "N/A"
+              hasExchangeSplit && whaleNet != null
+                ? `$${(Math.abs(whaleNet) / 1e6).toFixed(1)}M`
+                : whaleVolume != null && whaleVolume > 0
+                  ? `$${(whaleVolume / 1e6).toFixed(1)}M`
+                  : "N/A"
             }
             sub={
-              whaleNet != null
-                ? whaleNet >= 0
-                  ? "Net inflow"
-                  : "Net outflow"
-                : "No data"
+              hasExchangeSplit && whaleNet != null
+                ? Math.abs(whaleNet) < 1_000_000
+                  ? "Negligible"
+                  : whaleNet >= 0
+                    ? "Net inflow"
+                    : "Net outflow"
+                : whaleVolume != null && whaleVolume > 0
+                  ? `${whaleFlow?.largeTxCount ?? 0} large txns`
+                  : "No data"
             }
             color={
-              whaleNet != null
-                ? whaleNet >= 0
-                  ? "text-green-400"
-                  : "text-red-400"
-                : "text-muted-foreground"
+              hasExchangeSplit && whaleNet != null
+                ? Math.abs(whaleNet) < 1_000_000
+                  ? "text-muted-foreground"
+                  : whaleNet >= 0
+                    ? "text-green-400"
+                    : "text-red-400"
+                : whaleVolume != null && whaleVolume > 0
+                  ? "text-blue-400"
+                  : "text-muted-foreground"
             }
           />
           <ScoreCard

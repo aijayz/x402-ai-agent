@@ -54,11 +54,15 @@ export function createClusterBTools(deps: ClusterBDeps) {
           ];
 
           // Dune temporal data (non-blocking — null on failure)
-          const duneTemplates = ["whale_net_flow_7d", "cex_net_flow_7d", "smart_money_moves_7d"] as const;
+          const duneTemplates = ["whale_flow_ethereum", "smart_money_moves_7d"] as const;
           const dunePromises = duneTemplates.map((tpl) => {
             const template = getTemplate(tpl);
             if (!template || !isTemplateReady(template)) return Promise.resolve(null);
-            return queryDune(tpl, template.duneQueryId, { token_address: address, chain }).catch(() => null);
+            // whale_flow_ethereum uses token_addresses (plural), others use token_address + chain
+            const params = tpl === "whale_flow_ethereum"
+              ? { token_addresses: address }
+              : { token_address: address, chain };
+            return queryDune(tpl, template.duneQueryId, params).catch(() => null);
           });
 
           // Run x402 services sequentially (existing pattern) + Dune in parallel
