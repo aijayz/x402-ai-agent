@@ -5,6 +5,7 @@ import { queryDune } from "@/lib/services/dune";
 import { getTemplate, isTemplateReady } from "@/lib/services/dune-templates";
 import { env } from "@/lib/env";
 import { getDigestTokens } from "./tokens";
+import { FIXED_TOKEN_SYMBOLS } from "@/lib/token-pages/generator";
 import {
   reduceWhaleFlowWithSplit,
   reduceWhaleFlowVolumeOnly,
@@ -70,16 +71,15 @@ export async function collectDigestData(): Promise<DigestData> {
     errors.push(`prices: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Sentiment for ALL fixed tokens + top dynamic movers
-  const fixedSymbols = prices.filter((p) => p.isFixed).map((p) => p.symbol);
+  // Sentiment for ALL 10 fixed tokens + top dynamic movers
   const dynamicMovers = prices
     .filter((p) => !p.isFixed)
     .slice(0, 4)
     .map((p) => p.symbol);
-  const sentimentTokens = [...new Set([...fixedSymbols, ...dynamicMovers])];
+  const sentimentTokens = [...new Set([...FIXED_TOKEN_SYMBOLS, ...dynamicMovers])];
 
-  // All symbols for security scoring
-  const allSymbols = prices.map((p) => p.symbol);
+  // Security for all tokens (fixed + dynamic)
+  const allSymbols = [...new Set([...FIXED_TOKEN_SYMBOLS, ...prices.map((p) => p.symbol)])];
 
   // Phase 2: Everything else in parallel
   const [whaleEthResult, whaleBtcResult, whaleSolResult, whaleBnbResult, stableResult, sentimentResult, securityResult] =
