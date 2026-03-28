@@ -146,9 +146,11 @@ export default async function TokenPage({ params }: Props) {
             value={securityScore != null ? `${securityScore}/100` : "N/A"}
             sub={
               securityScore != null
-                ? securityScore >= 70
-                  ? "Verified"
-                  : "Review"
+                ? d.security?.details?.includes("Blue-chip")
+                  ? "Blue chip"
+                  : securityScore >= 70
+                    ? "Verified"
+                    : "Review"
                 : "Pending"
             }
             color={

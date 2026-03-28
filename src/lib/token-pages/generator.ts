@@ -81,6 +81,7 @@ function buildSnapshotData(
   const sym = price.symbol.toUpperCase();
   const whale = digestData.whaleFlows.find((w) => w.token.toUpperCase() === sym) ?? null;
   const sent = digestData.sentiment.find((s) => s.token.toUpperCase() === sym) ?? null;
+  const sec = digestData.security?.find((s) => s.symbol.toUpperCase() === sym) ?? null;
 
   return {
     name: price.name,
@@ -96,7 +97,7 @@ function buildSnapshotData(
     } : null,
     cexFlow: null, // Merged into whaleFlow (exchange split is part of whale_flow_ethereum)
     sentiment: sent ? { score: sent.score, label: sent.label, summary: sent.summary } : null,
-    security: null,
+    security: sec ? { score: sec.score, details: sec.details } : null,
     unlocks: null,
     intelligence: [],
   };

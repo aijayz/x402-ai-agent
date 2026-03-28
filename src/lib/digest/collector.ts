@@ -17,6 +17,7 @@ import type {
   ReducedWhaleFlow,
   ReducedStablecoinSupply,
   ReducedSentiment,
+  ReducedSecurity,
 } from "./types";
 
 // ── ERC-20 token addresses on Ethereum ──────────────────────
@@ -69,15 +70,19 @@ export async function collectDigestData(): Promise<DigestData> {
     errors.push(`prices: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Pick top 2 dynamic movers for sentiment (in addition to BTC, ETH)
+  // Sentiment for ALL fixed tokens + top dynamic movers
+  const fixedSymbols = prices.filter((p) => p.isFixed).map((p) => p.symbol);
   const dynamicMovers = prices
     .filter((p) => !p.isFixed)
-    .slice(0, 2)
+    .slice(0, 4)
     .map((p) => p.symbol);
-  const sentimentTokens = ["BTC", "ETH", ...dynamicMovers];
+  const sentimentTokens = [...new Set([...fixedSymbols, ...dynamicMovers])];
+
+  // All symbols for security scoring
+  const allSymbols = prices.map((p) => p.symbol);
 
   // Phase 2: Everything else in parallel
-  const [whaleEthResult, whaleBtcResult, whaleSolResult, whaleBnbResult, stableResult, sentimentResult] =
+  const [whaleEthResult, whaleBtcResult, whaleSolResult, whaleBnbResult, stableResult, sentimentResult, securityResult] =
     await Promise.allSettled([
       collectEthereumWhaleFlows(),
       collectNativeWhaleFlow("whale_flow_bitcoin", "BTC", "bitcoin"),
@@ -85,6 +90,7 @@ export async function collectDigestData(): Promise<DigestData> {
       collectNativeWhaleFlow("whale_flow_bnb", "BNB", "bnb"),
       collectStablecoinSupply(),
       collectSentiment(sentimentTokens),
+      collectSecurity(allSymbols),
     ]);
 
   // Merge all whale flows into one array
@@ -101,6 +107,7 @@ export async function collectDigestData(): Promise<DigestData> {
     whaleFlows,
     stablecoinSupply: extractSettled(stableResult, errors, "stablecoin_supply"),
     sentiment: extractSettled(sentimentResult, errors, "sentiment"),
+    security: extractSettled(securityResult, errors, "security"),
     errors,
   };
 }
@@ -231,6 +238,54 @@ async function collectSentiment(
     }),
   );
 
+  return results;
+}
+
+// ── Security scores (hardcoded blue chips + QuantumShield for unknowns) ──
+
+const SECURITY_HARDCODED: Record<string, { score: number; details: string }> = {
+  BTC:  { score: 95, details: "Blue-chip native asset" },
+  ETH:  { score: 95, details: "Blue-chip native asset" },
+  SOL:  { score: 95, details: "Blue-chip native asset" },
+  BNB:  { score: 95, details: "Blue-chip native asset" },
+  XRP:  { score: 95, details: "Blue-chip native asset" },
+  ADA:  { score: 95, details: "Blue-chip native asset" },
+  DOGE: { score: 95, details: "Blue-chip native asset" },
+  LINK: { score: 90, details: "Blue-chip ERC-20" },
+  AAVE: { score: 90, details: "Blue-chip ERC-20" },
+  POL:  { score: 90, details: "Blue-chip ERC-20" },
+  AVAX: { score: 90, details: "Blue-chip ERC-20" },
+};
+
+async function collectSecurity(
+  symbols: string[],
+): Promise<ReducedSecurity[]> {
+  const results: ReducedSecurity[] = [];
+
+  for (const sym of symbols) {
+    const hardcoded = SECURITY_HARDCODED[sym];
+    if (hardcoded) {
+      results.push({ symbol: sym, ...hardcoded });
+      continue;
+    }
+    // Dynamic token: try QuantumShield (direct fetch, skip on 402)
+    const address = ETHEREUM_TOKEN_ADDRESSES[sym];
+    if (!address || !env.QUANTUM_SHIELD_URL) continue;
+    try {
+      const res = await fetch(
+        `${env.QUANTUM_SHIELD_URL}/api/token/security?address=${address}&chain=eth`,
+        { signal: AbortSignal.timeout(8000) },
+      );
+      if (res.status === 402 || !res.ok) continue;
+      const data = await res.json();
+      const score = typeof data?.score === "number" ? data.score : null;
+      if (score != null) {
+        results.push({ symbol: sym, score, details: data.details ?? "" });
+      }
+    } catch {
+      console.warn(`[DIGEST] QS security failed for ${sym}`);
+    }
+  }
   return results;
 }
 

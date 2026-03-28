@@ -38,6 +38,12 @@ export interface ReducedSentiment {
   summary: string | null; // one-sentence from GenVox
 }
 
+export interface ReducedSecurity {
+  symbol: string;
+  score: number;
+  details: string;
+}
+
 // ── Digest payload (compact ~3KB, safe for any model) ────────
 
 export interface DigestData {
@@ -46,5 +52,6 @@ export interface DigestData {
   whaleFlows: ReducedWhaleFlow[];
   stablecoinSupply: ReducedStablecoinSupply[];
   sentiment: ReducedSentiment[];
+  security: ReducedSecurity[];
   errors: string[]; // sources that failed (for metadata tracking)
 }
