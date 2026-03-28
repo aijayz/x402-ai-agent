@@ -5,6 +5,7 @@ import { collectDigestData } from "@/lib/digest/collector";
 import { generateDigest } from "@/lib/digest/generator";
 import { sendTelegramAlert } from "@/lib/telegram";
 import { formatDigestTweets } from "@/lib/digest/tweet-formatter";
+import { formatTelegramDigest } from "@/lib/digest/telegram-formatter";
 import { postThread } from "@/lib/twitter";
 import { generateTokenSnapshots } from "@/lib/token-pages/generator";
 
@@ -58,52 +59,8 @@ export async function GET(req: Request) {
       digestDate: today,
     });
 
-    // Shared data for social posts
-    const digestUrl = `${env.URL}/digest/${today}`;
-    const verdictMatch = content.match(/\[VERDICT:([^|]+)\|(\w+)]/);
-    const verdictText = verdictMatch ? verdictMatch[1].trim() : "";
-
-    const fmt = (p: typeof data.prices[0]) => {
-      const sign = p.change24h >= 0 ? "+" : "";
-      const price = p.price.toLocaleString("en-US", { style: "currency", currency: "USD" });
-      return { symbol: p.symbol, price, change: `${sign}${p.change24h.toFixed(1)}%`, up: p.change24h >= 0 };
-    };
-    const top6 = data.prices.slice(0, 6).map(fmt);
-
-    // Only use widely recognized coin symbols
-    const coinGlyph: Record<string, string> = {
-      BTC: "\u20BF", // ₿
-      ETH: "\u039E", // Ξ
-    };
-    const glyph = (sym: string) => coinGlyph[sym] ?? "";
-
-    const displayDate = new Date(today + "T00:00:00Z").toLocaleDateString("en-US", {
-      weekday: "long", month: "short", day: "numeric", year: "numeric",
-    });
-
-    // HTML-escape dynamic text to prevent broken Telegram messages
-    const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
     // ── Telegram (HTML) ──
-    const tgPrices = top6.map(p => {
-      const g = glyph(p.symbol);
-      const label = g ? `${g} <b>${p.symbol}</b>` : `<b>${p.symbol}</b>`;
-      const arrow = p.up ? "\u25B2" : "\u25BC";
-      return `  ${label}  ${p.price}  ${arrow} ${p.change}`;
-    }).join("\n");
-
-    const telegramMsg = [
-      `<b>Obol AI \u2014 Daily Briefing</b>`,
-      `<i>${displayDate}</i>`,
-      "",
-      tgPrices,
-      "",
-      verdictText ? `\u25B8 ${escHtml(verdictText)}` : null,
-      "",
-      `<a href="${digestUrl}">Read the full briefing \u2192</a>`,
-      data.errors.length > 0 ? `\n<i>Partial data: ${escHtml(data.errors.join(", "))}</i>` : null,
-    ].filter((line) => line !== null).join("\n");
-
+    const telegramMsg = formatTelegramDigest(data, today, content, env.URL);
     await sendTelegramAlert(telegramMsg, "HTML").catch((err) => {
       console.error("[DIGEST] Telegram share failed:", err);
     });

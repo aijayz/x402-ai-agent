@@ -1,44 +1,28 @@
 import { env } from "@/lib/env";
 import type { DigestData } from "./types";
 
-/** Format a price line for tweet display */
-function fmtPrice(p: { symbol: string; price: number; change24h: number }): string {
-  const sign = p.change24h >= 0 ? "+" : "";
-  const price = p.price >= 1
-    ? p.price.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
-    : `$${p.price.toPrecision(3)}`;
-  return `${p.symbol.padEnd(8)} ${price.padStart(10)}   ${sign}${p.change24h.toFixed(1)}%`;
+// ── Helpers ──────────────────────────────────────────────────
+
+function fmtUsd(n: number): string {
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `$${(abs / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `$${(abs / 1e6).toFixed(0)}M`;
+  if (abs >= 1e3) return `$${(abs / 1e3).toFixed(0)}K`;
+  return `$${abs.toFixed(0)}`;
 }
 
-/** Pick the most dramatic data block for pair mode */
-function pickStrongestBlock(data: DigestData): string | null {
-  // Whale flows with large net movement or volume
-  const bigWhale = data.whaleFlows.find((w) =>
-    (w.hasExchangeSplit && Math.abs(w.netFlowUsd) > 10_000_000) ||
-    (!w.hasExchangeSplit && w.totalVolumeUsd > 50_000_000)
-  );
-  if (bigWhale) {
-    if (bigWhale.hasExchangeSplit) {
-      const dir = bigWhale.netFlowUsd > 0 ? "inflow" : "outflow";
-      const amt = `$${Math.abs(bigWhale.netFlowUsd / 1e6).toFixed(0)}M`;
-      return `Whale watch\n\n-> ${amt} ${bigWhale.token} net ${dir} (7d)`;
-    }
-    const amt = `$${(bigWhale.totalVolumeUsd / 1e6).toFixed(0)}M`;
-    return `Whale watch\n\n-> ${amt} ${bigWhale.token} whale volume (7d)`;
-  }
+function shortDate(date: string): string {
+  const d = new Date(date + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
-  // Sentiment with extreme readings
-  const extreme = data.sentiment.find((s) => s.score !== null && (s.score > 75 || s.score < 30));
-  if (extreme) {
-    const bar = (score: number) => {
-      const filled = Math.round(score / 10);
-      return "|".repeat(filled) + ".".repeat(10 - filled);
-    };
-    return `Sentiment\n\n${extreme.token}  ${bar(extreme.score!)}  ${extreme.score} -- ${extreme.label}`;
-  }
-
-  // Default: price table
-  return null;
+function fmtPrice(p: { symbol: string; price: number; change24h: number }): string {
+  const sign = p.change24h >= 0 ? "+" : "";
+  const price =
+    p.price >= 1
+      ? p.price.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })
+      : `$${p.price.toPrecision(3)}`;
+  return `${p.symbol.padEnd(8)} ${price.padStart(10)}   ${sign}${p.change24h.toFixed(1)}%`;
 }
 
 /** Build a price table block from digest data */
@@ -48,6 +32,136 @@ function priceBlock(data: DigestData): string {
   return `Top movers today\n\n${lines.join("\n")}`;
 }
 
+// ── Narrative data nuggets ───────────────────────────────────
+
+interface DataNugget {
+  headline: string;
+  detail?: string;
+}
+
+function selectBestDataNugget(data: DigestData): DataNugget {
+  // Priority 1: Large whale exchange flow
+  const bigExchangeFlow = data.whaleFlows.find(
+    (w) => w.hasExchangeSplit && Math.abs(w.netFlowUsd) > 15_000_000,
+  );
+  if (bigExchangeFlow) {
+    const amt = fmtUsd(Math.abs(bigExchangeFlow.netFlowUsd));
+    const direction = bigExchangeFlow.netFlowUsd > 0 ? "to exchanges" : "off exchanges";
+    const pressure = bigExchangeFlow.netFlowUsd > 0 ? "selling pressure building" : "accumulation signal";
+    return {
+      headline: `Whales moved ${amt} ${bigExchangeFlow.token} ${direction} -- ${pressure}.`,
+      detail: findSecondaryNugget(data, "whale"),
+    };
+  }
+
+  // Priority 2: Large whale volume
+  const bigVolume = data.whaleFlows.find((w) => w.totalVolumeUsd > 50_000_000);
+  if (bigVolume) {
+    const amt = fmtUsd(bigVolume.totalVolumeUsd);
+    return {
+      headline: `${amt} in ${bigVolume.token} whale transactions this week.`,
+      detail: findSecondaryNugget(data, "whale"),
+    };
+  }
+
+  // Priority 3: Large stablecoin supply shift
+  const bigStable = data.stablecoinSupply.find((s) => Math.abs(s.change30dUsd) > 200_000_000);
+  if (bigStable) {
+    const dir = bigStable.change30dUsd > 0 ? "up" : "down";
+    const amt = fmtUsd(Math.abs(bigStable.change30dUsd));
+    const color = bigStable.change30dUsd > 0 ? "dry powder building" : "capital leaving";
+    return {
+      headline: `Stablecoin supply ${dir} ${amt} in 30d -- ${color}.`,
+      detail: findSecondaryNugget(data, "stablecoin"),
+    };
+  }
+
+  // Priority 4: Extreme sentiment
+  const extreme = data.sentiment.find((s) => s.score !== null && (s.score < 25 || s.score > 80));
+  if (extreme) {
+    const mood = extreme.score! < 25 ? "fear" : "greed";
+    const note = extreme.score! < 25 ? "historically precedes reversals" : "watch for overheating";
+    return {
+      headline: `${extreme.token} ${mood} reading: ${extreme.score}/100 -- ${note}.`,
+      detail: findSecondaryNugget(data, "sentiment"),
+    };
+  }
+
+  // Priority 5: Top price mover (always available)
+  const sorted = [...data.prices].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h));
+  const top = sorted[0];
+  const sign = top.change24h >= 0 ? "up" : "down";
+  return {
+    headline: `${top.symbol} ${sign} ${Math.abs(top.change24h).toFixed(1)}% -- leading today's movers.`,
+    detail: findSecondaryNugget(data, "price"),
+  };
+}
+
+/** Find a secondary signal from a different category than the primary */
+function findSecondaryNugget(data: DigestData, excludeCategory: string): string | undefined {
+  if (excludeCategory !== "stablecoin") {
+    const sig = data.stablecoinSupply.find((s) => Math.abs(s.change30dUsd) > 100_000_000);
+    if (sig) {
+      const dir = sig.change30dUsd > 0 ? "up" : "down";
+      return `Stablecoin supply ${dir} ${fmtUsd(Math.abs(sig.change30dUsd))} -- ${sig.change30dUsd > 0 ? "dry powder accumulating" : "capital leaving"}.`;
+    }
+  }
+
+  if (excludeCategory !== "sentiment") {
+    const ext = data.sentiment.find((s) => s.score !== null && (s.score < 30 || s.score > 75));
+    if (ext) {
+      return `${ext.token} sentiment: ${ext.score}/100 (${ext.label}).`;
+    }
+  }
+
+  if (excludeCategory !== "price") {
+    const sorted = [...data.prices].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h));
+    const top = sorted[0];
+    if (Math.abs(top.change24h) > 3) {
+      const sign = top.change24h >= 0 ? "+" : "";
+      return `${top.symbol} ${sign}${top.change24h.toFixed(1)}% today.`;
+    }
+  }
+
+  return undefined;
+}
+
+/** Truncate tweet to fit within 280 chars, accounting for t.co 23-char URL wrapping */
+function truncateToFit(lines: string[], maxChars = 280): string {
+  // URLs are wrapped to 23 chars by t.co
+  const urlPattern = /https?:\/\/\S+/g;
+  const countChars = (text: string) => {
+    const urls = text.match(urlPattern) ?? [];
+    let len = text.length;
+    for (const url of urls) {
+      len = len - url.length + 23;
+    }
+    return len;
+  };
+
+  let text = lines.join("\n");
+  if (countChars(text) <= maxChars) return text;
+
+  // Drop detail line (last content line before URL) if present
+  if (lines.length > 2) {
+    const trimmed = [...lines];
+    // Find last non-URL, non-empty line before the URL
+    for (let i = trimmed.length - 2; i >= 1; i--) {
+      if (trimmed[i] && !trimmed[i].match(urlPattern)) {
+        trimmed.splice(i, 1);
+        text = trimmed.join("\n");
+        if (countChars(text) <= maxChars) return text;
+        break;
+      }
+    }
+  }
+
+  // Last resort: truncate headline
+  return text.slice(0, maxChars - 3) + "...";
+}
+
+// ── Public API ───────────────────────────────────────────────
+
 /**
  * Format digest data into tweet(s) based on TWITTER_THREAD_MODE.
  * Returns an array of tweet strings (length 1 for single, 2 for pair, 4-5 for thread).
@@ -55,78 +169,62 @@ function priceBlock(data: DigestData): string {
 export function formatDigestTweets(data: DigestData, date: string, digestContent: string): string[] {
   const mode = env.TWITTER_THREAD_MODE;
   const digestUrl = `${env.URL}/digest/${date}`;
-
-  // Extract verdict from digest content
-  const verdictMatch = digestContent.match(/\[VERDICT:([^|]+)\|(\w+)]/);
-  const verdict = verdictMatch ? verdictMatch[1].trim() : "";
-
-  // Find biggest movers for hook
-  const sorted = [...data.prices].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h));
-  const top3 = sorted.slice(0, 3);
-
-  const hookLines = top3.map((p) => {
-    const sign = p.change24h >= 0 ? "+" : "";
-    return `${p.symbol} ${sign}${p.change24h.toFixed(1)}%`;
-  });
+  const chatUrl = `${env.URL}/chat`;
+  const short = shortDate(date);
+  const nugget = selectBestDataNugget(data);
 
   if (mode === "single") {
-    const parts = [
-      `${date} -- On-Chain Brief`,
-      "",
-      ...hookLines,
-      "",
-      verdict || undefined,
-      "",
-      digestUrl,
-    ].filter((line) => line !== undefined) as string[];
+    const parts: string[] = [
+      `${short} -- ${nugget.headline}`,
+    ];
+    if (nugget.detail) {
+      parts.push("", nugget.detail);
+    }
+    parts.push("", digestUrl);
 
-    return [parts.join("\n")];
+    return [truncateToFit(parts)];
   }
 
   if (mode === "pair") {
-    const hook = [
-      `${date} -- On-Chain Brief`,
-      "",
-      ...hookLines,
-      "",
-      verdict || undefined,
+    // Hook tweet: narrative lead + digest URL
+    const hook = truncateToFit([
+      `${short} -- ${nugget.headline}`,
+      ...(nugget.detail ? ["", nugget.detail] : []),
       "",
       digestUrl,
-    ].filter((line) => line !== undefined) as string[];
+    ]);
 
-    const secondBlock = pickStrongestBlock(data) ?? priceBlock(data);
-    const second = [secondBlock, "", `Ask Obol anything`, `${env.URL}/chat`].join("\n");
+    // Data tweet: price block + chat URL
+    const second = [priceBlock(data), "", chatUrl].join("\n");
 
-    return [hook.join("\n"), second];
+    return [hook, second];
   }
 
-  // thread mode
-  const tweet1 = [
-    `${date} -- Daily On-Chain Brief`,
-    "",
-    ...hookLines.map((l) => `${l}`),
-    "",
-    "Full thread ->",
-  ].join("\n");
+  // ── Thread mode ──
+
+  const tweet1Lines = [`${short} -- ${nugget.headline}`];
+  if (nugget.detail) tweet1Lines.push("", nugget.detail);
+  tweet1Lines.push("", "Full thread ->");
+  const tweet1 = truncateToFit(tweet1Lines);
 
   const tweet2 = priceBlock(data);
 
   // Whale tweet
-  const whaleLines = data.whaleFlows.slice(0, 3).map((w) => {
-    if (w.hasExchangeSplit && (w.inflowUsd > 0 || w.outflowUsd > 0)) {
-      const dir = w.netFlowUsd > 0 ? "inflow" : "outflow";
-      const amt = `$${Math.abs(w.netFlowUsd / 1e6).toFixed(0)}M`;
-      return `-> ${amt} ${w.token} net ${dir}`;
-    }
-    if (w.totalVolumeUsd > 0) {
-      const amt = `$${(w.totalVolumeUsd / 1e6).toFixed(0)}M`;
-      return `-> ${amt} ${w.token} whale volume`;
-    }
-    return null;
-  }).filter(Boolean) as string[];
-  const tweet3 = whaleLines.length > 0
-    ? `Whale watch\n\n${whaleLines.join("\n")}`
-    : null;
+  const whaleLines = data.whaleFlows
+    .slice(0, 3)
+    .map((w) => {
+      if (w.hasExchangeSplit && (w.inflowUsd > 0 || w.outflowUsd > 0)) {
+        const dir = w.netFlowUsd > 0 ? "inflow" : "outflow";
+        const amt = fmtUsd(Math.abs(w.netFlowUsd));
+        return `-> ${amt} ${w.token} net ${dir}`;
+      }
+      if (w.totalVolumeUsd > 0) {
+        return `-> ${fmtUsd(w.totalVolumeUsd)} ${w.token} whale volume`;
+      }
+      return null;
+    })
+    .filter(Boolean) as string[];
+  const tweet3 = whaleLines.length > 0 ? `Whale watch\n\n${whaleLines.join("\n")}` : null;
 
   // Sentiment tweet
   const sentimentLines = data.sentiment
@@ -137,16 +235,9 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
       const bar = "|".repeat(filled) + ".".repeat(10 - filled);
       return `${s.token.padEnd(5)} ${bar}  ${s.score} -- ${s.label}`;
     });
-  const tweet4 = sentimentLines.length > 0
-    ? `Sentiment snapshot\n\n${sentimentLines.join("\n")}`
-    : null;
+  const tweet4 = sentimentLines.length > 0 ? `Sentiment snapshot\n\n${sentimentLines.join("\n")}` : null;
 
-  const tweetCta = [
-    digestUrl,
-    "",
-    `Or ask Obol anything on-chain`,
-    `${env.URL}/chat`,
-  ].join("\n");
+  const tweetCta = [digestUrl, "", chatUrl].join("\n");
 
   return [tweet1, tweet2, tweet3, tweet4, tweetCta].filter(Boolean) as string[];
 }
