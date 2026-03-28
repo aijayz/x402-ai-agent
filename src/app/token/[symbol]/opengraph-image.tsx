@@ -95,7 +95,7 @@ export default async function OgImage({ params }: { params: Promise<{ symbol: st
         {/* Token name + symbol */}
         <div style={{ display: "flex", alignItems: "center", gap: "16px", marginBottom: "12px" }}>
           <span style={{ fontSize: 48, fontWeight: 700, color: "#ffffff", letterSpacing: "-0.02em" }}>
-            {d.name} ({snap.symbol})
+            {`${d.name} (${snap.symbol})`}
           </span>
         </div>
 
@@ -103,7 +103,7 @@ export default async function OgImage({ params }: { params: Promise<{ symbol: st
         <div style={{ display: "flex", alignItems: "baseline", gap: "16px", marginBottom: "48px" }}>
           <span style={{ fontSize: 56, fontWeight: 700, color: "#ffffff" }}>{priceStr}</span>
           <span style={{ fontSize: 32, fontWeight: 600, color: changeColor }}>
-            {changeSign}{d.change24h.toFixed(1)}%
+            {`${changeSign}${d.change24h.toFixed(1)}%`}
           </span>
         </div>
 

@@ -5,6 +5,10 @@
       "schedule": "0 0 * * *"
     },
     {
+      "path": "/api/dune/prewarm",
+      "schedule": "30 23 * * *"
+    },
+    {
       "path": "/api/digest/generate",
       "schedule": "0 0 * * *"
     }

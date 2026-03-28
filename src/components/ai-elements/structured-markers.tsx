@@ -35,7 +35,7 @@ type Segment =
 
 /* ─── Parser — produces interleaved text + marker segments ─── */
 
-const MARKER_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]|\[VERDICT:([^|\]]+)\|(\w+)\]|\[SCORE:([^|\]]+)\|([\d.]+)\/([\d.]+)(?:\|(\w+))?\]/g;
+const MARKER_RE = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?\]|\[VERDICT:([^|\]]+)\|(\w+)\]|\[SCORE:([^|\]]+)\|(-?[\d.]+)\/([\d.]+)(?:\|(\w+))?\]/g;
 
 function parseMarkerMatch(match: RegExpExecArray): StructuredMarker {
   // METRIC
@@ -184,7 +184,7 @@ export function ScoreGauge({ label, value, max, invert }: Score) {
     <div className="rounded-lg border border-border/50 bg-muted/30 px-3 py-2">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs font-semibold text-foreground/80 tracking-wide">{label}</span>
-        <span className={cn("text-sm font-mono font-semibold", textColor)}>{value}/{max}</span>
+        <span className={cn("text-sm font-mono font-semibold", textColor)}>{Math.max(0, value)}/{max}</span>
       </div>
       <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
         <div className={cn("h-full rounded-full transition-all", color)} style={{ width: `${pct}%` }} />

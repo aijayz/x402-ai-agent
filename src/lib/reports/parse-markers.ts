@@ -1,7 +1,7 @@
 /** Extract structured markers from content for OG image / previews */
 export function extractMarkers(content: string): unknown[] {
   const markers: unknown[] = [];
-  const re = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?]|\[VERDICT:([^|]+)\|(\w+)]|\[SCORE:([^|]+)\|(\d+)\/(\d+)(?:\|(\w+))?]/g;
+  const re = /\[METRIC:([^|\]]+)\|([^|\]]+)(?:\|([^|\]]*))?]|\[VERDICT:([^|]+)\|(\w+)]|\[SCORE:([^|]+)\|(-?\d+)\/(\d+)(?:\|(\w+))?]/g;
   let m;
   while ((m = re.exec(content)) !== null) {
     if (m[1] != null) {

@@ -109,7 +109,7 @@ export default async function OgImage() {
           </div>
 
           <div style={{ fontSize: 44, fontWeight: 700, color: "#fafafa", letterSpacing: "-0.02em", lineHeight: 1.2 }}>
-            Daily Briefing — {displayDate}
+            {`Daily Briefing — ${displayDate}`}
           </div>
         </div>
 
