@@ -3,6 +3,8 @@ import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign
 import { Button } from "@/components/ui/button";
 import { ReportStore } from "@/lib/reports/report-store";
 
+export const revalidate = 3600; // Revalidate every hour to pick up new digests
+
 const clusters = [
   {
     icon: Shield, title: "DeFi Safety Analysis",
@@ -153,10 +155,8 @@ export default async function LandingPage() {
         const vc = verdict ? (verdictColorMap[verdict.color] ?? verdictColorMap.amber) : null;
 
         return (
-          <Link
-            href="/digest"
-            className="group relative block border-b border-border/30 bg-zinc-950/50 backdrop-blur-sm
-              hover:bg-zinc-900/50 transition-all duration-300"
+          <div
+            className="relative block border-b border-border/30 bg-zinc-950/50 backdrop-blur-sm"
           >
             <div className="max-w-5xl mx-auto px-6 py-4 space-y-3">
               {/* Top row: label + date */}
@@ -164,15 +164,18 @@ export default async function LandingPage() {
                 <div className="flex items-center gap-2">
                   <Newspaper className="size-4 text-blue-400" />
                   <span className="text-sm font-semibold text-foreground">Daily Briefing</span>
-                  <span className="text-xs text-muted-foreground/50">{displayDate}</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400/80 font-medium">{displayDate}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground/50 group-hover:text-foreground/70 transition-colors">
+                <Link
+                  href="/digest"
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-blue-400 transition-colors"
+                >
                   Read full analysis
-                  <ArrowRight className="size-3 group-hover:translate-x-0.5 transition-transform" />
-                </div>
+                  <ArrowRight className="size-3 hover:translate-x-0.5 transition-transform" />
+                </Link>
               </div>
 
-              {/* Price grid */}
+              {/* Price grid — each card links to its token page */}
               {metrics.length > 0 && (
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                   {metrics.slice(0, 6).map((m, i) => {
@@ -181,7 +184,12 @@ export default async function LandingPage() {
                     const changeColor = isUp ? "text-green-400" : isDown ? "text-red-400" : "text-muted-foreground/60";
                     const icon = tokenIcons?.[m.label];
                     return (
-                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border/30 bg-white/[0.02] px-2.5 py-2">
+                      <Link
+                        key={i}
+                        href={`/token/${m.label}`}
+                        className="flex items-center gap-2 rounded-lg border border-border/30 bg-white/[0.02] px-2.5 py-2
+                          hover:border-blue-500/30 hover:bg-white/[0.04] transition-colors"
+                      >
                         {icon ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={icon} alt="" className="size-5 rounded-full shrink-0" />
@@ -197,7 +205,7 @@ export default async function LandingPage() {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
@@ -210,7 +218,7 @@ export default async function LandingPage() {
                 </div>
               )}
             </div>
-          </Link>
+          </div>
         );
       })()}
 

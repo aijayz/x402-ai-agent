@@ -8,6 +8,11 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Only rate-limit API routes and MCP — skip static/content pages
+  if (!pathname.startsWith("/api/") && !pathname.startsWith("/mcp")) {
+    return NextResponse.next();
+  }
+
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? request.headers.get("x-real-ip")
     ?? "unknown";
