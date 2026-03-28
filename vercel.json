@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/digest/generate",
-      "schedule": "0 8 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
