@@ -70,7 +70,6 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
       "",
       verdict || undefined,
       "",
-      `Full daily brief`,
       digestUrl,
     ].filter((line) => line !== undefined) as string[];
 
@@ -85,7 +84,6 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
       "",
       verdict || undefined,
       "",
-      `Full brief`,
       digestUrl,
     ].filter((line) => line !== undefined) as string[];
 
@@ -130,7 +128,6 @@ export function formatDigestTweets(data: DigestData, date: string, digestContent
     : null;
 
   const tweetCta = [
-    `Full briefing with sources`,
     digestUrl,
     "",
     `Or ask Obol anything on-chain`,
