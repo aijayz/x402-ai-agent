@@ -1,4 +1,5 @@
 import { sql } from "@/lib/db";
+import { normalizeAddress } from "@/lib/credits/credit-store";
 
 export interface Report {
   id: string;
@@ -52,11 +53,16 @@ export const ReportStore = {
         ? null
         : new Date(Date.now() + 90 * 86_400_000).toISOString();
 
+    // Normalize wallet address to lowercase if present
+    const normalizedWallet = params.walletAddress
+      ? normalizeAddress(params.walletAddress)
+      : null;
+
     const rows = await sql`
       INSERT INTO reports (id, wallet_address, title, content, markers, metadata, type, digest_date, expires_at)
       VALUES (
         ${id},
-        ${params.walletAddress ?? null},
+        ${normalizedWallet},
         ${params.title},
         ${params.content},
         ${params.markers ? JSON.stringify(params.markers) : null}::jsonb,
@@ -90,8 +96,9 @@ export const ReportStore = {
   },
 
   async deleteById(id: string, walletAddress: string): Promise<boolean> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
-      DELETE FROM reports WHERE id = ${id} AND wallet_address = ${walletAddress} RETURNING id
+      DELETE FROM reports WHERE id = ${id} AND wallet_address = ${normalized} RETURNING id
     `;
     return rows.length > 0;
   },

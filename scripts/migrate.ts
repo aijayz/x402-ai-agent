@@ -117,6 +117,22 @@ const migrations: [string, string][] = [
        END IF;
      END $$`,
   ],
+  [
+    "normalize wallet addresses in credit_accounts",
+    `UPDATE credit_accounts SET wallet_address = LOWER(wallet_address) WHERE wallet_address != LOWER(wallet_address)`,
+  ],
+  [
+    "normalize wallet addresses in spend_events",
+    `UPDATE spend_events SET wallet_address = LOWER(wallet_address) WHERE wallet_address != LOWER(wallet_address)`,
+  ],
+  [
+    "normalize wallet addresses in conversations",
+    `UPDATE conversations SET wallet_address = LOWER(wallet_address) WHERE wallet_address != LOWER(wallet_address)`,
+  ],
+  [
+    "normalize wallet addresses in reports",
+    `UPDATE reports SET wallet_address = LOWER(wallet_address) WHERE wallet_address IS NOT NULL AND wallet_address != LOWER(wallet_address)`,
+  ],
 ];
 
 async function main() {

@@ -10,6 +10,14 @@ export function toUsdc(micro: number): number {
   return micro / 1_000_000;
 }
 
+/**
+ * Normalize Ethereum address to lowercase.
+ * Ethereum addresses are case-insensitive — checksum encoding is for display only.
+ */
+export function normalizeAddress(address: string): string {
+  return address.toLowerCase();
+}
+
 export interface CreditAccount {
   walletAddress: string;
   balanceMicroUsdc: number;
@@ -27,9 +35,10 @@ interface DeductResult {
 
 export const CreditStore = {
   async getOrCreate(walletAddress: string): Promise<CreditAccount> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
       INSERT INTO credit_accounts (wallet_address)
-      VALUES (${walletAddress})
+      VALUES (${normalized})
       ON CONFLICT (wallet_address)
         DO UPDATE SET wallet_address = credit_accounts.wallet_address
       RETURNING *
@@ -38,19 +47,21 @@ export const CreditStore = {
   },
 
   async get(walletAddress: string): Promise<CreditAccount | null> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
-      SELECT * FROM credit_accounts WHERE wallet_address = ${walletAddress}
+      SELECT * FROM credit_accounts WHERE wallet_address = ${normalized}
     `;
     return rows.length > 0 ? mapRow(rows[0]) : null;
   },
 
   async deduct(walletAddress: string, amountMicroUsdc: number): Promise<DeductResult> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
       UPDATE credit_accounts
       SET balance_micro_usdc = balance_micro_usdc - ${amountMicroUsdc},
           lifetime_spent_micro_usdc = lifetime_spent_micro_usdc + ${amountMicroUsdc},
           updated_at = now()
-      WHERE wallet_address = ${walletAddress}
+      WHERE wallet_address = ${normalized}
         AND balance_micro_usdc >= ${amountMicroUsdc}
       RETURNING balance_micro_usdc
     `;
@@ -65,12 +76,13 @@ export const CreditStore = {
    * Use ONLY when on-chain payment has already succeeded and credits MUST be charged.
    */
   async forceDeduct(walletAddress: string, amountMicroUsdc: number): Promise<DeductResult> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
       UPDATE credit_accounts
       SET balance_micro_usdc = balance_micro_usdc - ${amountMicroUsdc},
           lifetime_spent_micro_usdc = lifetime_spent_micro_usdc + ${amountMicroUsdc},
           updated_at = now()
-      WHERE wallet_address = ${walletAddress}
+      WHERE wallet_address = ${normalized}
       RETURNING balance_micro_usdc
     `;
     if (rows.length === 0) {
@@ -88,27 +100,29 @@ export const CreditStore = {
   },
 
   async credit(walletAddress: string, amountMicroUsdc: number): Promise<number> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
       UPDATE credit_accounts
       SET balance_micro_usdc = balance_micro_usdc + ${amountMicroUsdc},
           updated_at = now()
-      WHERE wallet_address = ${walletAddress}
+      WHERE wallet_address = ${normalized}
       RETURNING balance_micro_usdc
     `;
     if (rows.length === 0) {
-      throw new Error(`CreditStore.credit: no account found for wallet ${walletAddress}`);
+      throw new Error(`CreditStore.credit: no account found for wallet ${normalized}`);
     }
     return Number(rows[0].balance_micro_usdc);
   },
 
   async grantFreeCredits(walletAddress: string, amountMicroUsdc: number): Promise<number> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
       UPDATE credit_accounts
       SET balance_micro_usdc = balance_micro_usdc + ${amountMicroUsdc},
           free_credits_granted = true,
           free_credits_amount_micro_usdc = ${amountMicroUsdc},
           updated_at = now()
-      WHERE wallet_address = ${walletAddress}
+      WHERE wallet_address = ${normalized}
         AND free_credits_granted = false
       RETURNING balance_micro_usdc
     `;

@@ -1,4 +1,5 @@
 import { sql } from "../db";
+import { normalizeAddress } from "./credit-store";
 
 export interface SpendEvent {
   id: number;
@@ -22,13 +23,14 @@ export const SpendEventStore = {
     txHash?: string;
     sourceChain?: string;
   }): Promise<void> {
+    const normalized = normalizeAddress(event.walletAddress);
     await sql`
       INSERT INTO spend_events (
         wallet_address, tool_name,
         service_cost_micro_usdc, charged_amount_micro_usdc,
         markup_bps, tx_hash, source_chain
       ) VALUES (
-        ${event.walletAddress}, ${event.toolName},
+        ${normalized}, ${event.toolName},
         ${event.serviceCostMicroUsdc}, ${event.chargedAmountMicroUsdc},
         ${event.markupBps}, ${event.txHash ?? null}, ${event.sourceChain ?? "base"}
       )
@@ -45,13 +47,14 @@ export const SpendEventStore = {
     txHash: string;
     sourceChain?: string;
   }): Promise<boolean> {
+    const normalized = normalizeAddress(event.walletAddress);
     const rows = await sql`
       INSERT INTO spend_events (
         wallet_address, tool_name,
         service_cost_micro_usdc, charged_amount_micro_usdc,
         markup_bps, tx_hash, source_chain
       ) VALUES (
-        ${event.walletAddress}, ${event.toolName},
+        ${normalized}, ${event.toolName},
         ${event.serviceCostMicroUsdc}, ${event.chargedAmountMicroUsdc},
         ${event.markupBps}, ${event.txHash}, ${event.sourceChain ?? "base"}
       )
@@ -77,9 +80,10 @@ export const SpendEventStore = {
   },
 
   async getRecent(walletAddress: string, limit = 20): Promise<SpendEvent[]> {
+    const normalized = normalizeAddress(walletAddress);
     const rows = await sql`
       SELECT * FROM spend_events
-      WHERE wallet_address = ${walletAddress}
+      WHERE wallet_address = ${normalized}
       ORDER BY created_at DESC
       LIMIT ${limit}
     `;
