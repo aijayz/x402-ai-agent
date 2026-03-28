@@ -40,7 +40,7 @@ function longDate(date: string): string {
 const coinGlyph: Record<string, string> = { BTC: "\u20BF", ETH: "\u039E" };
 
 function buildPriceSectionPlain(data: DigestData): string {
-  const top6 = data.prices.slice(0, 6);
+  const top6 = [...data.prices].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h)).slice(0, 6);
   return top6
     .map((p) => {
       const g = coinGlyph[p.symbol] ?? "";

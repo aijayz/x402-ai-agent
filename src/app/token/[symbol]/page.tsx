@@ -15,8 +15,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!snap) return { title: "Token Not Found -- Obol AI" };
 
   const d = snap.data;
+  const price = d.price ?? 0;
+  const change24h = d.change24h ?? 0;
   const title = `${d.name} (${snap.symbol}) On-Chain Intelligence -- Obol AI`;
-  const description = `${snap.symbol} at $${d.price.toLocaleString()} (${d.change24h >= 0 ? "+" : ""}${d.change24h.toFixed(1)}%). Whale flows, security score, sentiment analysis. Updated daily.`;
+  const description = `${snap.symbol} at $${price.toLocaleString()} (${change24h >= 0 ? "+" : ""}${change24h.toFixed(1)}%). Whale flows, security score, sentiment analysis. Updated daily.`;
 
   return {
     title,
@@ -100,12 +102,14 @@ export default async function TokenPage({ params }: Props) {
   if (!snap) notFound();
 
   const d = snap.data;
-  const changeColor = d.change24h >= 0 ? "text-emerald-400" : "text-red-400";
-  const changeSign = d.change24h >= 0 ? "+" : "";
+  const price = d.price ?? 0;
+  const change24h = d.change24h ?? 0;
+  const changeColor = change24h >= 0 ? "text-emerald-400" : "text-red-400";
+  const changeSign = change24h >= 0 ? "+" : "";
   const priceStr =
-    d.price >= 1
-      ? d.price.toLocaleString("en-US", { style: "currency", currency: "USD" })
-      : `$${d.price.toPrecision(4)}`;
+    price >= 1
+      ? price.toLocaleString("en-US", { style: "currency", currency: "USD" })
+      : `$${price.toPrecision(4)}`;
   const mcapStr = d.marketCap > 0 ? `$${(d.marketCap / 1e9).toFixed(1)}B` : "—";
 
   const securityScore = d.security?.score ?? null;
@@ -113,7 +117,7 @@ export default async function TokenPage({ params }: Props) {
   const isBlueChip = securityDetails?.includes("Blue-chip") ?? false;
 
   const whaleFlow = d.whaleFlow;
-  const hasExchangeSplit = whaleFlow?.hasExchangeSplit !== false;
+  const hasExchangeSplit = whaleFlow?.hasExchangeSplit === true;
   const whaleNet = whaleFlow?.netFlowUsd ?? null;
   const whaleVolume = whaleFlow?.totalVolumeUsd ?? null;
   const largeTxCount = whaleFlow?.largeTxCount ?? 0;
@@ -205,7 +209,7 @@ export default async function TokenPage({ params }: Props) {
           <div className="flex items-baseline gap-3 flex-wrap">
             <span className="text-4xl font-bold tracking-tight">{priceStr}</span>
             <span className={`text-lg font-semibold ${changeColor}`}>
-              {changeSign}{d.change24h.toFixed(1)}%
+              {changeSign}{change24h.toFixed(1)}%
             </span>
             <span className="text-sm text-muted-foreground/70">MCap {mcapStr}</span>
           </div>
@@ -345,6 +349,40 @@ export default async function TokenPage({ params }: Props) {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* ── Unlocks / Classification ── */}
+        {d.unlocks && (d.unlocks.category || d.unlocks.sector || d.unlocks.projectedEndDate) && (
+          <div className="mb-8 flex flex-wrap items-center gap-2">
+            {(d.unlocks.category || d.unlocks.sector) && (
+              <div className="flex items-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/50">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                  <line x1="7" y1="7" x2="7.01" y2="7" />
+                </svg>
+                <span className="text-xs text-muted-foreground">
+                  {[d.unlocks.category, d.unlocks.sector].filter(Boolean).join(" \u00B7 ")}
+                </span>
+              </div>
+            )}
+            {d.unlocks.projectedEndDate && (
+              <div className="flex items-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground/50">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span className="text-xs text-muted-foreground">
+                  Vesting ends{" "}
+                  {new Date(d.unlocks.projectedEndDate).toLocaleDateString("en-US", {
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
