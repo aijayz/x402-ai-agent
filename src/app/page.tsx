@@ -413,9 +413,9 @@ export default async function LandingPage() {
             <a href="https://base.org" target="_blank" rel="noopener noreferrer" className="font-medium text-foreground hover:text-blue-400 transition-colors">Base</a>
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://twitter.com/intent/tweet?text=Just%20discovered%20Obol%20AI%20%E2%80%94%20an%20AI%20agent%20that%20pays%20for%20crypto%20intelligence%20using%20x402%20micropayments.%20No%20subscription%2C%20just%20pay-per-query.%20%F0%9F%94%8D&url=https%3A%2F%2Fobolai.xyz&hashtags=x402,AI,DeFi,Base" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
+            <a href="https://x.com/ai_obol" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
               <svg className="size-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-              Share
+              @ai_obol
             </a>
             <a href="https://github.com/aijayz/x402-ai-agent" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground transition-colors">
               <Github className="size-3.5" />
