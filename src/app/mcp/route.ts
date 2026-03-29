@@ -10,9 +10,6 @@ import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { TOOL_PRICES } from "@/lib/tool-prices";
 import { validateUrl } from "@/lib/url-guard";
 import { SUPPORTED_CHAINS, type ChainKey } from "@/lib/chains";
-import { ReportStore } from "@/lib/reports/report-store";
-import { TokenSnapshotStore } from "@/lib/token-pages/store";
-import { FIXED_TOKEN_SYMBOLS } from "@/lib/token-pages/fixed-symbols";
 import {
   executeDefiSafety, executeWhaleActivity, executeWalletPortfolio,
   executeSocialNarrative, executeTokenAlpha, executeMarketTrends,
@@ -405,82 +402,6 @@ async function getHandler() {
             }
           }
         );
-        // ── Free tools (no payment required) ─────────────────────────────
-
-        server.tool(
-          "get_daily_digest",
-          "Get the latest daily intelligence digest — market overview, token analysis, and key signals. Free, no payment required.",
-          {},
-          async () => {
-            try {
-              const digest = await ReportStore.getLatestDigest();
-              if (!digest) {
-                return { content: [{ type: "text", text: "No digest available yet." }], isError: true };
-              }
-              return {
-                content: [{
-                  type: "text",
-                  text: JSON.stringify({
-                    date: digest.digestDate ?? digest.createdAt.slice(0, 10),
-                    title: digest.title,
-                    content: digest.content,
-                    tokenCount: Array.isArray(digest.markers) ? digest.markers.length : 0,
-                  }),
-                }],
-              };
-            } catch (err) {
-              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
-            }
-          },
-        );
-
-        server.tool(
-          "list_tracked_tokens",
-          "List all token symbols that have intelligence snapshots available. Free, no payment required.",
-          {},
-          async () => {
-            try {
-              const fixedSet = new Set(FIXED_TOKEN_SYMBOLS);
-              const symbols = await TokenSnapshotStore.getAllSymbols();
-              const tokens = symbols.map((s) => ({ symbol: s, category: fixedSet.has(s) ? "fixed" : "mover" }));
-              return { content: [{ type: "text", text: JSON.stringify({ tokens }) }] };
-            } catch (err) {
-              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
-            }
-          },
-        );
-
-        server.tool(
-          "get_token_snapshot",
-          "Get intelligence snapshot for a token — security score, whale flow, sentiment, and unlock schedule. Free, no payment required.",
-          { symbol: z.string().describe("Token symbol (e.g. 'BTC', 'ETH', 'SOL')") },
-          async (args) => {
-            try {
-              const snapshot = await TokenSnapshotStore.getBySymbol(args.symbol);
-              if (!snapshot) {
-                return { content: [{ type: "text", text: `No snapshot found for ${args.symbol.toUpperCase()}.` }], isError: true };
-              }
-              const d = snapshot.data;
-              return {
-                content: [{
-                  type: "text",
-                  text: JSON.stringify({
-                    symbol: snapshot.symbol,
-                    name: d.name,
-                    snapshotDate: snapshot.digestDate,
-                    security: d.security ?? null,
-                    whaleFlow: d.whaleFlow ? { netFlowUsd: d.whaleFlow.netFlowUsd, largeTxCount: d.whaleFlow.largeTxCount, totalVolumeUsd: d.whaleFlow.totalVolumeUsd } : null,
-                    sentiment: d.sentiment ?? null,
-                    unlocks: d.unlocks ?? null,
-                  }),
-                }],
-              };
-            } catch (err) {
-              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
-            }
-          },
-        );
-
         // ── Paid cluster tools (x402 payment required) ──────────────────
 
         server.paidTool(

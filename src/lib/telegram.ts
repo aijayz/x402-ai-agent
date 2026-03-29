@@ -1,52 +1,24 @@
-import { env } from "@/lib/env";
+/**
+ * Telegram alert helper.
+ * Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID env vars to enable alerts.
+ * Without them, alerts are logged to console only.
+ */
+export async function sendTelegramAlert(message: string): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
 
-/** Send a text message to the configured Telegram chat. No-ops if env vars are missing. */
-export async function sendTelegramAlert(message: string, parseMode?: "Markdown" | "HTML") {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
-  try {
-    const body: Record<string, unknown> = {
-      chat_id: env.TELEGRAM_CHAT_ID,
-      text: message,
-      disable_web_page_preview: false,
-    };
-    if (parseMode) body.parse_mode = parseMode;
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error(`[TELEGRAM] API error ${res.status}: ${detail}`);
-    }
-  } catch (err) {
-    console.error("[TELEGRAM] Failed to send alert", err);
+  if (!token || !chatId) {
+    console.warn("[alert]", message.replace(/[*_`]/g, ""));
+    return;
   }
-}
 
-/** Send a photo with caption. Returns true on success, false on failure. */
-export async function sendTelegramPhoto(photoUrl: string, caption: string, parseMode?: "Markdown" | "HTML"): Promise<boolean> {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return false;
   try {
-    const body: Record<string, unknown> = {
-      chat_id: env.TELEGRAM_CHAT_ID,
-      photo: photoUrl,
-      caption,
-    };
-    if (parseMode) body.parse_mode = parseMode;
-    const res = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "Markdown" }),
     });
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error(`[TELEGRAM] sendPhoto error ${res.status}: ${detail}`);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("[TELEGRAM] Failed to send photo", err);
-    return false;
+  } catch {
+    // Non-critical — don't let alert failures propagate
   }
 }

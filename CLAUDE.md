@@ -30,7 +30,7 @@ See `docs/ops/` for operational runbooks:
 
 ## Architecture Overview
 
-**Obol AI** is an AI chat agent that orchestrates paid research services via the x402 protocol (HTTP 402 micropayments with USDC on Base). Users get 2 free tool calls, then connect a wallet to claim tiered free credits based on wallet age (Sybil guard). When credits are depleted, users top up with USDC.
+**x402 AI Agent** is an AI chat agent that orchestrates paid research services via the x402 protocol (HTTP 402 micropayments with USDC on Base). Users get 2 free tool calls, then connect a wallet to claim tiered free credits based on wallet age (Sybil guard). When credits are depleted, users top up with USDC.
 
 **Stack:**
 - **x402 protocol**: HTTP-native USDC payments on Base blockchain
@@ -53,7 +53,7 @@ See `docs/ops/` for operational runbooks:
 | Route | Purpose |
 |-------|---------|
 | `/api/chat` | AI chat endpoint — orchestrator agent with MCP tools |
-| `/mcp` | MCP server with paid/free tools |
+| `/mcp` | MCP server with paid tools |
 | `/api/credits/balance` | Get wallet credit balance |
 | `/api/credits/topup` | Initiate USDC deposit |
 | `/api/credits/topup/confirm` | Confirm deposit transaction |
@@ -62,6 +62,7 @@ See `docs/ops/` for operational runbooks:
 | `/api/credits/webhook` | Alchemy webhook for deposit confirmation |
 | `/api/registry` | x402 service registry API |
 | `/api/auth/me` | Restore wallet session from HttpOnly cookie (page refresh) |
+| `/api/v1/research/*` | Public x402-gated research API (6 endpoints) |
 
 ### Key Architecture Patterns
 
@@ -70,7 +71,6 @@ See `docs/ops/` for operational runbooks:
 - System prompt with spending authority — never asks "should I proceed?"
 - Silently retries 402 errors (payment handled by `withAutoPayment`)
 - Budget-aware: checks credit balance before expensive tools
-- Agent identity: "You are Obol, an AI agent that pays for intelligence"
 
 **MCP Integration** (`src/app/mcp/route.ts`)
 - Remote MCP server with `paidTool()` and `tool()` helpers
@@ -83,17 +83,16 @@ See `docs/ops/` for operational runbooks:
 - On `base-sepolia`: returns stub adapters with deterministic mock data
 - On `base`: returns real x402 HTTP adapters using service URLs from env
 - 9 service adapters: augur, genvox, slamai-wallet, messari-token-unlocks, messari-allocations, qs-token-security, qs-contract-audit, qs-wallet-risk, qs-whale-activity
-- Removed (dead/broken): rug-munch (404), diamond-claws (530), slamai-token-holders (server-side payment bug), wallet-iq
 - Contract addresses resolved to symbols via CoinGecko before Messari lookup (`src/lib/services/coingecko.ts`)
 
 **Research Cluster Tools** (`src/lib/clusters/`)
 Each cluster orchestrates multiple x402 services for cross-referenced intelligence:
-- `cluster-a-defi.ts` — `analyze_defi_safety` ($0.05–$0.15) — Augur + QS Token Security + QS Contract Audit + Messari (free)
-- `cluster-b-whale.ts` — `track_whale_activity` (~$0.02) — QS Wallet Risk + QS Whale Activity + SLAMai Wallet
-- `cluster-c-portfolio.ts` — `analyze_wallet_portfolio` (~$0.02) — QS Wallet Risk + SLAMai Wallet + QS Whale Activity
-- `cluster-d-social.ts` — `analyze_social_narrative` (~$0.17) — GenVox + Augur + QS Wallet Risk
-- `cluster-e-alpha.ts` — `screen_token_alpha` (~$0.33) — QS Token Security + Messari Unlocks (free) + Messari Allocations ($0.25). Accepts name/symbol or address.
-- `cluster-f-market.ts` — `analyze_market_trends` (~$0.04) — GenVox + QS Contract Audit (optional)
+- `cluster-a-defi.ts` — `analyze_defi_safety` ($0.05–$0.15)
+- `cluster-b-whale.ts` — `track_whale_activity` (~$0.02)
+- `cluster-c-portfolio.ts` — `analyze_wallet_portfolio` (~$0.02)
+- `cluster-d-social.ts` — `analyze_social_narrative` (~$0.17)
+- `cluster-e-alpha.ts` — `screen_token_alpha` (~$0.33)
+- `cluster-f-market.ts` — `analyze_market_trends` (~$0.04)
 - All clusters emit structured `service_call` + `cluster_complete` JSON telemetry events
 
 **Credit System**
@@ -106,13 +105,11 @@ Each cluster orchestrates multiple x402 services for cross-referenced intelligen
   - 7–30 days → $0.25
   - > 30 days → $0.50
   - API failure → $0.10 (safe default)
-- Payment safety net: spend event recorded FIRST (audit trail), then `deduct()` with `forceDeduct()` fallback (allows negative balance) + retry on DB error. Telegram alerts on all failure paths.
 
 **Chat API** (`src/app/api/chat/route.ts`)
 - Validates messages, filters contentless ones (streaming edge cases)
 - Creates MCP client with `withAutoPayment` for 402 handling
-- Model fallback chain with cached probes (5-min TTL) — avoids per-request latency
-- On stream error: probe cache invalidated, next request falls through to working model
+- Model fallback chain with cached probes (5-min TTL)
 - Records spend events and deducts credits on successful paid tool calls
 - Session cookie for anonymous user tracking (30 min expiry)
 
@@ -120,44 +117,11 @@ Each cluster orchestrates multiple x402 services for cross-referenced intelligen
 - Probe-based fallback chain: `AI_MODEL` → `deepseek/deepseek-chat` → `google/gemini-2.5-flash`
 - Probes are cached for 5 minutes (no latency on repeat requests)
 - `invalidateProbe()` called on stream errors for automatic recovery
-- Handles: firewall blocks, quota exhaustion, provider outages
 
 **Rate Limiting** (`src/lib/rate-limit.ts`, `src/middleware.ts`)
 - Upstash Redis sliding window (5 req/min anon, 20 req/min auth for `/api/chat`)
-- IP-based free call counter: `checkAndIncrementIpFreeCalls(ip)` — Redis INCR with 24h TTL, max 2 calls per IP
-- Both session AND IP checks must pass for anonymous users (closes cookie-clear bypass)
-- `decrementIpFreeCalls(ip)` called if one check passes but the other fails (prevents double-counting)
+- IP-based free call counter: Redis INCR with 24h TTL, max 2 calls per IP
 - Gracefully returns `{ allowed: true }` when no Redis configured
-
-**Tool UI** (`src/components/ai-elements/tool.tsx`)
-- Compact single-line headers with result snippets (e.g., `✓ Crypto Price · ETH $2,103 · $0.01`)
-- 402 payment-negotiation tool cards hidden from users (detected via `isError` + `x402Version` in output)
-- Expanded view shows payment proof (tx hash) and raw data
-- Tool display config in `src/lib/tool-display-config.ts`
-
-**Cost Display** (`src/components/ai-elements/session-receipt.tsx`)
-- Anonymous users: informational pill (`⚡ get crypto price · $0.01 via x402`)
-- Wallet users: transactional receipt with per-tool breakdown
-
-**Wallet Connection** (`src/components/wallet-provider.tsx`)
-- MetaMask deep link on mobile (redirects to `metamask.app.link/dapp/...`)
-- Falls back to "install MetaMask" prompt on desktop without provider
-- Chain switching to Base/Base Sepolia on connect
-- Free credit claim on first wallet connect
-
-### AI Components
-
-UI components in `src/components/ai-elements/`:
-- `conversation.tsx` - Container with scroll behavior
-- `message.tsx` - Individual message display
-- `tool.tsx` - Compact tool headers with result snippets
-- `prompt-input.tsx` - Chat input
-- `response.tsx` - AI response display with markdown
-- `reasoning.tsx` - DeepSeek reasoner thought display
-- `loader.tsx` - Loading indicator
-- `suggestion.tsx` - Quick suggestion buttons
-- `code-block.tsx` - Syntax highlighted code blocks
-- `session-receipt.tsx` - Cost display (anonymous vs wallet)
 
 ### Environment Configuration
 
@@ -165,6 +129,7 @@ Uses `@t3-oss/env-nextjs` — **env vars are inlined at build time**. Changing e
 
 See `.env.example` for all keys. Key groups:
 - **CDP**: `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET`, `CDP_WALLET_SECRET`
+- **Wallet**: `DEPOSIT_ADDRESS` (CDP purchaser wallet address)
 - **AI**: `GOOGLE_GENERATIVE_AI_API_KEY`, `DEEPSEEK_API_KEY`, `AI_MODEL`
 - **Database**: `DATABASE_URL` (Neon Postgres)
 - **Network**: `NETWORK` (base-sepolia|base), `NEXT_PUBLIC_NETWORK`, `URL`
@@ -192,7 +157,6 @@ See `.env.example` for all keys. Key groups:
 5. USDC transfers from house wallet to seller wallet
 6. Tool executes and returns result
 7. Credit system deducts cost (+ 30% markup) from user's balance
-8. UI shows compact tool card with result — 402 error card is hidden
 
 ## Network Configuration
 
@@ -203,11 +167,8 @@ Both `NETWORK` and `NEXT_PUBLIC_NETWORK` must match. `NETWORK` is server-side, `
 
 ## Deployment
 
-- **Product**: Obol AI
-- **Vercel**: https://obolai.xyz
-- **Project**: `prj_EmIK8e1f3Rxp4bLcabzRWds6Df3h`
+- **Vercel**: `vercel --prod --yes` from repo root
 - **Cron**: `/api/credits/check-topups` runs daily (`0 0 * * *`)
-- **Deploy**: `vercel --prod --yes` from repo root
 - **Build-time env**: Changing env vars on Vercel requires a redeploy (`@t3-oss/env-nextjs` inlines at build)
 
 ## Testnet Resources
@@ -216,18 +177,8 @@ Both `NETWORK` and `NEXT_PUBLIC_NETWORK` must match. `NETWORK` is server-side, `
 - Base Sepolia ETH: https://www.alchemy.com/faucets/base-sepolia
 - CDP Console: https://portal.cdp.coinbase.com/
 
-## Current Wallet Addresses (CDP-Managed)
-
-| Wallet | Purpose |
-|--------|---------|
-| `0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e` | Purchaser (pays for tools) |
-| `0x545442553E692D0900005d7e48885684Daa0C4f0` | Seller (receives payments) |
-
-Use `scripts/sweep.ts` to transfer funds to a cold wallet (see Scripts section above).
-
 ## Known Limitations
 
 - **Mid-stream model failure**: If a model dies during streaming, the current request fails. The next request auto-recovers via probe cache invalidation.
-- **RugMunch endpoint**: Inferred from status URL pattern (`/api/agent/v1/`), not verified against their docs (corporate firewall blocked access).
 - **Google Gemini free tier**: Limited to ~20 req/day. Not suitable as primary model for production traffic.
 - **Vercel Hobby plan**: Daily cron only, 60s function timeout (set `maxDuration=120` for Pro compatibility).

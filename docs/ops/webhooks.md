@@ -5,23 +5,23 @@ the purchaser wallet for USDC transfers.
 
 ## Purchaser Wallet
 
-`0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e` (same address on all EVM chains)
+Your CDP Purchaser wallet address (set via `DEPOSIT_ADDRESS` env var)
 
 ## Webhook Endpoints
 
 | Chain    | Endpoint URL                              | Env Var                        |
 |----------|-------------------------------------------|--------------------------------|
-| Base     | `https://obolai.xyz/api/credits/webhook`  | `ALCHEMY_WEBHOOK_KEY_BASE`     |
-| Ethereum | `https://obolai.xyz/api/credits/webhook/ethereum` | `ALCHEMY_WEBHOOK_KEY_ETHEREUM` |
-| Arbitrum | `https://obolai.xyz/api/credits/webhook/arbitrum` | `ALCHEMY_WEBHOOK_KEY_ARBITRUM` |
-| Optimism | `https://obolai.xyz/api/credits/webhook/optimism` | `ALCHEMY_WEBHOOK_KEY_OPTIMISM` |
+| Base     | `https://your-domain.com/api/credits/webhook`  | `ALCHEMY_WEBHOOK_KEY_BASE`     |
+| Ethereum | `https://your-domain.com/api/credits/webhook/ethereum` | `ALCHEMY_WEBHOOK_KEY_ETHEREUM` |
+| Arbitrum | `https://your-domain.com/api/credits/webhook/arbitrum` | `ALCHEMY_WEBHOOK_KEY_ARBITRUM` |
+| Optimism | `https://your-domain.com/api/credits/webhook/optimism` | `ALCHEMY_WEBHOOK_KEY_OPTIMISM` |
 
 ## Setup Steps (per chain)
 
 1. Go to Alchemy Dashboard > Notify > Create Webhook
 2. Select chain network (e.g., ETH Mainnet)
 3. Webhook type: Address Activity
-4. Address: `0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e`
+4. Address: your `DEPOSIT_ADDRESS` (CDP Purchaser wallet)
 5. Set the webhook URL from the table above
 6. Copy the signing key and set the corresponding env var on Vercel
 

@@ -16,7 +16,8 @@ export interface ChainConfig {
 }
 
 // Purchaser wallet address (CDP-managed, same key on all EVM chains)
-const DEPOSIT_ADDRESS = "0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e";
+// Set DEPOSIT_ADDRESS env var to your CDP purchaser wallet address
+const DEPOSIT_ADDRESS = (process.env.DEPOSIT_ADDRESS || "") as `0x${string}`;
 
 export const SUPPORTED_CHAINS: Record<ChainKey, ChainConfig> = {
   base: {

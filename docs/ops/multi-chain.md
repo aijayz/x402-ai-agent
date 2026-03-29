@@ -11,7 +11,7 @@
 
 ## Deposit Address
 
-All chains: `0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e` (CDP-managed Purchaser wallet)
+All chains: your CDP Purchaser wallet (set via `DEPOSIT_ADDRESS` env var)
 
 ## How It Works
 
@@ -19,7 +19,7 @@ All chains: `0x58F34156c7fA8a37f877e0CfE0A3A2234e97751e` (CDP-managed Purchaser 
 2. MetaMask switches to that chain
 3. User signs USDC transfer to deposit address
 4. Confirm endpoint verifies the tx on the selected chain's RPC
-5. Credits are added instantly to the user's Obol balance
+5. Credits are added instantly to the user's balance
 6. Alchemy webhooks serve as a backup for manual deposits
 
 ## Env Vars Required

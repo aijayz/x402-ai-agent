@@ -1,84 +1,15 @@
-# Obol Public API v1
+# x402 AI Agent Public API v1
 
-Base URL: `https://www.obolai.xyz/api/v1`
+Base URL: `https://your-domain.com/api/v1`
 
 ## Overview
 
-Obol AI exposes crypto research intelligence via two interfaces:
+This x402 AI Agent exposes crypto research intelligence via two interfaces:
 
 - **REST API** — standard HTTP endpoints documented below
 - **MCP (Model Context Protocol)** — AI-native tool discovery at `/mcp`
 
-Free endpoints require no authentication. Paid endpoints use the **x402 protocol** — HTTP-native USDC micropayments on Base. Payment IS authentication; no API keys needed.
-
----
-
-## Free Tier
-
-Rate limited at **60 requests/hour** per IP. No authentication required.
-
-### `GET /api/v1/digest/latest`
-
-Returns the most recent daily intelligence digest.
-
-**Response:**
-```json
-{
-  "date": "2026-03-28",
-  "title": "Daily Intelligence Digest — March 28, 2026",
-  "content": "## Market Overview\n...",
-  "markers": [...],
-  "tokenCount": 10,
-  "generatedAt": "2026-03-28T00:05:12Z"
-}
-```
-
-### `GET /api/v1/digest/:date`
-
-Returns digest for a specific date. Date format: `YYYY-MM-DD`.
-
-Returns `404` if no digest exists for that date.
-
-### `GET /api/v1/tokens`
-
-Lists all tracked token symbols with the current snapshot date.
-
-**Response:**
-```json
-{
-  "tokens": [
-    { "symbol": "BTC", "category": "fixed" },
-    { "symbol": "ETH", "category": "fixed" },
-    { "symbol": "SIREN", "category": "mover" }
-  ],
-  "snapshotDate": "2026-03-28"
-}
-```
-
-### `GET /api/v1/tokens/:symbol`
-
-Returns intelligence snapshot for a token.
-
-**Response:**
-```json
-{
-  "symbol": "BTC",
-  "name": "Bitcoin",
-  "snapshotDate": "2026-03-28",
-  "security": { "score": 95, "details": "No known vulnerabilities" },
-  "whaleFlow": {
-    "netFlowUsd": -12400000,
-    "largeTxCount": 847,
-    "totalVolumeUsd": 89000000
-  },
-  "sentiment": {
-    "score": 68,
-    "label": "bullish",
-    "summary": "Institutional accumulation continues amid ETF inflow records"
-  },
-  "unlocks": null
-}
-```
+Paid endpoints use the **x402 protocol** — HTTP-native USDC micropayments on Base. Payment IS authentication; no API keys needed.
 
 ---
 
@@ -103,7 +34,7 @@ All paid endpoints are `POST`. No rate limit — each call costs USDC, which is 
     "scheme": "exact",
     "network": "base",
     "maxAmountRequired": "50000",
-    "payTo": "0x545442553E692D0900005d7e48885684Daa0C4f0",
+    "payTo": "YOUR_SELLER_WALLET_ADDRESS",
     "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     "maxTimeoutSeconds": 300,
     "resource": "/api/v1/research/defi-safety",
@@ -122,7 +53,7 @@ const client = new x402Client();
 registerExactEvmScheme(client, { signer: toClientEvmSigner(walletClient.account) });
 const paidFetch = wrapFetchWithPayment(fetch, client);
 
-const res = await paidFetch("https://www.obolai.xyz/api/v1/research/defi-safety", {
+const res = await paidFetch("https://your-domain.com/api/v1/research/defi-safety", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({ target: "0x...", chain: "ethereum" }),
@@ -229,12 +160,7 @@ Analyze market trends with sentiment, DEX volume, and stablecoin supply data.
 
 ## MCP (Model Context Protocol)
 
-Connect any MCP-compatible AI agent to `https://www.obolai.xyz/mcp`.
-
-### Free Tools (no payment)
-- `get_daily_digest` — Latest intelligence digest
-- `list_tracked_tokens` — All tracked token symbols
-- `get_token_snapshot` — Token intelligence snapshot by symbol
+Connect any MCP-compatible AI agent to `https://your-domain.com/mcp`.
 
 ### Paid Tools (x402 via `_meta["x402/payment"]`)
 - `get_crypto_price` ($0.01) — Live price, 24h change, market cap
@@ -254,12 +180,11 @@ Connect any MCP-compatible AI agent to `https://www.obolai.xyz/mcp`.
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-const transport = new StreamableHTTPClientTransport(new URL("https://www.obolai.xyz/mcp"));
+const transport = new StreamableHTTPClientTransport(new URL("https://your-domain.com/mcp"));
 const client = new Client({ name: "my-agent", version: "1.0" });
 await client.connect(transport);
 
 const tools = await client.listTools();
-const result = await client.callTool({ name: "get_daily_digest", arguments: {} });
 ```
 
 ---
@@ -268,7 +193,6 @@ const result = await client.callTool({ name: "get_daily_digest", arguments: {} }
 
 | Tier | Limit | Scope |
 |------|-------|-------|
-| Free endpoints (`/api/v1/digest/*`, `/api/v1/tokens/*`) | 60 req/hour | Per IP |
 | Paid endpoints (`/api/v1/research/*`) | Unlimited | x402 payment is the throttle |
 | MCP (`/mcp`) | 10 req/min (anon), 40 req/min (auth) | Per IP or wallet |
 

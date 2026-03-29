@@ -41,7 +41,7 @@ export async function GET(req: Request) {
     if (balanceUsdc < LOW_BALANCE_THRESHOLD) {
       console.warn(`[CRON] LOW BALANCE: House wallet ${purchaser.address} has $${balanceUsdc.toFixed(2)} USDC (threshold: $${LOW_BALANCE_THRESHOLD})`);
       await sendTelegramAlert(
-        `⚠️ *Obol AI — Low Balance*\n\nHouse wallet \`${purchaser.address}\`\nBalance: *$${balanceUsdc.toFixed(2)}* USDC\nThreshold: $${LOW_BALANCE_THRESHOLD}\nNetwork: ${env.NETWORK}`
+        `⚠️ *x402 Agent — Low Balance*\n\nHouse wallet \`${purchaser.address}\`\nBalance: *$${balanceUsdc.toFixed(2)}* USDC\nThreshold: $${LOW_BALANCE_THRESHOLD}\nNetwork: ${env.NETWORK}`
       );
     } else {
       console.log(`[CRON] House wallet balance: $${balanceUsdc.toFixed(2)} USDC`);
@@ -56,7 +56,7 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("[CRON] Failed to check house wallet balance", err);
     await sendTelegramAlert(
-      `🔴 *Obol AI — Cron Error*\n\nFailed to check house wallet balance.\nError: ${err instanceof Error ? err.message : "Unknown"}\nNetwork: ${env.NETWORK}`
+      `🔴 *x402 Agent — Cron Error*\n\nFailed to check house wallet balance.\nError: ${err instanceof Error ? err.message : "Unknown"}\nNetwork: ${env.NETWORK}`
     );
     return NextResponse.json({ ok: false, error: "Failed to check balance" }, { status: 500 });
   }

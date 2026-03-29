@@ -6,15 +6,15 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.URL || "https://obolai.xyz"
+    process.env.URL || "http://localhost:3000"
   ),
   title: {
-    default: "Obol AI",
-    template: "%s | Obol AI",
+    default: "x402 AI Agent",
+    template: "%s | x402 AI Agent",
   },
   description: "AI agent that pays for intelligence via x402 micropayments on Base",
   openGraph: {
-    siteName: "Obol AI",
+    siteName: "x402 AI Agent",
     locale: "en_US",
     type: "website",
   },

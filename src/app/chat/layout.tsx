@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ObolLogo } from "@/components/obol-logo";
 import { ClientProviders } from "@/components/client-providers";
 import { WalletPill, CreditBadge } from "@/components/wallet-pill";
 import { TopUpSheet } from "@/components/topup-sheet";
@@ -32,17 +31,12 @@ export default function ChatLayout({
               href="/"
               className="flex items-center gap-2.5 group"
             >
-              <div className="relative flex items-center justify-center">
-                <ObolLogo size={32} />
-                <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md" />
-              </div>
-
               <div className="flex flex-col items-start">
                 <span className="text-sm font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-200 dark:to-white bg-clip-text text-transparent">
-                  Obol
+                  x402 Agent
                 </span>
                 <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 -mt-0.5 tracking-wide">
-                  AI agent
+                  AI · USDC · x402
                 </span>
               </div>
             </Link>

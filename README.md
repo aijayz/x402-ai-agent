@@ -1,14 +1,12 @@
-# Obol AI
+# x402 AI Agent
 
-An AI agent that pays for intelligence. Obol orchestrates multiple paid research services using USDC on Base via the [x402](https://x402.org) protocol — autonomous micropayments for every tool call.
-
-Live at [obolai.xyz](https://obolai.xyz)
+An AI agent that pays for intelligence using USDC on Base via the [x402](https://x402.org) protocol — autonomous micropayments for every tool call.
 
 Built with Next.js, AI SDK v6, and Coinbase CDP wallets.
 
 ## What it does
 
-Ask Obol anything crypto-related and it autonomously calls the right combination of paid x402 services, pays for them with USDC, and synthesizes a cross-referenced answer:
+Ask anything crypto-related and the agent autonomously calls the right combination of paid x402 services, pays for them with USDC, and synthesizes a cross-referenced answer:
 
 - **DeFi safety analysis** — rug pull detection, honeypot checks, smart contract audits, token unlock schedules
 - **Whale tracking** — smart money intelligence, top holder profiles, accumulation patterns
@@ -34,41 +32,40 @@ Free credits are claimed once on wallet connect. Wallet age is verified via Base
 
 ## Supported Deposit Chains
 
-Users can deposit USDC from any of these chains. All deposits are credited instantly to the user's Obol balance.
+Users can deposit USDC from any of these chains. All deposits are credited instantly to the user's balance.
 
-| Chain    | Chain ID | USDC Contract                                | Deposit Address |
-|----------|----------|----------------------------------------------|-----------------|
-| Base     | 8453     | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | `0x58F3...` |
-| Ethereum | 1        | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` | `0x58F3...` |
-| Arbitrum | 42161    | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` | `0x58F3...` |
-| Optimism | 10       | `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85` | `0x58F3...` |
+| Chain    | Chain ID | USDC Contract                                |
+|----------|----------|----------------------------------------------|
+| Base     | 8453     | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| Ethereum | 1        | `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` |
+| Arbitrum | 42161    | `0xaf88d065e77c8cC2239327C5EDb3A432268e5831` |
+| Optimism | 10       | `0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85` |
 
-All chains share the same deposit address: the CDP-managed Purchaser wallet.
+All chains share the same deposit address — your CDP-managed Purchaser wallet (`DEPOSIT_ADDRESS` env var).
 See `docs/ops/multi-chain.md` for full configuration details.
 
 ## x402 Services
 
-Obol orchestrates six independent x402 services grouped into research clusters:
+The agent orchestrates independent x402 services grouped into research clusters:
 
 | Service | Provider | Cost | Used for |
 |---------|----------|------|---------|
-| RugMunch | cryptorugmunch.app | $0.02–$2.00 | Rug pull detection |
 | Augur | augurrisk.com | $0.10 | Contract risk scoring |
 | SLAMai | api.slamai.dev | $0.001 | Smart money intelligence, whale profiling |
 | GenVox | api.genvox.io | $0.03 | Sentiment analysis |
 | QuantumShield | quantumshield-api.vercel.app | $0.001–$0.003 | Token security, wallet risk, whale activity |
-| Messari | api.messari.io | free | Token unlock schedules, institutional classification |
+| Messari | api.messari.io | free / $0.25 | Token unlock schedules, allocation data |
 
 ### Research Clusters
 
 | Cluster | Tool | Services | Cost |
 |---------|------|----------|------|
-| A — DeFi Safety | `analyze_defi_safety` | RugMunch + Augur + QuantumShield + Messari | $0.05–$0.15 |
-| B — Whale Tracker | `track_whale_activity` | SLAMai + QuantumShield | ~$0.01 |
-| C — Wallet Portfolio | `analyze_wallet_portfolio` | SLAMai + QuantumShield | ~$0.01 |
-| D — Social Narrative | `analyze_social_narrative` | GenVox + Augur + QuantumShield | ~$0.13 |
-| E — Token Alpha | `screen_token_alpha` | QuantumShield + SLAMai + Messari | ~$0.01 |
-| F — Market Trends | `analyze_market_trends` | GenVox + QuantumShield | ~$0.03 |
+| A — DeFi Safety | `analyze_defi_safety` | Augur + QuantumShield + Messari | $0.05–$0.15 |
+| B — Whale Tracker | `track_whale_activity` | SLAMai + QuantumShield | ~$0.02 |
+| C — Wallet Portfolio | `analyze_wallet_portfolio` | SLAMai + QuantumShield | ~$0.02 |
+| D — Social Narrative | `analyze_social_narrative` | GenVox + Augur + QuantumShield | ~$0.17 |
+| E — Token Alpha | `screen_token_alpha` | QuantumShield + Messari | ~$0.33 |
+| F — Market Trends | `analyze_market_trends` | GenVox + QuantumShield | ~$0.04 |
 
 Each cluster calls its services in parallel, gracefully handles unavailable ones, and returns cross-referenced results.
 
@@ -83,13 +80,12 @@ flowchart TD
     Orchestrator --> MCPTools["MCP Tools\nget_crypto_price · get_wallet_profile\nsummarize_url · analyze_contract\ngenerate_image"]
     Orchestrator --> AgentTools["Agent Tools\ncheck_budget · search_x402_services\nprobe_x402_service"]
     Orchestrator --> ClusterA["Cluster A\nanalyze_defi_safety\n$0.05–$0.15"]
-    Orchestrator --> ClusterB["Cluster B\ntrack_whale_activity\n~$0.01"]
-    Orchestrator --> ClusterC["Cluster C\nanalyze_wallet_portfolio\n~$0.01"]
-    Orchestrator --> ClusterD["Cluster D\nanalyze_social_narrative\n~$0.13"]
-    Orchestrator --> ClusterE["Cluster E\nscreen_token_alpha\n~$0.01"]
-    Orchestrator --> ClusterF["Cluster F\nanalyze_market_trends\n~$0.03"]
+    Orchestrator --> ClusterB["Cluster B\ntrack_whale_activity\n~$0.02"]
+    Orchestrator --> ClusterC["Cluster C\nanalyze_wallet_portfolio\n~$0.02"]
+    Orchestrator --> ClusterD["Cluster D\nanalyze_social_narrative\n~$0.17"]
+    Orchestrator --> ClusterE["Cluster E\nscreen_token_alpha\n~$0.33"]
+    Orchestrator --> ClusterF["Cluster F\nanalyze_market_trends\n~$0.04"]
 
-    ClusterA --> RugMunch["RugMunch\nrug pull detection"]
     ClusterA --> Augur["Augur\ncontract risk"]
     ClusterA --> QS1["QuantumShield\ntoken security"]
     ClusterA --> Messari["Messari\ntoken unlocks (free)"]
@@ -105,13 +101,12 @@ flowchart TD
     ClusterD --> QS3["QuantumShield\nwallet risk"]
 
     ClusterE --> QS6["QuantumShield\ntoken security"]
-    ClusterE --> SLAMai3["SLAMai\nholder reputation"]
-    ClusterE --> Messari2["Messari\ntoken unlocks (free)"]
+    ClusterE --> Messari2["Messari\ntoken unlocks"]
 
     ClusterF --> GenVox2["GenVox\nsentiment"]
     ClusterF --> QS4["QuantumShield\ncontract audit"]
 
-    RugMunch & Augur & QS1 & SLAMai & QS2 & SLAMai2 & QS5 & GenVox1 & Augur2 & QS3 & QS6 & SLAMai3 & GenVox2 & QS4 --> Payment["x402 Payment\n402 → EIP-3009 sign → retry"]
+    Augur & QS1 & SLAMai & QS2 & SLAMai2 & QS5 & GenVox1 & Augur2 & QS3 & QS6 & GenVox2 & QS4 --> Payment["x402 Payment\n402 → EIP-3009 sign → retry"]
     Payment --> CDP["CDP House Wallet"]
     CDP --> Facilitator["Coinbase Facilitator"]
     Facilitator --> Base[("Base Network\nUSDC")]
@@ -133,7 +128,7 @@ flowchart TD
 | Route | Purpose |
 |-------|---------|
 | `POST /api/chat` | Chat endpoint — ToolLoopAgent with streaming and payment tracking |
-| `GET/POST /mcp` | MCP server — free and paid tools |
+| `GET/POST /mcp` | MCP server — paid tools |
 | `GET /api/credits/balance` | Get wallet credit balance |
 | `POST /api/credits/topup` | Initiate USDC deposit |
 | `POST /api/credits/topup/confirm` | Confirm deposit transaction |
@@ -141,6 +136,7 @@ flowchart TD
 | `GET /api/credits/check-topups` | Cron — check pending top-ups (daily) |
 | `POST /api/credits/webhook` | Alchemy webhook for deposit confirmation |
 | `GET/POST /api/registry` | x402 service registry |
+| `POST /api/v1/research/*` | Public x402-gated research API |
 
 ### Key Modules
 
@@ -155,7 +151,7 @@ flowchart TD
 | Service Registry | `src/lib/services/registry.ts` | Real/stub adapter resolution by network |
 | Research Clusters | `src/lib/clusters/` | Multi-service orchestration |
 | x402 Client | `src/lib/x402-client.ts` | v1/v2 compatible payment header creation |
-| MCP Server | `src/app/mcp/route.ts` | Paid and free MCP tools |
+| MCP Server | `src/app/mcp/route.ts` | Paid MCP tools |
 
 ## Payment Flow
 
@@ -201,6 +197,9 @@ CDP_API_KEY_ID=your_key_id
 CDP_API_KEY_SECRET=your_secret
 CDP_WALLET_SECRET=your_wallet_secret
 
+# Your CDP purchaser wallet address (set after first run)
+DEPOSIT_ADDRESS=0x...
+
 # AI models
 DEEPSEEK_API_KEY=your_deepseek_key
 GOOGLE_GENERATIVE_AI_API_KEY=your_google_key
@@ -231,11 +230,9 @@ On `base-sepolia`, all x402 service calls use stub adapters with deterministic m
 Set `NETWORK=base` and `NEXT_PUBLIC_NETWORK=base` (requires a redeploy on Vercel due to build-time env inlining), and configure the x402 service URLs:
 
 ```bash
-RUGMUNCH_URL=https://cryptorugmunch.app
 AUGUR_URL=https://augurrisk.com
-DIAMONDCLAWS_URL=https://diamondclaws.io
-WALLETIQ_URL=https://walletiq-zeta.vercel.app
 GENVOX_URL=https://api.genvox.io
+SLAMAI_URL=https://api.slamai.dev
 QUANTUM_SHIELD_URL=https://quantumshield-api.vercel.app
 ```
 
@@ -287,6 +284,7 @@ vercel --prod
 | `CDP_API_KEY_ID` | Yes | Coinbase CDP API key ID |
 | `CDP_API_KEY_SECRET` | Yes | Coinbase CDP API secret |
 | `CDP_WALLET_SECRET` | Yes | Wallet encryption key |
+| `DEPOSIT_ADDRESS` | Yes | CDP purchaser wallet address (set after first `pnpm dev`) |
 | `DATABASE_URL` | Yes | Neon Postgres connection string |
 | `DEEPSEEK_API_KEY` | Local dev | Direct DeepSeek API key |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Yes | Gemini fallback model |

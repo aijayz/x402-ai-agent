@@ -61,3 +61,4 @@ reports/*.xml
 *.png
 !public/**/*.png
 !src/**/*.png
+.claude/

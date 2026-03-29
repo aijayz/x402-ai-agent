@@ -101,7 +101,7 @@ export function MessageActions({
 
   const shareOnFarcaster = () => {
     if (!sharedUrl) return;
-    const text = encodeURIComponent("Check out this analysis from Obol AI");
+    const text = encodeURIComponent("Check out this analysis from x402 AI Agent");
     const url = encodeURIComponent(sharedUrl);
     openUrl(`https://warpcast.com/~/compose?text=${text}&embeds[]=${url}`);
   };

@@ -18,7 +18,7 @@ const connectors = connectorsForWallets(
       wallets: [metaMaskWallet, coinbaseWallet, walletConnectWallet],
     },
   ],
-  { projectId, appName: "Obol AI" },
+  { projectId, appName: "x402 AI Agent" },
 );
 
 const wagmiConfig = createConfig({
