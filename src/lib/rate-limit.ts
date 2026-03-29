@@ -21,12 +21,19 @@ interface RateLimitConfig {
 const LIMITS: Record<string, { anon: RateLimitConfig; auth: RateLimitConfig }> = {
   "/api/chat": { anon: { requests: 5, window: "1m" }, auth: { requests: 20, window: "1m" } },
   "/mcp": { anon: { requests: 10, window: "1m" }, auth: { requests: 40, window: "1m" } },
+  "/api/v1/free": { anon: { requests: 60, window: "1h" }, auth: { requests: 60, window: "1h" } },
+  "/api/v1/research": { anon: { requests: 30, window: "1m" }, auth: { requests: 30, window: "1m" } },
   default: { anon: { requests: 30, window: "1m" }, auth: { requests: 30, window: "1m" } },
 };
 
 function getRouteKey(pathname: string): string {
   if (pathname.startsWith("/api/chat")) return "/api/chat";
   if (pathname.startsWith("/mcp")) return "/mcp";
+  // v1 paid endpoints — DoS backstop (x402 is the real throttle for legit callers,
+  // but invalid payment floods would still hit CDP API without this outer limit)
+  if (pathname.startsWith("/api/v1/research")) return "/api/v1/research";
+  // v1 free endpoints
+  if (pathname.startsWith("/api/v1/")) return "/api/v1/free";
   return "default";
 }
 

@@ -1,4 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+// Mock env before any imports that transitively pull in @/lib/env
+vi.mock("@/lib/env", () => ({
+  env: {
+    NETWORK: "base-sepolia",
+    DATABASE_URL: "postgresql://mock:mock@localhost/mock",
+  },
+}));
+
 import { createBudgetTools } from "../tools";
 import { BudgetController } from "@/lib/budget-controller";
 

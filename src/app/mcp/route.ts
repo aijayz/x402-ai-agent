@@ -10,6 +10,17 @@ import { generateJwt } from "@coinbase/cdp-sdk/auth";
 import { TOOL_PRICES } from "@/lib/tool-prices";
 import { validateUrl } from "@/lib/url-guard";
 import { SUPPORTED_CHAINS, type ChainKey } from "@/lib/chains";
+import { ReportStore } from "@/lib/reports/report-store";
+import { TokenSnapshotStore } from "@/lib/token-pages/store";
+import {
+  executeDefiSafety, executeWhaleActivity, executeWalletPortfolio,
+  executeSocialNarrative, executeTokenAlpha, executeMarketTrends,
+} from "@/lib/api/research-handlers";
+import {
+  mapDefiSafetyResponse, mapWhaleActivityResponse, mapWalletPortfolioResponse,
+  mapSocialNarrativeResponse, mapTokenAlphaResponse, mapMarketTrendsResponse,
+  wrapResponse,
+} from "@/lib/api/response-mapper";
 
 const USDC_ADDRESS: Record<string, `0x${string}`> = {
   "base-sepolia": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
@@ -393,11 +404,208 @@ async function getHandler() {
             }
           }
         );
+        // ── Free tools (no payment required) ─────────────────────────────
+
+        server.tool(
+          "get_daily_digest",
+          "Get the latest daily intelligence digest — market overview, token analysis, and key signals. Free, no payment required.",
+          {},
+          async () => {
+            try {
+              const digest = await ReportStore.getLatestDigest();
+              if (!digest) {
+                return { content: [{ type: "text", text: "No digest available yet." }], isError: true };
+              }
+              return {
+                content: [{
+                  type: "text",
+                  text: JSON.stringify({
+                    date: digest.digestDate ?? digest.createdAt.slice(0, 10),
+                    title: digest.title,
+                    content: digest.content,
+                    tokenCount: Array.isArray(digest.markers) ? digest.markers.length : 0,
+                  }),
+                }],
+              };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.tool(
+          "list_tracked_tokens",
+          "List all token symbols that have intelligence snapshots available. Free, no payment required.",
+          {},
+          async () => {
+            try {
+              const symbols = await TokenSnapshotStore.getAllSymbols();
+              return { content: [{ type: "text", text: JSON.stringify({ tokens: symbols }) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.tool(
+          "get_token_snapshot",
+          "Get intelligence snapshot for a token — security score, whale flow, sentiment, and unlock schedule. Free, no payment required.",
+          { symbol: z.string().describe("Token symbol (e.g. 'BTC', 'ETH', 'SOL')") },
+          async (args) => {
+            try {
+              const snapshot = await TokenSnapshotStore.getBySymbol(args.symbol);
+              if (!snapshot) {
+                return { content: [{ type: "text", text: `No snapshot found for ${args.symbol.toUpperCase()}.` }], isError: true };
+              }
+              const d = snapshot.data;
+              return {
+                content: [{
+                  type: "text",
+                  text: JSON.stringify({
+                    symbol: snapshot.symbol,
+                    name: d.name,
+                    snapshotDate: snapshot.digestDate,
+                    security: d.security ?? null,
+                    whaleFlow: d.whaleFlow ? { netFlowUsd: d.whaleFlow.netFlowUsd, largeTxCount: d.whaleFlow.largeTxCount, totalVolumeUsd: d.whaleFlow.totalVolumeUsd } : null,
+                    sentiment: d.sentiment ?? null,
+                    unlocks: d.unlocks ?? null,
+                  }),
+                }],
+              };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        // ── Paid cluster tools (x402 payment required) ──────────────────
+
+        server.paidTool(
+          "analyze_defi_safety",
+          "Analyze a token or contract for rug pull risks, honeypot detection, and smart contract vulnerabilities. Returns security score, risk assessment, token unlocks, and on-chain data.",
+          { price: TOOL_PRICES.analyze_defi_safety },
+          {
+            target: z.string().describe("Token address, contract address, or token name to analyze"),
+            depth: z.enum(["quick", "full"]).default("quick").describe("'quick' = core scan (~$0.05), 'full' = all services (~$0.15)"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Chain the token is on"),
+          },
+          {},
+          async (args) => {
+            try {
+              const result = await executeDefiSafety({ target: args.target, depth: args.depth, chain: args.chain });
+              const data = mapDefiSafetyResponse(result);
+              return { content: [{ type: "text", text: JSON.stringify(wrapResponse("defi-safety", result.summary, data, result.totalCostMicroUsdc)) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.paidTool(
+          "track_whale_activity",
+          "Track whale and smart money activity for a wallet or token address. Returns wallet risk, whale movements, recent trades, and on-chain flow data.",
+          { price: TOOL_PRICES.track_whale_activity },
+          {
+            address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe("Wallet or token contract address (0x format)"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Chain to query"),
+          },
+          {},
+          async (args) => {
+            try {
+              const result = await executeWhaleActivity({ address: args.address, chain: args.chain });
+              const data = mapWhaleActivityResponse(result);
+              return { content: [{ type: "text", text: JSON.stringify(wrapResponse("whale-activity", result.summary, data, result.totalCostMicroUsdc)) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.paidTool(
+          "analyze_wallet_portfolio",
+          "Deep-dive wallet analysis: risk profile, trade history, whale activity, and 30-day PnL.",
+          { price: TOOL_PRICES.analyze_wallet_portfolio },
+          {
+            address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe("Wallet address (0x format)"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Chain to query"),
+          },
+          {},
+          async (args) => {
+            try {
+              const result = await executeWalletPortfolio({ address: args.address, chain: args.chain });
+              const data = mapWalletPortfolioResponse(result);
+              return { content: [{ type: "text", text: JSON.stringify(wrapResponse("wallet-portfolio", result.summary, data, result.totalCostMicroUsdc)) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.paidTool(
+          "analyze_social_narrative",
+          "Analyze social narrative and market sentiment for a token or topic. Returns sentiment scores and risk assessment.",
+          { price: TOOL_PRICES.analyze_social_narrative },
+          {
+            topic: z.string().describe("Topic to analyze, e.g. 'Solana sentiment', 'ETH merge'"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Chain context for on-chain services"),
+          },
+          {},
+          async (args) => {
+            try {
+              const result = await executeSocialNarrative({ topic: args.topic, chain: args.chain });
+              const data = mapSocialNarrativeResponse(result);
+              return { content: [{ type: "text", text: JSON.stringify(wrapResponse("social-narrative", result.summary, data, result.totalCostMicroUsdc)) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.paidTool(
+          "screen_token_alpha",
+          "Screen a token for alpha signals: security score, unlock schedule, allocation breakdown, smart money moves, and token velocity.",
+          { price: TOOL_PRICES.screen_token_alpha },
+          {
+            target: z.string().describe("Token name, symbol (e.g. 'AAVE'), or contract address (0x format)"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Chain the token is on"),
+          },
+          {},
+          async (args) => {
+            try {
+              const result = await executeTokenAlpha({ target: args.target, chain: args.chain });
+              const data = mapTokenAlphaResponse(result);
+              return { content: [{ type: "text", text: JSON.stringify(wrapResponse("token-alpha", result.summary, data, result.totalCostMicroUsdc)) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
+
+        server.paidTool(
+          "analyze_market_trends",
+          "Analyze market trends — social sentiment plus optional contract audit, DEX volume, and stablecoin supply data.",
+          { price: TOOL_PRICES.analyze_market_trends },
+          {
+            query: z.string().describe("Market trend query, e.g. 'trending narratives', 'ETH sentiment'"),
+            contractAddress: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional().describe("Optional: contract address for audit"),
+            chain: z.enum(["base", "ethereum", "arbitrum", "optimism"]).default("base").describe("Chain for contract audit"),
+          },
+          {},
+          async (args) => {
+            try {
+              const result = await executeMarketTrends({ query: args.query, contractAddress: args.contractAddress, chain: args.chain });
+              const data = mapMarketTrendsResponse(result);
+              return { content: [{ type: "text", text: JSON.stringify(wrapResponse("market-trends", result.summary, data, result.totalCostMicroUsdc)) }] };
+            } catch (err) {
+              return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
+            }
+          },
+        );
       },
       {
         serverInfo: {
           name: "x402-ai-agent",
-          version: "0.1.0",
+          version: "0.2.0",
         },
       },
       {

@@ -82,4 +82,20 @@ export const TokenSnapshotStore = {
     `;
     return rows.map((r) => String(r.symbol));
   },
+
+  /** Get the most recent digest_date across all snapshots. */
+  async getLatestSnapshotDate(): Promise<string | null> {
+    const rows = await sql()`
+      SELECT MAX(digest_date) as latest FROM token_snapshots
+    `;
+    if (!rows.length || !rows[0].latest) return null;
+    const dd = rows[0].latest;
+    if (dd instanceof Date) {
+      const y = dd.getFullYear();
+      const m = String(dd.getMonth() + 1).padStart(2, "0");
+      const d = String(dd.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+    return String(dd).slice(0, 10);
+  },
 };

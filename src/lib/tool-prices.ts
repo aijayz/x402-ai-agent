@@ -12,6 +12,7 @@ export const TOOL_PRICES: Record<string, number> = {
   query_onchain_data: 0.05,
   // Cluster tools — canonical user-facing prices (pre-markup)
   analyze_defi_safety: 0.05,
+  analyze_defi_safety_full: 0.15,
   track_whale_activity: 0.02,
   analyze_wallet_portfolio: 0.02,
   analyze_social_narrative: 0.17,
