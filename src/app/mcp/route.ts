@@ -12,6 +12,7 @@ import { validateUrl } from "@/lib/url-guard";
 import { SUPPORTED_CHAINS, type ChainKey } from "@/lib/chains";
 import { ReportStore } from "@/lib/reports/report-store";
 import { TokenSnapshotStore } from "@/lib/token-pages/store";
+import { FIXED_TOKEN_SYMBOLS } from "@/lib/token-pages/fixed-symbols";
 import {
   executeDefiSafety, executeWhaleActivity, executeWalletPortfolio,
   executeSocialNarrative, executeTokenAlpha, executeMarketTrends,
@@ -439,8 +440,10 @@ async function getHandler() {
           {},
           async () => {
             try {
+              const fixedSet = new Set(FIXED_TOKEN_SYMBOLS);
               const symbols = await TokenSnapshotStore.getAllSymbols();
-              return { content: [{ type: "text", text: JSON.stringify({ tokens: symbols }) }] };
+              const tokens = symbols.map((s) => ({ symbol: s, category: fixedSet.has(s) ? "fixed" : "mover" }));
+              return { content: [{ type: "text", text: JSON.stringify({ tokens }) }] };
             } catch (err) {
               return { content: [{ type: "text", text: `Error: ${err instanceof Error ? err.message : "Unknown"}` }], isError: true };
             }

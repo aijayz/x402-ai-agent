@@ -134,13 +134,17 @@ describe("GET /api/v1/digest/[date]", () => {
 // ── GET /api/v1/tokens ──────────────────────────────────────────────
 
 describe("GET /api/v1/tokens", () => {
-  it("returns token list with latest snapshot date", async () => {
-    mockGetAllSymbols.mockResolvedValue(["BTC", "ETH", "SOL"]);
+  it("returns token list with category annotations", async () => {
+    mockGetAllSymbols.mockResolvedValue(["BTC", "ETH", "SIREN"]);
     mockGetLatestSnapshotDate.mockResolvedValue("2026-03-28");
     const res = await getTokens();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.tokens).toEqual(["BTC", "ETH", "SOL"]);
+    expect(body.tokens).toEqual([
+      { symbol: "BTC", category: "fixed" },
+      { symbol: "ETH", category: "fixed" },
+      { symbol: "SIREN", category: "mover" },
+    ]);
     expect(body.snapshotDate).toBe("2026-03-28");
   });
 
@@ -198,5 +202,31 @@ describe("GET /api/v1/tokens/[symbol]", () => {
     expect(body.whaleFlow).toBeNull();
     expect(body.sentiment).toBeNull();
     expect(body.unlocks).toBeNull();
+  });
+
+  it("parses sentiment label from summary when label is null", async () => {
+    mockGetBySymbol.mockResolvedValue({
+      ...fakeSnapshot,
+      data: {
+        ...fakeSnapshot.data,
+        sentiment: { score: 72, label: null, summary: "Overall sentiment is BULLISH amid rising volumes" },
+      },
+    });
+    const res = await getTokenSymbol(makeReq("BTC"), { params: Promise.resolve({ symbol: "BTC" }) });
+    const body = await res.json();
+    expect(body.sentiment.label).toBe("bullish");
+  });
+
+  it("preserves sentiment label when already set", async () => {
+    mockGetBySymbol.mockResolvedValue({
+      ...fakeSnapshot,
+      data: {
+        ...fakeSnapshot.data,
+        sentiment: { score: 30, label: "bearish", summary: "Market is turning bearish" },
+      },
+    });
+    const res = await getTokenSymbol(makeReq("BTC"), { params: Promise.resolve({ symbol: "BTC" }) });
+    const body = await res.json();
+    expect(body.sentiment.label).toBe("bearish");
   });
 });

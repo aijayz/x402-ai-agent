@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
+import { ObolLogo } from "@/components/obol-logo";
 import { parseIntoSegments, InlineSegments } from "@/components/ai-elements/structured-markers";
 import type { Report } from "@/lib/reports/report-store";
 
@@ -169,16 +170,7 @@ export function ReportViewer({ report }: { report: Report }) {
       <header className="border-b border-border/50 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-[680px] mx-auto px-6 py-3 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-foreground/80 transition-colors">
-            <svg width="20" height="20" viewBox="0 0 32 32">
-              <defs>
-                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#8b5cf6" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#g)" strokeWidth="3.5" />
-              <line x1="4" y1="16" x2="28" y2="16" stroke="url(#g)" strokeWidth="3" strokeLinecap="round" />
-            </svg>
+            <ObolLogo size={20} />
             Obol AI
           </a>
           <ShareBar reportId={report.id} />

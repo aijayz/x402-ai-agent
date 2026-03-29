@@ -5,7 +5,7 @@ export const alt = "Obol AI - AI agent that pays for intelligence via x402";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default function OgImage() {
+export default async function OgImage() {
   return new ImageResponse(
     (
       <div
@@ -35,89 +35,48 @@ export default function OgImage() {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: 56,
+            flexDirection: "column",
+            gap: 12,
           }}
         >
-          {/* Icon - ring with line */}
-          <svg
-            width="160"
-            height="160"
-            viewBox="0 0 32 32"
-            style={{ flexShrink: 0 }}
+          <div
+            style={{
+              fontSize: 72,
+              fontWeight: 700,
+              color: "#fafafa",
+              letterSpacing: "-0.02em",
+              lineHeight: 1,
+            }}
           >
-            <defs>
-              <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#3b82f6" />
-                <stop offset="100%" stopColor="#8b5cf6" />
-              </linearGradient>
-            </defs>
-            <circle
-              cx="16"
-              cy="16"
-              r="9.5"
-              fill="none"
-              stroke="url(#g)"
-              strokeWidth="3.5"
-            />
-            <line
-              x1="4"
-              y1="16"
-              x2="28"
-              y2="16"
-              stroke="url(#g)"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </svg>
-
-          {/* Text */}
+            Obol AI
+          </div>
+          <div
+            style={{
+              fontSize: 28,
+              color: "#a1a1aa",
+              letterSpacing: "-0.01em",
+              lineHeight: 1.3,
+            }}
+          >
+            AI agent that pays for intelligence
+          </div>
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              gap: 12,
+              alignItems: "center",
+              gap: 8,
+              marginTop: 8,
             }}
           >
             <div
               style={{
-                fontSize: 72,
-                fontWeight: 700,
-                color: "#fafafa",
-                letterSpacing: "-0.02em",
-                lineHeight: 1,
+                fontSize: 16,
+                color: "#71717a",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase" as const,
               }}
             >
-              Obol AI
-            </div>
-            <div
-              style={{
-                fontSize: 28,
-                color: "#a1a1aa",
-                letterSpacing: "-0.01em",
-                lineHeight: 1.3,
-              }}
-            >
-              AI agent that pays for intelligence
-            </div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                marginTop: 8,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 16,
-                  color: "#71717a",
-                  letterSpacing: "0.05em",
-                  textTransform: "uppercase" as const,
-                }}
-              >
-                x402 micropayments on Base and more
-              </div>
+              x402 micropayments on Base and more
             </div>
           </div>
         </div>

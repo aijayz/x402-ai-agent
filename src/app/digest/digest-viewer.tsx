@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Check, Copy, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { ObolLogo } from "@/components/obol-logo";
 import { parseIntoSegments, InlineSegments } from "@/components/ai-elements/structured-markers";
 import type { Report } from "@/lib/reports/report-store";
 
@@ -176,17 +177,7 @@ export function DigestViewer({ report }: { report: Report }) {
         <div className="max-w-5xl mx-auto flex items-center justify-between py-3 px-6">
           <a href="/" className="flex items-center gap-2.5 group">
             <div className="relative flex items-center justify-center">
-              <svg className="w-8 h-8" viewBox="0 0 32 32">
-                <defs>
-                  <linearGradient id="obol-g" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#8b5cf6" />
-                  </linearGradient>
-                </defs>
-                <rect width="32" height="32" rx="7" fill="#09090b" />
-                <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#obol-g)" strokeWidth="3.5" />
-                <line x1="4" y1="16" x2="28" y2="16" stroke="url(#obol-g)" strokeWidth="3" strokeLinecap="round" />
-              </svg>
+              <ObolLogo size={32} />
               <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-md" />
             </div>
             <span className="text-sm font-bold text-foreground">Obol AI</span>

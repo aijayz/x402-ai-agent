@@ -99,8 +99,8 @@ describe("mapWalletPortfolioResponse", () => {
     expect(data.walletRisk).toEqual({ riskLevel: "low" });
     // SLAMai → recentTrades (trade history)
     expect(data.recentTrades).toEqual({ trades: [{ tx: "0x1" }] });
-    // QS Whale Activity → holdings (whale movements as holdings proxy)
-    expect(data.holdings).toEqual({ holdings: ["ETH", "USDC"] });
+    // QS Whale Activity → whaleMovements
+    expect(data.whaleMovements).toEqual({ holdings: ["ETH", "USDC"] });
   });
 });
 

@@ -95,16 +95,6 @@ export default async function OgImage() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 24, position: "relative" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <svg width="28" height="28" viewBox="0 0 32 32">
-              <defs>
-                <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" />
-                  <stop offset="100%" stopColor="#8b5cf6" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#g)" strokeWidth="3.5" />
-              <line x1="4" y1="16" x2="28" y2="16" stroke="url(#g)" strokeWidth="3" strokeLinecap="round" />
-            </svg>
             <span style={{ fontSize: 18, color: "#71717a", letterSpacing: "0.05em" }}>obolai.xyz</span>
           </div>
 

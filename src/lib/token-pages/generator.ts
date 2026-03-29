@@ -5,6 +5,9 @@ import { getModel, probeModel } from "@/lib/ai-provider";
 import { generateText } from "ai";
 import { Redis } from "@upstash/redis";
 
+import { FIXED_TOKEN_SYMBOLS } from "./fixed-symbols";
+export { FIXED_TOKEN_SYMBOLS };
+
 /** CoinGecko IDs for the 4 extra fixed tokens (beyond digest's 6) */
 const EXTRA_FIXED: Record<string, string> = {
   DOGE: "dogecoin",
@@ -12,12 +15,6 @@ const EXTRA_FIXED: Record<string, string> = {
   LINK: "chainlink",
   POL: "matic-network",
 };
-
-/** All 10 fixed token symbols */
-export const FIXED_TOKEN_SYMBOLS = [
-  "BTC", "ETH", "SOL", "BNB", "XRP", "ADA",
-  "DOGE", "AVAX", "LINK", "POL",
-];
 
 // ── Redis singleton (same pattern as messari.ts / dune.ts) ──────────
 let redis: Redis | null = null;

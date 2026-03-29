@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { TokenSnapshotStore } from "@/lib/token-pages/store";
+import { FIXED_TOKEN_SYMBOLS } from "@/lib/token-pages/fixed-symbols";
 import type { TokenListResponse } from "@/lib/api/types";
+
+const fixedSet = new Set(FIXED_TOKEN_SYMBOLS);
 
 export async function GET() {
   try {
@@ -10,7 +13,10 @@ export async function GET() {
     ]);
 
     const response: TokenListResponse = {
-      tokens: symbols,
+      tokens: symbols.map((s) => ({
+        symbol: s,
+        category: fixedSet.has(s) ? "fixed" as const : "mover" as const,
+      })),
       snapshotDate: latestDate ?? new Date().toISOString().slice(0, 10),
     };
 

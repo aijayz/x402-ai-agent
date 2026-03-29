@@ -22,8 +22,13 @@ export interface DigestResponse {
   generatedAt: string;
 }
 
+export interface TokenListItem {
+  symbol: string;
+  category: "fixed" | "mover";
+}
+
 export interface TokenListResponse {
-  tokens: string[];
+  tokens: TokenListItem[];
   snapshotDate: string;
 }
 
@@ -73,7 +78,7 @@ export interface WhaleActivityData {
 
 export interface WalletPortfolioData {
   walletRisk: unknown | null;
-  holdings: unknown | null;
+  whaleMovements: unknown | null;
   recentTrades: unknown | null;
   onChain: {
     pnl30d: unknown | null;

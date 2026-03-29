@@ -46,7 +46,11 @@ Lists all tracked token symbols with the current snapshot date.
 **Response:**
 ```json
 {
-  "tokens": ["ADA", "AVAX", "BNB", "BTC", "DOGE", "ETH", "LINK", "POL", "SOL", "XRP"],
+  "tokens": [
+    { "symbol": "BTC", "category": "fixed" },
+    { "symbol": "ETH", "category": "fixed" },
+    { "symbol": "SIREN", "category": "mover" }
+  ],
   "snapshotDate": "2026-03-28"
 }
 ```
@@ -176,7 +180,7 @@ Deep-dive wallet analysis: risk profile, trade history, and 30-day PnL.
 { "address": "0x...", "chain": "base" }
 ```
 
-**Data fields:** `walletRisk`, `holdings`, `recentTrades`, `onChain.pnl30d`
+**Data fields:** `walletRisk`, `whaleMovements`, `recentTrades`, `onChain.pnl30d`
 
 ### `POST /api/v1/research/social-narrative` (~$0.17)
 

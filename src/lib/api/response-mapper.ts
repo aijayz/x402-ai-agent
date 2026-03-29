@@ -74,7 +74,7 @@ export function mapWalletPortfolioResponse(result: ClusterResult): WalletPortfol
   const { serviceCalls } = result;
   return {
     walletRisk: findService(serviceCalls, "wallet risk", "risk"),
-    holdings: findService(serviceCalls, "whale activity", "whale"),
+    whaleMovements: findService(serviceCalls, "whale activity", "whale"),
     recentTrades: findService(serviceCalls, "wallet trades", "slamai", "trade"),
     onChain: {
       pnl30d: findDuneField(serviceCalls, "wallet_pnl_30d"),

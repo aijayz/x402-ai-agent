@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ObolLogo } from "@/components/obol-logo";
 import { Shield, Fish, MessageCircle, TrendingUp, ArrowRight, Layers, DollarSign, ImageIcon, Globe, FileSearch, Wallet, Zap, Search, CircleDollarSign, GitBranch, Mail, Database, Newspaper, Send, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReportStore } from "@/lib/reports/report-store";
@@ -98,17 +99,7 @@ export default async function LandingPage() {
       <header className="relative border-b border-border/50 backdrop-blur-sm">
         <div className="max-w-5xl mx-auto flex items-center justify-between py-4 px-6">
           <div className="flex items-center gap-2.5">
-            <svg className="w-8 h-8" viewBox="0 0 32 32">
-              <defs>
-                <linearGradient id="obol-g" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6"/>
-                  <stop offset="100%" stopColor="#8b5cf6"/>
-                </linearGradient>
-              </defs>
-              <rect width="32" height="32" rx="7" fill="#09090b"/>
-              <circle cx="16" cy="16" r="9.5" fill="none" stroke="url(#obol-g)" strokeWidth="3.5"/>
-              <line x1="4" y1="16" x2="28" y2="16" stroke="url(#obol-g)" strokeWidth="3" strokeLinecap="round"/>
-            </svg>
+            <ObolLogo size={32} />
             <span className="text-sm font-bold text-foreground">Obol AI</span>
           </div>
           <div className="flex items-center gap-4">
